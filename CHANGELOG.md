@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The chat now follows new output only while the user is at the bottom. Scrolling up pauses the
+  follow and shows a glass "scroll to latest" button; tapping it resumes. The follow is intent-based,
+  so streaming growth no longer stops it prematurely.
+- Opening a session shows a glass loading card until its mirrored history first renders, and switching
+  sessions cross-fades instead of flashing an empty detail pane.
 - Block-level Markdown rendering in the chat (`MarkdownText`, native): headings, paragraphs,
   ordered/unordered lists, fenced code blocks with a language label, block quotes, thematic breaks,
   and tables (`Grid`), built on Foundation's `AttributedString(markdown:)` + `PresentationIntent` with
@@ -53,6 +58,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
+- The model and thinking-level toolbar menus now render native checkmarks via `Toggle` items and keep
+  the current selection in the list; models are compared by `provider` + `id` because the metadata from
+  `get_state` and `get_available_models` can differ.
+- History normalization from `get_entries` runs off the main actor, and the mirror rebuild yields once
+  before its synchronous batch insert, so the loading animation can render before the work starts.
+- UI polish: the sidebar gains a folder-badge workspace header and a counted "Sessions" section;
+  app-internal corner radii are smaller and centralized in `DesignTokens.Radius`; chat collapses are
+  now full-row tap targets with indented content, and the message list, composer, status capsule, and
+  usage footer share one 16 pt horizontal margin.
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow
   the subprocess transport (ADR-0003); the app runs unsandboxed with hardened runtime.
 - Session list sorted by most-recent activity instead of relying on undefined
@@ -73,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template `Item` model.
 
 ### Fixed
+- The current model and thinking level could appear unselected in the toolbar menus: selection was
+  compared by the whole `AgentModel` value (including `name` / `contextWindow`), which can differ
+  between pi commands. Selection now matches on `provider` + `id` and always includes the active value.
 - Opening a session with a long history froze the app: the mirror rebuild appended each `Message` /
   `ToolCall` to the SwiftData relationship one by one, which is O(n²) (~32 s for 6,000 rows) and blocked
   the main actor, leaving the sidebar stuck on "Loading…". Rows are now registered in bulk and the

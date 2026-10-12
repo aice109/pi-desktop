@@ -93,7 +93,9 @@ struct ContentView: View {
     @ViewBuilder
     private var detail: some View {
         if let opened {
-            ChatView(session: opened).id(opened.id)
+            ChatView(session: opened)
+                .id(opened.id)
+                .transition(.opacity)
         } else {
             ContentUnavailableView {
                 Label("No Session Selected", systemImage: "bubble.left.and.bubble.right")
@@ -111,7 +113,6 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             workspaceBar
-            Divider()
             sessionList
         }
         .navigationSplitViewColumnWidth(min: 240, ideal: 280)
@@ -131,11 +132,14 @@ struct ContentView: View {
         }
     }
 
-    /// 顶部工作区信息条：目录名 + 切换按钮。
+    /// 顶部工作区信息条：文件夹徽标 + 目录名/路径 + 工作区菜单。
     private var workspaceBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Image(systemName: "folder.fill")
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.tint)
+                .frame(width: 28, height: 28)
+                .background(.tint.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
             VStack(alignment: .leading, spacing: 1) {
                 Text(workspaceStore.workspace?.lastPathComponent ?? "")
                     .font(.headline)
@@ -146,18 +150,9 @@ struct ContentView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            Spacer()
+            Spacer(minLength: 6)
             if workspaceStore.isLoading {
                 ProgressView().controlSize(.small)
-            } else if !workspaceStore.sessions.isEmpty {
-                Text("\(workspaceStore.sessions.count)")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
-                    .background(.quaternary, in: Capsule())
-                    .help("Sessions in this folder")
             }
             Menu {
                 Button("Choose Folder…") { isPickingFolder = true }
@@ -177,24 +172,41 @@ struct ContentView: View {
             .help("Workspace")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
     }
 
     private var sessionList: some View {
         List(selection: $selection) {
-            if filteredSessions.isEmpty {
-                Text(emptyListMessage)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(filteredSessions) { summary in
-                    PiSessionRow(summary: summary)
-                        .tag(summary.fileURL)
-                        .contextMenu {
-                            Button("Rename…") { renaming = summary }
-                            Divider()
-                            Button("Move to Trash", role: .destructive) { requestDelete(summary) }
-                        }
+            Section {
+                if filteredSessions.isEmpty {
+                    Text(emptyListMessage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                } else {
+                    ForEach(filteredSessions) { summary in
+                        PiSessionRow(summary: summary)
+                            .tag(summary.fileURL)
+                            .contextMenu {
+                                Button("Rename…") { renaming = summary }
+                                Divider()
+                                Button("Move to Trash", role: .destructive) { requestDelete(summary) }
+                            }
+                    }
                 }
+            } header: {
+                HStack(spacing: 6) {
+                    Text(searchText.isEmpty ? "Sessions" : "Results")
+                    Spacer(minLength: 0)
+                    if !filteredSessions.isEmpty {
+                        Text("\(filteredSessions.count)")
+                            .monospacedDigit()
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .font(.caption.weight(.semibold))
+                .textCase(nil)
             }
         }
         .onChange(of: selection) { _, newValue in
@@ -269,7 +281,10 @@ struct ContentView: View {
         if let previous = opened, previous.id != session.id {
             sessionStore.deactivate(previous)
         }
-        opened = session
+        // 交叉淡入旧/新会话，掩盖历史加载与进程启动的短暂空白。
+        withAnimation(.easeInOut(duration: 0.18)) {
+            opened = session
+        }
     }
 
     /// 打开 pi 会话：优先复用本地已镜像的 `Session`，否则新建一个镜像。
@@ -357,31 +372,34 @@ struct ContentView: View {
     }
 }
 
-/// 侧栏会话行：图标 + 标题 + 最近活动时间 + 消息数。
+/// 侧栏会话行：图标 + 标题 + 最近活动时间与消息数。
 private struct PiSessionRow: View {
     let summary: PiSessionSummary
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 9) {
             Image(systemName: isNamed ? "tag.fill" : "bubble.left.fill")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 2) {
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(isNamed ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(summary.displayTitle)
                     .lineLimit(1)
-                HStack(spacing: 5) {
-                    Text(summary.updatedAt, format: .relative(presentation: .named))
-                    if summary.messageCount > 0 {
-                        Text("·")
-                        Text("\(summary.messageCount) msgs")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+    }
+
+    /// 副标题：相对时间，有消息时附带数量。
+    private var subtitle: String {
+        let time = summary.updatedAt.formatted(.relative(presentation: .named))
+        guard summary.messageCount > 0 else { return time }
+        return "\(time) · \(summary.messageCount) msgs"
     }
 
     /// 用户显式命名的会话用标签图标区分于默认按首条消息命名的会话。

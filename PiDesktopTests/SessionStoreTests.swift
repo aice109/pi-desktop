@@ -157,6 +157,24 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(models.count, 1)
     }
 
+    func test_activate_clearsLoadingFlag() async throws {
+        let fixture = try makeFixture()
+        XCTAssertFalse(fixture.store.isLoading(fixture.session))
+
+        await fixture.store.activate(fixture.session)
+
+        XCTAssertFalse(fixture.store.isLoading(fixture.session))
+    }
+
+    func test_agentModel_matchesByProviderAndID() {
+        let model = AgentModel(id: "m1", name: "Model One", provider: "p", reasoning: true, contextWindow: 1000)
+        // 同一模型来自不同命令时，展示字段（name / contextWindow / reasoning）可能不同。
+        let other = AgentModel(id: "m1", name: "Catalog Name", provider: "p", reasoning: false, contextWindow: nil)
+        XCTAssertTrue(model.matches(other))
+        XCTAssertFalse(model.matches(AgentModel(id: "m2", name: "Model One", provider: "p", reasoning: true, contextWindow: nil)))
+        XCTAssertFalse(model.matches(AgentModel(id: "m1", name: "Model One", provider: "q", reasoning: true, contextWindow: nil)))
+    }
+
     func test_selectModel_updatesState() async throws {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)

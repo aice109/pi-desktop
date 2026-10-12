@@ -37,6 +37,7 @@ PiDesktop/
 │   ├── Pi/                     # PiSessionFiles、PiHistory（只读解析 pi 历史）
 │   ├── Models/                 # Session、Message、ToolCall（ADR-0004 / ADR-0006）
 │   └── Stores/                 # SessionStore、WorkspaceStore、AppSettingsStore
+├── DesignSystem/               # DesignTokens：共享圆角 token（design-system.md §5）
 └── Assets.xcassets/            # 资源目录
 ```
 

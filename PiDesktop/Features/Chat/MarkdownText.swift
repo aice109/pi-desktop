@@ -244,7 +244,7 @@ private struct MarkdownBlockView: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.small))
 
         case .blockQuote(let text):
             HStack(alignment: .top, spacing: 10) {

@@ -16,6 +16,12 @@ struct ChatView: View {
     @Environment(AppSettingsStore.self) private var appSettings
     @State private var draft = ""
     @State private var models: [AgentModel] = []
+    /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
+    @State private var isAtBottom = true
+    /// 是否跟随底部：内容增长时自动滚动；用户主动上滑后暂停。
+    @State private var isFollowingBottom = true
+    /// 最近一次滚动阶段，用于区分用户滚动与程序滚动。
+    @State private var scrollPhase: ScrollPhase = .idle
     @FocusState private var isComposerFocused: Bool
 
     var body: some View {
@@ -26,6 +32,15 @@ struct ChatView: View {
             composer
             usageFooter
         }
+        .overlay {
+            // 仅在会话尚无内容时遮罩：再次校准时（已有消息）不遮挡阅读。
+            if store.isLoading(session), session.messages.isEmpty {
+                SessionLoadingView()
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: store.isLoading(session))
         .navigationTitle(session.title.isEmpty ? "Untitled Session" : session.title)
         .navigationSubtitle(session.workingDirectory ?? "")
         .task(id: session.id) {
@@ -61,21 +76,18 @@ struct ChatView: View {
         return "Thinking…"
     }
 
-    /// 模型选择菜单。
+    /// 模型选择菜单：
+    ///
+    /// 用 `Toggle` 而非 `Label(_, systemImage: "checkmark")`：菜单会渲染成系统原生的勾选行，
+    /// 选中态稳定可见；比较只认 `provider` + `id`，避免元数据差异导致误判“未选中”。
     private var modelMenu: some View {
         Menu {
             if models.isEmpty {
-                Text("No models available")
+                Text(currentState == nil ? "Loading…" : "No models available")
             } else {
-                ForEach(models) { model in
-                    Button {
-                        Task { await store.selectModel(model, in: session) }
-                    } label: {
-                        if model == currentState?.model {
-                            Label(model.displayName, systemImage: "checkmark")
-                        } else {
-                            Text(model.displayName)
-                        }
+                ForEach(displayedModels) { model in
+                    Toggle(isOn: modelSelectionBinding(for: model)) {
+                        Text(model.displayName)
                     }
                 }
             }
@@ -85,24 +97,54 @@ struct ChatView: View {
         .help("Model")
     }
 
+    /// 下拉里的模型：保证当前模型在列，避免因列表缺失而看不到选中态。
+    private var displayedModels: [AgentModel] {
+        guard let current = currentState?.model else { return models }
+        guard !models.contains(where: { $0.matches(current) }) else { return models }
+        // 去掉同 id 的旧条目，避免 `ForEach` 出现重复标识。
+        return [current] + models.filter { $0.id != current.id }
+    }
+
+    private func modelSelectionBinding(for model: AgentModel) -> Binding<Bool> {
+        Binding(
+            get: { currentState?.model?.matches(model) ?? false },
+            set: { isSelected in
+                guard isSelected else { return }
+                Task { await store.selectModel(model, in: session) }
+            }
+        )
+    }
+
     /// 思考等级菜单（仅当当前模型支持多个等级时显示）。
     private func thinkingMenu(_ levels: [String]) -> some View {
         Menu {
-            ForEach(levels, id: \.self) { level in
-                Button {
-                    Task { await store.selectThinkingLevel(level, in: session) }
-                } label: {
-                    if level == currentState?.thinkingLevel {
-                        Label(level.capitalized, systemImage: "checkmark")
-                    } else {
-                        Text(level.capitalized)
-                    }
+            ForEach(displayedThinkingLevels(levels), id: \.self) { level in
+                Toggle(isOn: thinkingSelectionBinding(for: level)) {
+                    Text(level.capitalized)
                 }
             }
         } label: {
             Label(currentState?.thinkingLevel?.capitalized ?? "Thinking", systemImage: "brain")
         }
         .help("Thinking Level")
+    }
+
+    private func thinkingSelectionBinding(for level: String) -> Binding<Bool> {
+        Binding(
+            get: { currentState?.thinkingLevel?.caseInsensitiveCompare(level) == .orderedSame },
+            set: { isSelected in
+                guard isSelected else { return }
+                Task { await store.selectThinkingLevel(level, in: session) }
+            }
+        )
+    }
+
+    /// 保证当前等级在列（例如模型切换后返回的等级不在可选列表里）。
+    private func displayedThinkingLevels(_ levels: [String]) -> [String] {
+        guard let current = currentState?.thinkingLevel,
+              !levels.contains(where: { $0.caseInsensitiveCompare(current) == .orderedSame })
+        else { return levels }
+        return levels + [current]
     }
 
     /// 底栏：上下文占用 / 累计 token / 费用（可在偏好设置中关闭）。
@@ -128,7 +170,7 @@ struct ChatView: View {
             .font(.caption2)
             .monospacedDigit()
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
     }
@@ -148,17 +190,52 @@ struct ChatView: View {
                 ForEach(rows) { row in
                     timelineRow(row, isStreaming: isStreamingSession && row.id == lastMessage?.id)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         .id(row.id)
                 }
             }
             .listStyle(.plain)
             .contentMargins(.vertical, 8, for: .scrollContent)
-            .onChange(of: items.count) { _, _ in scrollToBottom(proxy, items: items) }
+            // 跟随判断：贴近底部时恢复跟随；离开底部且由用户手势驱动时暂停跟随。
+            .onScrollGeometryChange(for: ScrollMetrics.self) { geometry in
+                ScrollMetrics(geometry)
+            } action: { oldMetrics, newMetrics in
+                // 滚动事件频率很高，仅在真正变化时写 @State，避免每个滚动 tick 都触发重绘。
+                let nearBottom = newMetrics.isNearBottom
+                if isAtBottom != nearBottom { isAtBottom = nearBottom }
+                if nearBottom {
+                    if !isFollowingBottom { isFollowingBottom = true }
+                } else if scrollPhase.isUserScroll {
+                    if isFollowingBottom { isFollowingBottom = false }
+                } else if scrollPhase == .idle, newMetrics.contentHeight <= oldMetrics.contentHeight + 1 {
+                    // 阶段事件缺失时的兜底：内容未增长却离开底部，视为用户上滑。
+                    if isFollowingBottom { isFollowingBottom = false }
+                }
+            }
+            .onScrollPhaseChange { _, phase in
+                if scrollPhase != phase { scrollPhase = phase }
+                // 手势结束后以最终位置为准；程序滚动（animating）不改变跟随意图。
+                if phase == .idle, isAtBottom, !isFollowingBottom { isFollowingBottom = true }
+            }
+            .onChange(of: items.count) { _, _ in autoScroll(proxy, items: items) }
             // 流式追加不会改变条数，需额外监听末条内容变化。
-            .onChange(of: lastMessage?.content) { _, _ in scrollToBottom(proxy, items: items) }
-            .onChange(of: session.toolCalls.last?.output) { _, _ in scrollToBottom(proxy, items: items) }
-            .onAppear { scrollToBottom(proxy, items: items) }
+            .onChange(of: lastMessage?.content) { _, _ in autoScroll(proxy, items: items) }
+            .onChange(of: session.toolCalls.last?.output) { _, _ in autoScroll(proxy, items: items) }
+            .onAppear {
+                isAtBottom = true
+                isFollowingBottom = true
+                scrollToBottom(proxy, items: items, animated: false)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                // 用户翻到上面时给出“回到底部”的入口。
+                if !isAtBottom, !items.isEmpty {
+                    scrollToBottomButton(proxy, items: items)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 12)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .bottomTrailing)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: isAtBottom)
         }
     }
 
@@ -240,9 +317,35 @@ struct ChatView: View {
         }
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy, items: [TimelineItem]) {
+    private func scrollToBottomButton(_ proxy: ScrollViewProxy, items: [TimelineItem]) -> some View {
+        Button {
+            isFollowingBottom = true
+            scrollToBottom(proxy, items: items, animated: true)
+        } label: {
+            Label("Latest", systemImage: "arrow.down")
+                .labelStyle(.iconOnly)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 30, height: 30)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .help("Scroll to latest")
+        .accessibilityLabel("Scroll to latest")
+    }
+
+    /// 仅在用户停留在底部时自动跟随新内容。
+    private func autoScroll(_ proxy: ScrollViewProxy, items: [TimelineItem]) {
+        guard isFollowingBottom else { return }
+        scrollToBottom(proxy, items: items, animated: true)
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy, items: [TimelineItem], animated: Bool) {
         guard let last = items.last else { return }
-        withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(last.id, anchor: .bottom) }
+        if animated {
+            withAnimation(.easeOut(duration: 0.18)) { proxy.scrollTo(last.id, anchor: .bottom) }
+        } else {
+            proxy.scrollTo(last.id, anchor: .bottom)
+        }
     }
 
     // MARK: - Status
@@ -253,7 +356,7 @@ struct ChatView: View {
         VStack(alignment: .leading, spacing: 0) {
             if let reasoning = store.reasoning(in: session) {
                 ReasoningDisclosure(text: reasoning)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 16)
                     .padding(.top, 6)
             }
             HStack(spacing: 8) {
@@ -266,7 +369,7 @@ struct ChatView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(.thinMaterial, in: Capsule())
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.bottom, 6)
         }
     }
@@ -281,9 +384,9 @@ struct ChatView: View {
                 .focused($isComposerFocused)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.control)
                         .strokeBorder(isComposerFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator), lineWidth: 1)
                 }
                 .onSubmit(send)
@@ -298,7 +401,7 @@ struct ChatView: View {
             .keyboardShortcut(.return, modifiers: .command)
             .help("Send (⌘↩)")
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
         .padding(.vertical, 10)
     }
 
@@ -427,13 +530,13 @@ private struct MessageRow: View {
                 .textSelection(.enabled)
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.small))
         } else if message.role == .user {
             MarkdownText(text: message.content)
                 .textSelection(.enabled)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
         } else if isCollapsed {
             processDisclosure
         } else {
@@ -458,6 +561,7 @@ private struct MessageRow: View {
             }
             .foregroundStyle(.secondary)
         }
+        .disclosureGroupStyle(RowDisclosureGroupStyle())
     }
 
     /// 折叠标签用首行文本，方便扫读。
@@ -467,6 +571,40 @@ private struct MessageRow: View {
             .first
             .map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
         return firstLine.isEmpty ? "Process" : firstLine
+    }
+}
+
+/// 让整行标签都可点击的折叠样式。
+///
+/// 系统 `DisclosureGroup` 默认只把命中区放在小箭头上，很难点中。这里把标签整体包成无边框
+/// `Button`，再用 `contentShape` 撑满整行、补上垂直留白；展开状态仍由 `DisclosureGroup`
+/// 管理，只是换了呈现。展开内容左侧缩进，避免贴边。
+private struct RowDisclosureGroupStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    configuration.isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
+                    configuration.label
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 2)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if configuration.isExpanded {
+                configuration.content
+                    .padding(.leading, 14)
+            }
+        }
     }
 }
 
@@ -487,6 +625,7 @@ private struct ReasoningDisclosure: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .disclosureGroupStyle(RowDisclosureGroupStyle())
     }
 }
 
@@ -519,11 +658,12 @@ private struct ToolCallCard: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
         .overlay {
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
                 .strokeBorder(Color.red.opacity(toolCall.isError ? 0.5 : 0), lineWidth: 1)
         }
+        .disclosureGroupStyle(RowDisclosureGroupStyle())
         .contextMenu {
             if let output = toolCall.output, !output.isEmpty {
                 Button("Copy Output") {
@@ -552,7 +692,7 @@ private struct ToolCallCard: View {
                     .truncationMode(.middle)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: 5))
+                    .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.chip))
             }
             Spacer()
             status
@@ -631,6 +771,55 @@ private extension MessageRole {
         case .assistant: return .primary
         case .tool: return .orange
         }
+    }
+}
+
+// MARK: - Scroll helpers
+
+private extension ScrollPhase {
+    /// 是否由用户手势驱动（拖动 / 交互 / 惯性减速）。程序滚动为 `animating`，不算。
+    var isUserScroll: Bool {
+        switch self {
+        case .tracking, .interacting, .decelerating: return true
+        default: return false
+        }
+    }
+}
+
+/// 滚动位置快照：只取跟随判断需要的字段，并在内容增长与用户滚动之间做区分。
+private struct ScrollMetrics: Equatable {
+    var offsetY: CGFloat
+    var contentHeight: CGFloat
+    var containerHeight: CGFloat
+    var insetBottom: CGFloat
+
+    init(_ geometry: ScrollGeometry) {
+        offsetY = geometry.contentOffset.y
+        contentHeight = geometry.contentSize.height
+        containerHeight = geometry.containerSize.height
+        insetBottom = geometry.contentInsets.bottom
+    }
+
+    /// 距底部小于阈值即视为“在底部”；内容不足一屏时也成立。
+    var isNearBottom: Bool {
+        let visibleBottom = offsetY + containerHeight
+        let contentBottom = contentHeight + insetBottom
+        return contentBottom - visibleBottom <= 80
+    }
+}
+
+/// 会话首次加载时的等待遮罩：玻璃卡片 + 进度指示。
+private struct SessionLoadingView: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.large)
+            Text("Loading session…")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .padding(24)
+        .glassEffect(.regular, in: .rect(cornerRadius: DesignTokens.Radius.card))
     }
 }
 

@@ -77,17 +77,27 @@ GlassEffectContainer(spacing: 16) {
 - **颜色**：优先语义色（`.primary`、`.secondary`、`Color.accentColor`、`.tint`）。品牌色走 Asset Catalog 的 `AccentColor`。
 - **字体**：系统字体 + 语义样式（`.body`、`.headline`、`.caption`），通过 `.font(...)` 使用，避免硬编码字号。
 - **间距**：使用 4/8 的倍数；跨元素使用一致的 `spacing` 常量，避免魔数散落。
-- **圆角**：与系统一致；玻璃容器用 `.rect(cornerRadius:)` 显式给出。
+- **圆角**：与系统一致；玻璃容器用 `.rect(cornerRadius:)` 显式给出。应用内部圆角统一取自
+  `DesignTokens.Radius`（`chip` 4、`small` 6、`card` 8、`control` 10），刻意偏小，贴近原生控件。
 - **图标**：SF Symbols，配套 `.symbolRenderingMode` / `.imageScale`。
 
 > 若需新增设计 token，先扩本节，再落代码；重大设计取舍 → 记 ADR。
+
+### 侧边栏
+
+- 顶部工作区栏 = 淡色文件夹徽标 + 目录名/路径 + 工作区菜单；去掉原先的生硬分隔线，改由分组表头分隔列表。
+- 会话放在 `.sidebar` 的 `List` 中，归到带计数的「Sessions」分组表头下。行内为图标 + 标题 + 次要信息
+  （相对时间 · 消息数），并带少量垂直留白，使每行都是独立的点击目标。
 
 ### 聊天界面约定
 
 - 消息使用 plain `List` 并隐藏行分隔线；连续同一角色的消息共用一条头部（角色头像 + 名称），
   减少视觉噪音。
 - 时间线按**回合**分组（一条用户消息到下一个之前）。只有每个回合最后一条助手正文（「结论」）
-  常显；思考、工具调用和中间旁白都折叠在系统 `DisclosureGroup` 里。
+  常显；思考、工具调用和中间旁白都折叠在 `DisclosureGroup` 里。
+- 折叠行统一用共享的 `DisclosureGroupStyle`（`RowDisclosureGroupStyle`）：整行标题都是带
+  `contentShape(Rectangle())` 的按钮，点击轻松，箭头保持系统观感，展开内容左侧缩进、不贴边。
+- 消息列表、输入框、状态胶囊与用量脚注共用 16pt 水平边距，左右对齐。
 - 助手正文按块级 Markdown 渲染（`MarkdownText`）：标题、段落、有序/无序列表、围栏代码块、引用、
   分隔线、表格（`Grid`）。基于 Foundation 的 `AttributedString(markdown:)` + `PresentationIntent`
   与 SwiftUI 原语实现，无第三方依赖；行内格式（粗体、行内代码、链接）保留。
@@ -97,6 +107,14 @@ GlassEffectContainer(spacing: 16) {
 - 工具调用折叠成一行摘要（SF Symbol、工具名、参数胶囊、状态），展开后显示 `Arguments` / `Output`；
   失败时保留红色描边。
 - 用量用 `Gauge`（`.accessoryLinearCapacity`）加 `.monospacedDigit()` 文本，更新时数字不抖动。
+- 消息列表在助手流式输出时跟随底部。用户一旦上滑就暂停跟随，并出现玻璃「回到底部」按钮
+  （`.buttonStyle(.glass)`）；点击后恢复跟随。跟随基于**意图**（`isFollowingBottom`，由
+  `onScrollGeometryChange` + `onScrollPhaseChange` 更新）而非单纯的底部距离判断，因此流式内容变高
+  不会误停跟随。
+- 打开会话时先显示玻璃加载卡片（`ProgressView` + `.glassEffect`），直到镜像历史首次渲染；
+  `activate` 期间由 `SessionStore.isLoading(_:)` 暴露加载状态。
+- 模型与思考等级工具栏菜单用绑定当前选中项的 `Toggle`，渲染系统原生勾选。模型按 `provider` +
+  `id` 比较，因为 `get_state` 与 `get_available_models` 返回的元数据（`name`、`contextWindow`）可能不同。
 
 ## 6. 可访问性
 

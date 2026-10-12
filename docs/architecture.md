@@ -37,6 +37,7 @@ PiDesktop/
 │   ├── Pi/                     # PiSessionFiles, PiHistory (read pi's history)
 │   ├── Models/                 # Session, Message, ToolCall (ADR-0004 / ADR-0006)
 │   └── Stores/                 # SessionStore, WorkspaceStore, AppSettingsStore
+├── DesignSystem/               # DesignTokens: shared radius tokens (design-system.md §5)
 └── Assets.xcassets/            # Asset catalog
 ```
 

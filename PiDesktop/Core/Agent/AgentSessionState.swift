@@ -19,6 +19,14 @@ nonisolated struct AgentModel: Sendable, Equatable, Identifiable, Hashable {
 
     /// 展示名：优先 `name`，否则回退 `id`。
     var displayName: String { name.isEmpty ? id : name }
+
+    /// 是否为同一模型。
+    ///
+    /// 以 `provider` + `id` 为准，忽略展示用元数据：`get_state` 与 `get_available_models`
+    /// 返回的模型对象可能带不同的 `name` / `contextWindow`，整体比较会误判为“未选中”。
+    func matches(_ other: AgentModel) -> Bool {
+        id == other.id && provider == other.provider
+    }
 }
 
 /// 会话的运行时状态（来自 `get_state`）。

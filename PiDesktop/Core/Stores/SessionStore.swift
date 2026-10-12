@@ -45,6 +45,8 @@ final class SessionStore {
     private var activities: [UUID: AgentActivity] = [:]
     /// 每个会话已应用的历史指纹，用于跳过无变化的重建。
     private var historyFingerprints: [UUID: PiHistoryFingerprint] = [:]
+    /// 正在激活（加载历史 / 启动传输 / 读取状态）的会话，用于展示等待动画。
+    private var activating: Set<UUID> = []
 
     /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示）。
     var activeToolName: String? { runningTools.values.first }
@@ -74,6 +76,9 @@ final class SessionStore {
         runningTools[toolCallID] != nil
     }
 
+    /// 该会话是否正在激活（首次加载历史、启动 pi、读取模型 / 思考等级）。
+    func isLoading(_ session: Session) -> Bool { activating.contains(session.id) }
+
     /// 该会话当前累积的思考内容（仅流式期间有值）。
     func reasoning(in session: Session) -> String? {
         guard let text = streaming[session.id]?.thinking, !text.isEmpty else { return nil }
@@ -91,6 +96,10 @@ final class SessionStore {
 
     /// 打开会话：先用会话文件快速填充历史，再启动传输、加载状态，最后用 pi 校准。
     func activate(_ session: Session) async {
+        // 先标记为加载中：`syncHistory` 内的 `Task.yield()` 会让 SwiftUI 有机会先渲染等待动画，
+        // 再把同步重建的耗时挡在首帧之后。
+        activating.insert(session.id)
+        defer { activating.remove(session.id) }
         // 文件解析不依赖 pi 进程，可立即渲染历史，不必等子进程启动。
         await syncHistory(for: session)
         _ = await ensureTransport(for: session)
@@ -111,7 +120,7 @@ final class SessionStore {
 
         let fingerprint = PiHistoryFingerprint(history)
         guard historyFingerprints[session.id] != fingerprint else { return }
-        replaceHistory(of: session, with: history)
+        await replaceHistory(of: session, with: history)
         historyFingerprints[session.id] = fingerprint
     }
 
@@ -120,7 +129,11 @@ final class SessionStore {
         if let transport = transports[session.id] {
             let entries = await transport.sessionEntries()
             if !entries.isEmpty {
-                return PiHistory.make(from: entries.map(\.historyEntry))
+                // 归一化与历史构造可能涉及上千条记录，放后台，避免阻塞主 actor。
+                let snapshots = entries.map(\.historyEntry)
+                return await Task.detached(priority: .userInitiated) {
+                    PiHistory.make(from: snapshots)
+                }.value
             }
         }
         guard let path = session.piSessionPath else { return PiHistory() }
@@ -139,7 +152,9 @@ final class SessionStore {
     /// 性能关键：新建的对象必须先用 `modelContext.insert` 注册，再一次性赋值关系数组。
     /// 直接把未注册的对象塞进关系里，SwiftData 会在关系解析时逐个插入并触发 O(n²) 开销；
     /// 长会话（数千条）下会卡住主线程数十秒（曾有 6000 条耗时 32s，改为预注册后 ~0.1s）。
-    private func replaceHistory(of session: Session, with history: PiHistory) {
+    private func replaceHistory(of session: Session, with history: PiHistory) async {
+        // 主动让出主 actor：先让加载中的等待动画完成一次渲染，再执行同步的批量重建。
+        await Task.yield()
         let messages = session.messages
         let toolCalls = session.toolCalls
         session.messages = []
@@ -269,6 +284,7 @@ final class SessionStore {
         usage.removeAll()
         activities.removeAll()
         historyFingerprints.removeAll()
+        activating.removeAll()
     }
 
     // MARK: - Transport wiring

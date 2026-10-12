@@ -78,9 +78,19 @@ Ask with:
 - **Type**: system font + semantic styles (`.body`, `.headline`, `.caption`) via `.font(...)`; avoid hard-coded sizes.
 - **Spacing**: multiples of 4/8; use shared constants instead of scattered magic numbers.
 - **Corner radius**: match the system; give glass containers an explicit `.rect(cornerRadius:)`.
+  App-internal radii come from `DesignTokens.Radius` (`chip` 4, `small` 6, `card` 8, `control` 10) —
+  deliberately small to stay close to native controls.
 - **Icons**: SF Symbols with `.symbolRenderingMode` / `.imageScale`.
 
 > New tokens: extend this section first, then code. Significant design trade-offs → ADR.
+
+### Sidebar
+
+- The workspace header is a tinted folder badge plus the directory name/path and the workspace menu;
+  the old hard divider is gone — the section header separates the list instead.
+- Sessions live in a `.sidebar` `List` under a "Sessions" section header that also carries the count.
+  Rows are one icon + title + a secondary line (relative time · message count) with a few points of
+  vertical padding, so each row reads as its own target.
 
 ### Chat surface
 
@@ -88,7 +98,12 @@ Ask with:
   share one header (role avatar + name) to cut visual noise.
 - The timeline is grouped into **turns** (a user message up to the next one). Only each turn's final
   assistant text — the conclusion — stays expanded; reasoning, tool calls, and intermediate assistant
-  narration collapse behind system `DisclosureGroup`s.
+  narration collapse behind `DisclosureGroup`s.
+- Collapsed rows use a shared `DisclosureGroupStyle` (`RowDisclosureGroupStyle`): the whole header line
+  is a button with `contentShape(Rectangle())`, so it is easy to hit, the chevron keeps the system look,
+  and expanded content is indented instead of sitting flush against the edge.
+- The message list, composer, status capsule, and usage footer share the same 16 pt horizontal margin,
+  so the column edges line up.
 - Assistant text renders as block-level Markdown (`MarkdownText`): headings, paragraphs,
   ordered/unordered lists, fenced code blocks, block quotes, thematic breaks, and tables (`Grid`).
   It is built on Foundation's `AttributedString(markdown:)` + `PresentationIntent` and SwiftUI
@@ -102,6 +117,16 @@ Ask with:
   to `Arguments` / `Output`; failures keep the red outline.
 - Usage is a `Gauge` (`.accessoryLinearCapacity`) plus `.monospacedDigit()` labels, so the numbers do
   not jitter as they update.
+- The message list follows the bottom while the agent streams. Once the user scrolls up, following
+  pauses and a glass "scroll to latest" button (`.buttonStyle(.glass)`) appears; tapping it resumes
+  following. Following is **intent-based** (`isFollowingBottom`, updated from `onScrollGeometryChange`
+  + `onScrollPhaseChange`) rather than a raw distance check, so streaming growth does not stop the
+  follow just because the content got taller.
+- Opening a session shows a glass loading card (`ProgressView` + `.glassEffect`) until the mirrored
+  history first renders; `SessionStore.isLoading(_:)` exposes the state for the duration of `activate`.
+- The model and thinking-level toolbar menus use `Toggle` items bound to the current selection, which
+  renders native menu checkmarks. Models are compared by `provider` + `id`, since the metadata returned
+  by `get_state` and `get_available_models` can differ (`name`, `contextWindow`).
 
 ## 6. Accessibility
 
