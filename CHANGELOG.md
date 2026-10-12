@@ -72,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
+- Block-level Markdown is parsed through a process-wide `NSCache`, so scrolling, focus changes, and
+  other unrelated re-renders no longer re-parse every message. Cached blocks keep stable ids, avoiding
+  `ForEach` identity churn.
 - The model and thinking-level toolbar menus now render native checkmarks via `Toggle` items and keep
   the current selection in the list; models are compared by `provider` + `id` because the metadata from
   `get_state` and `get_available_models` can differ.

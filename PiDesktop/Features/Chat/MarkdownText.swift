@@ -18,7 +18,7 @@ struct MarkdownText: View {
     let text: String
 
     var body: some View {
-        let blocks = MarkdownBlock.parse(text)
+        let blocks = MarkdownBlockCache.shared.blocks(for: text)
         if blocks.isEmpty {
             Text(text)
         } else {
@@ -30,6 +30,36 @@ struct MarkdownText: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+}
+
+/// 解析结果缓存。
+///
+/// 块级 Markdown 解析不便宜，而视图会因滚动、聚焦等无关状态频繁重绘（流式时每条消息每个 delta
+/// 都会重算 body）。用进程级 `NSCache` 按文本缓存：线程安全、内存紧张时自动淘汰，且能保持
+/// `MarkdownBlock.id` 稳定，避免 `ForEach` 的身份抖动。
+final class MarkdownBlockCache: @unchecked Sendable {
+    static let shared = MarkdownBlockCache()
+    private let cache = NSCache<NSString, ParsedMarkdown>()
+
+    private init() {
+        cache.countLimit = 256
+        cache.totalCostLimit = 8 * 1024 * 1024
+    }
+
+    func blocks(for markdown: String) -> [MarkdownBlock] {
+        let key = markdown as NSString
+        if let cached = cache.object(forKey: key) { return cached.blocks }
+        let blocks = MarkdownBlock.parse(markdown)
+        // 以源码长度计费，让超长回复优先被淘汰。
+        cache.setObject(ParsedMarkdown(blocks), forKey: key, cost: markdown.utf8.count)
+        return blocks
+    }
+}
+
+/// `NSCache` 的值必须是类；仅作容器。
+private final class ParsedMarkdown {
+    let blocks: [MarkdownBlock]
+    init(_ blocks: [MarkdownBlock]) { self.blocks = blocks }
 }
 
 // MARK: - Blocks

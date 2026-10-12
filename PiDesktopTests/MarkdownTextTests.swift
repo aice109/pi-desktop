@@ -10,6 +10,16 @@ import XCTest
 
 /// 块级 Markdown 解析测试：验证常见块被识别为正确的 `MarkdownBlock.Kind`。
 final class MarkdownTextTests: XCTestCase {
+    func test_blockCache_reusesParsedBlocks() {
+        let markdown = "# Title\n\nBody text"
+        let first = MarkdownBlockCache.shared.blocks(for: markdown)
+        let second = MarkdownBlockCache.shared.blocks(for: markdown)
+
+        XCTAssertEqual(first.count, second.count)
+        // 命中缓存时返回同一批 block（UUID 相同）；重新解析会生成新 id。
+        XCTAssertEqual(first.map(\.id), second.map(\.id))
+    }
+
     func test_heading_parsesLevelAndText() {
         let blocks = MarkdownBlock.parse("## Title\n")
         XCTAssertEqual(blocks.count, 1)
