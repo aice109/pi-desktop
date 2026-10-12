@@ -71,10 +71,40 @@ struct ContentView: View {
             }
         }
         .focusedSceneValue(\.sessionCommands, sessionCommands)
+        // 操作结果横幅（压缩 / 导出 / 分支 / 复制等）：悬浮在内容之上，不遮挡工具栏。
+        .overlay(alignment: .top) {
+            if let notice = sessionStore.notice {
+                NoticeBanner(notice: notice) { sessionStore.dismissNotice() }
+                    // 限定宽度并居中；否则 `Spacer` 会让横幅撑满整个窗口。
+                    .frame(maxWidth: 460)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .frame(maxWidth: .infinity)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: sessionStore.notice?.id)
+        // 工作区错误（目录选择 / 删除失败）之前只写进 store，从不展示；这里统一弹出。
+        .alert(
+            "Something went wrong",
+            isPresented: workspaceErrorBinding,
+            presenting: workspaceStore.errorMessage
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
         // 退出时释放 pi 子进程。
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             sessionStore.shutdown()
         }
+    }
+
+    private var workspaceErrorBinding: Binding<Bool> {
+        Binding(
+            get: { workspaceStore.errorMessage != nil },
+            set: { if !$0 { workspaceStore.dismissError() } }
+        )
     }
 
     /// 暴露给 App 菜单的命令处理器（见 `Core/Commands/SessionCommands.swift`）。
@@ -277,10 +307,14 @@ struct ContentView: View {
     private func copyLastResponse() {
         guard let opened else { return }
         Task {
-            guard let text = await sessionStore.lastAssistantText(in: opened), !text.isEmpty else { return }
+            guard let text = await sessionStore.lastAssistantText(in: opened), !text.isEmpty else {
+                sessionStore.showNotice(.failure(String(localized: "No response to copy.")))
+                return
+            }
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
+            sessionStore.showNotice(.success(String(localized: "Copied last response.")))
         }
     }
 
@@ -518,6 +552,39 @@ private struct RenameSessionSheet: View {
         guard !trimmedName.isEmpty else { return }
         onRename(trimmedName)
         dismiss()
+    }
+}
+
+/// 顶部操作反馈横幅：图标 + 文案 + 关闭按钮，悬浮在内容之上。
+///
+/// 用系统玻璃材质（`.glassEffect`）而非自绘底色，与工具栏 / 状态胶囊保持一致。
+private struct NoticeBanner: View {
+    let notice: OperationNotice
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(
+                systemName: notice.kind == .success
+                    ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+            )
+            .foregroundStyle(notice.kind == .success ? AnyShapeStyle(.green) : AnyShapeStyle(.red))
+            Text(notice.message)
+                .font(.callout)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+            Spacer(minLength: 4)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassEffect(.regular, in: .rect(cornerRadius: DesignTokens.Radius.card))
     }
 }
 

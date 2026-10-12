@@ -61,20 +61,34 @@ nonisolated struct AgentQueue: Sendable, Equatable {
 }
 
 /// 进行中的非阻塞活动（用于状态栏提示）。
+///
+/// 既覆盖 pi 事件驱动的活动（重试 / 压缩 / 摘要），也覆盖用户触发的慢操作
+/// （导出 / 克隆 / 分支），它们共用同一条状态栏反馈。
 nonisolated enum AgentActivity: Sendable, Equatable {
     case retrying(attempt: Int, maxAttempts: Int)
     case compacting
     case summarizing
+    case exporting
+    case cloning
+    case forking
 
-    /// 状态栏文案。
+    /// 状态栏文案；经 String Catalog 本地化。
     var displayText: String {
         switch self {
         case .retrying(let attempt, let maxAttempts):
-            return maxAttempts > 1 ? "Retrying (\(attempt)/\(maxAttempts))…" : "Retrying…"
+            return maxAttempts > 1
+                ? String(localized: "Retrying (\(attempt)/\(maxAttempts))…")
+                : String(localized: "Retrying…")
         case .compacting:
-            return "Compacting context…"
+            return String(localized: "Compacting context…")
         case .summarizing:
-            return "Summarizing…"
+            return String(localized: "Summarizing…")
+        case .exporting:
+            return String(localized: "Exporting HTML…")
+        case .cloning:
+            return String(localized: "Cloning session…")
+        case .forking:
+            return String(localized: "Forking session…")
         }
     }
 }

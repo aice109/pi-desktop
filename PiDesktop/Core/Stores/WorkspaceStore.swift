@@ -70,6 +70,11 @@ final class WorkspaceStore {
         errorMessage = error.localizedDescription
     }
 
+    /// 清除当前的错误提示（用户关闭 alert 后调用）。
+    func dismissError() {
+        errorMessage = nil
+    }
+
     /// 把目录记入最近列表（去重、限长、最新在前）。
     private func remember(_ url: URL) {
         var paths = recentWorkspaces.map(\.path)

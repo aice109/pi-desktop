@@ -46,7 +46,7 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             messageList
-            if store.isStreaming(session) { statusArea }
+            if store.isBusy(session) { statusArea }
             Divider()
             composer
             usageFooter
@@ -123,14 +123,18 @@ struct ChatView: View {
 
     /// 上下文菜单：手动压缩 + 自动压缩开关（pi 的 `compact` / `set_auto_compaction`）。
     private var contextMenu: some View {
-        Menu {
+        // 压缩进行中时禁用入口，避免重复触发。
+        let isCompacting = store.activity(for: session) == .compacting
+        return Menu {
             Button("Compact Now") {
                 Task { await store.compact(session) }
             }
+            .disabled(isCompacting)
             Button("Compact with Instructions…") {
                 compactionInstructions = ""
                 isCompactionPromptPresented = true
             }
+            .disabled(isCompacting)
             Divider()
             Toggle("Auto-compaction", isOn: autoCompactionBinding)
             Toggle("Auto-retry", isOn: autoRetryBinding)
@@ -289,8 +293,8 @@ struct ChatView: View {
     /// 状态栏文案：重试/压缩优先，其次工具，最后默认“思考中”。
     private var statusText: String {
         if let activity = store.activity(for: session) { return activity.displayText }
-        if let tool = store.activeToolName { return "Running \(tool)…" }
-        return "Thinking…"
+        if let tool = store.activeToolName { return String(localized: "Running \(tool)…") }
+        return String(localized: "Thinking…")
     }
 
     /// 模型选择菜单：

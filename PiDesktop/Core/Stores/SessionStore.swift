@@ -73,6 +73,11 @@ final class SessionStore {
     /// 正在激活（加载历史 / 启动传输 / 读取状态）的会话，用于展示等待动画。
     private var activating: Set<UUID> = []
 
+    /// 最近一次用户操作的结果反馈（成功 / 失败），供根视图展示顶部横幅；nil 表示无提示。
+    private(set) var notice: OperationNotice?
+    /// 成功提示的自动消失计时；取消可避免旧提示提前清掉新提示。
+    private var noticeDismissTask: Task<Void, Never>?
+
     /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示）。
     var activeToolName: String? { runningTools.values.first }
 
@@ -134,6 +139,39 @@ final class SessionStore {
 
     /// 该会话是否正在激活（首次加载历史、启动 pi、读取模型 / 思考等级）。
     func isLoading(_ session: Session) -> Bool { activating.contains(session.id) }
+
+    /// 该会话是否有进行中的工作（流式、压缩、重试、导出等）。
+    ///
+    /// 状态栏据此显示：压缩 / 导出等一次性操作并不设置 `streaming`，只看 `isStreaming` 会让它们
+    /// 在状态栏里完全不可见。
+    func isBusy(_ session: Session) -> Bool {
+        isStreaming(session) || activity(for: session) != nil
+    }
+
+    /// 展示一次操作反馈；成功提示数秒后自动消失，失败提示保留到用户关闭。
+    func showNotice(_ notice: OperationNotice) {
+        self.notice = notice
+        noticeDismissTask?.cancel()
+        // 失败代表需要用户关注，不自动消失。
+        guard notice.kind == .success else { return }
+        let id = notice.id
+        noticeDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled, self?.notice?.id == id else { return }
+            self?.notice = nil
+        }
+    }
+
+    /// 关闭当前的顶部横幅提示。
+    func dismissNotice() {
+        noticeDismissTask?.cancel()
+        notice = nil
+    }
+
+    /// 清除指定活动；仅当它仍是当前活动时生效，避免误清后续开始的活动。
+    private func endActivity(_ activity: AgentActivity, in session: Session) {
+        if activities[session.id] == activity { activities[session.id] = nil }
+    }
 
     /// 该会话当前累积的思考内容（仅流式期间有值）。
     func reasoning(in session: Session) -> String? {
@@ -389,17 +427,32 @@ final class SessionStore {
     /// 从指定用户消息创建分支（`fork`）；返回被 fork 的原始文本，供「编辑并重发」。
     @discardableResult
     func fork(_ session: Session, from entryId: String) async -> String? {
-        guard let transport = transports[session.id], let text = await transport.fork(entryId: entryId) else {
+        guard activities[session.id] != .forking, let transport = transports[session.id] else {
+            return nil
+        }
+        activities[session.id] = .forking
+        // 覆盖分叉与随后的历史重建，整个过程都在状态栏可见。
+        defer { endActivity(.forking, in: session) }
+        guard let text = await transport.fork(entryId: entryId) else {
+            showNotice(.failure(String(localized: "Could not fork from that message.")))
             return nil
         }
         await resyncAfterBranchChange(session)
+        showNotice(.success(String(localized: "Forked the session.")))
         return text
     }
 
     /// 把当前分支复制为新会话（`clone`）。
     func clone(_ session: Session) async {
-        guard let transport = transports[session.id], await transport.clone() else { return }
+        guard activities[session.id] != .cloning, let transport = transports[session.id] else { return }
+        activities[session.id] = .cloning
+        defer { endActivity(.cloning, in: session) }
+        guard await transport.clone() else {
+            showNotice(.failure(String(localized: "Could not clone the session.")))
+            return
+        }
         await resyncAfterBranchChange(session)
+        showNotice(.success(String(localized: "Cloned the session.")))
     }
 
     /// fork / clone 后 pi 会切到新的会话文件：重读状态、丢弃游标并全量重建，
@@ -448,10 +501,26 @@ final class SessionStore {
     }
 
     /// 手动压缩上下文；可选自定义摘要指令。
+    ///
+    /// 压缩耗时较久，pi 只在开始 / 结束时各发一个事件；这里**乐观**置为进行中，
+    /// 即使事件乱序或缺失也能立即在状态栏看到进度。完成后上下文被改写，需全量重建镜像。
     func compact(_ session: Session, instructions: String? = nil) async {
-        guard let transport = transports[session.id] else { return }
-        _ = await transport.compact(customInstructions: instructions)
+        guard activities[session.id] != .compacting, let transport = transports[session.id] else { return }
+        activities[session.id] = .compacting
+        // 压缩后的状态刷新与历史重建也算在“进行中”内。
+        defer { endActivity(.compacting, in: session) }
+
+        let succeeded = await transport.compact(customInstructions: instructions)
         await refreshState(for: session)
+        if succeeded {
+            // 压缩会在活动分支上插入摘要条目，丢弃游标并全量校准。
+            historyCursors[session.id] = nil
+            historyFingerprints[session.id] = nil
+            await fullSyncHistory(for: session)
+            showNotice(.success(String(localized: "Context compacted.")))
+        } else {
+            showNotice(.failure(String(localized: "Could not compact the context.")))
+        }
     }
 
     /// 开关该会话的自动压缩。
@@ -511,8 +580,18 @@ final class SessionStore {
     ///
     /// 若会话尚未激活（无传输），先拉起进程再导出，避免菜单项对未打开的会话失效。
     func exportHTML(_ session: Session, to path: String?) async -> String? {
+        guard activities[session.id] != .exporting else { return nil }
+        activities[session.id] = .exporting
+        defer { endActivity(.exporting, in: session) }
         _ = await ensureTransport(for: session)
-        return await transports[session.id]?.exportHTML(outputPath: path)
+        guard let result = await transports[session.id]?.exportHTML(outputPath: path) else {
+            showNotice(.failure(String(localized: "Could not export the session.")))
+            return nil
+        }
+        // 只提示文件名，完整路径过长会撑破横幅。
+        let name = URL(fileURLWithPath: result).lastPathComponent
+        showNotice(.success(String(localized: "Exported to \(name)")))
+        return result
     }
 
     /// 重命名会话：经 pi 的 `set_session_name` 写入，并同步本地标题。
@@ -522,7 +601,12 @@ final class SessionStore {
         // 若为仅重命名而临时启动进程，完成后释放。
         let wasActive = transports[session.id] != nil
         _ = await ensureTransport(for: session)
-        guard let transport = transports[session.id], await transport.setSessionName(trimmed) else { return }
+        guard let transport = transports[session.id], await transport.setSessionName(trimmed) else {
+            // 失败时也要释放临时进程，避免为一次失败的重命名留下闲置子进程。
+            if !wasActive { deactivate(session) }
+            showNotice(.failure(String(localized: "Could not rename the session.")))
+            return
+        }
         session.title = trimmed
         if wasActive {
             await refreshState(for: session)
@@ -638,6 +722,8 @@ final class SessionStore {
 
     /// 关闭所有传输与订阅（App 退出时调用）。
     func shutdown() {
+        noticeDismissTask?.cancel()
+        notice = nil
         for task in subscriptions.values { task.cancel() }
         subscriptions.removeAll()
         for transport in transports.values {
