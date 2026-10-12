@@ -75,7 +75,7 @@ PiDesktop/
 ├── CONTRIBUTING.md            # How to contribute
 ├── LICENSE                    # MIT
 ├── .github/                   # CI, issue & PR templates
-├── scripts/                   # Developer tooling (icon generator)
+├── scripts/                   # Developer tooling (icon generator, DMG packaging)
 ├── PiDesktop.xcodeproj/       # Xcode project
 ├── PiDesktop/                 # App source
 └── docs/                      # Documentation (English default + zh-CN)

@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- A `scripts/make-dmg.sh` release packager builds an ad-hoc signed DMG with Apple's own tools
+  (`xcodebuild` → `codesign` → `diskutil image create`), with `--sign` / `--notarize` options for the
+  Developer ID distribution path. No third-party dependency is involved.
 - UI strings are localizable through a String Catalog (`Localizable.xcstrings`), with an initial
   Simplified Chinese (`zh-Hans`) translation; untranslated keys fall back to English.
 - A Chat menu "Retry Last Message" (⇧⌘R) re-sends the last user message after a process exit or error.

@@ -98,7 +98,43 @@ dependency) with the repo's [`.swift-format`](../.swift-format) config:
 ./scripts/format.sh --fix    # format in place
 ```
 
-## 6. Commit conventions
+## 6. Packaging & release (DMG)
+
+[`scripts/make-dmg.sh`](../scripts/make-dmg.sh) builds a DMG using Apple's own tools only
+(`xcodebuild` → `codesign` → `diskutil image create`); no third-party dependency is involved.
+
+```bash
+./scripts/make-dmg.sh                                  # → .build/dmg/PiDesktop-<version>.dmg
+./scripts/make-dmg.sh --version 0.2.0 --output ./dist  # override version / destination
+```
+
+The default build is **ad-hoc signed and not notarized**. That is fine on the developer's own Mac and
+for internal testing, but on any other Mac Gatekeeper blocks the first launch. This is the same tier
+as many GitHub-distributed OSS apps — Alacritty, for example, ships an ad-hoc, un-notarized DMG.
+
+To distribute without Gatekeeper warnings, pass a Developer ID identity and notarize (requires an
+Apple Developer Program membership and a `notarytool` keychain profile):
+
+```bash
+./scripts/make-dmg.sh \
+    --sign "Developer ID Application: Your Name (TEAMID)" \
+    --notarize --keychain-profile PiDesktop-notary
+```
+
+### What recipients of an un-notarized build see
+
+macOS Sequoia (15) and later removed the right-click → Open bypass:
+
+1. Double-click the app once; macOS blocks it ("Apple cannot check it for malicious software").
+2. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** for PiDesktop.
+3. Confirm with the password.
+
+On earlier macOS: right-click the app → **Open** → **Open** again.
+
+Installing via Homebrew or a command-line download usually skips this, because those downloads do not
+carry the `com.apple.quarantine` attribute that triggers the check.
+
+## 7. Commit conventions
 
 [Conventional Commits](https://www.conventionalcommits.org/):
 
@@ -130,15 +166,15 @@ Use stable ids instead.
 Closes #42
 ```
 
-## 7. Branching (recommended)
+## 8. Branching (recommended)
 
 - `main` stays buildable.
 - Branches: `feat/<scope>`, `fix/<scope>`.
 - Merge only when build + tests pass and docs are synced.
 
-## 8. Do not
+## 9. Do not
 
 - Commit `xcuserdata`, `.DS_Store`, or build output.
 - Commit secrets / tokens / absolute personal paths.
 - Use meaningless messages (`update`, `wip`, `fix bug`).
-- Skip the §6 checklist.
+- Skip the §7 checklist.

@@ -96,7 +96,42 @@ CI **已暂不启用**：`.github/workflows/ci.yml.disabled`（GitHub 只运行 
 ./scripts/format.sh --fix    # 就地格式化
 ```
 
-## 6. 提交规范
+## 6. 打包与发布（DMG）
+
+[`scripts/make-dmg.sh`](../scripts/make-dmg.sh) 仅使用 Apple 自带工具（`xcodebuild` → `codesign` →
+`diskutil image create`）生成 DMG，不引入任何第三方依赖。
+
+```bash
+./scripts/make-dmg.sh                                  # → .build/dmg/PiDesktop-<version>.dmg
+./scripts/make-dmg.sh --version 0.2.0 --output ./dist  # 覆盖版本号 / 输出目录
+```
+
+默认产物为 **ad-hoc 签名、未公证**：在开发者本机与内部测试中可用，但在其他 Mac 上首次打开会被
+Gatekeeper 拦截。这与许多通过 GitHub 分发的开源应用处于同一档——例如 Alacritty 发布的正是 ad-hoc、
+未公证的 DMG。
+
+若希望他人安装时无提示，需传入 Developer ID 身份并公证（需要 Apple Developer Program 会员资格，
+以及 `notarytool` 的 keychain profile）：
+
+```bash
+./scripts/make-dmg.sh \
+    --sign "Developer ID Application: Your Name (TEAMID)" \
+    --notarize --keychain-profile PiDesktop-notary
+```
+
+### 收到未公证版本的用户的体验
+
+macOS Sequoia (15) 起，「右键 → 打开」的绕过入口已被移除：
+
+1. 双击 App 一次，系统会拦截并提示「Apple 无法验证…」。
+2. 打开 **系统设置 → 隐私与安全性**，向下滚动，对 PiDesktop 点击 **「仍要打开」**。
+3. 输入密码确认。
+
+更早的 macOS：右键 App → **打开** → 再点 **打开**。
+
+通过 Homebrew 或命令行下载通常不会触发此提示，因为这类下载不带 `com.apple.quarantine` 隔离属性。
+
+## 7. 提交规范
 
 采用 [Conventional Commits](https://www.conventionalcommits.org/)：
 
@@ -128,15 +163,15 @@ fix(session): 修复切换会话时消息列表闪烁
 Closes #42
 ```
 
-## 7. 分支与合并（建议）
+## 8. 分支与合并（建议）
 
 - 主干 `main` 保持可构建。
 - 功能分支：`feat/<scope>`、`fix/<scope>`。
 - 合并前确保构建 + 测试通过、文档同步。
 
-## 8. 禁止事项
+## 9. 禁止事项
 
 - 提交 `xcuserdata`、`.DS_Store`、构建产物。
 - 提交密钥 / token / 绝对个人路径。
 - 无信息量的 commit message（`update`、`wip`、`fix bug`）。
-- 绕过 §6 检查直接提交。
+- 绕过 §7 检查直接提交。
