@@ -31,39 +31,54 @@ struct ContentView: View {
     @State private var renaming: PiSessionSummary?
 
     var body: some View {
-        if workspaceStore.workspace == nil {
-            WorkspaceGateView()
-        } else {
-            NavigationSplitView {
-                sidebar
-            } detail: {
-                detail
-            }
-            .fileImporter(
-                isPresented: $isPickingFolder,
-                allowedContentTypes: [.folder],
-                allowsMultipleSelection: false,
-                onCompletion: handleWorkspacePick
-            )
-            .confirmationDialog(
-                "Move this session to the Trash?",
-                isPresented: deletionDialogBinding,
-                presenting: pendingDeletion
-            ) { summary in
-                Button("Move to Trash", role: .destructive) { delete(summary) }
-                Button("Cancel", role: .cancel) {}
-            } message: { summary in
-                Text(summary.displayTitle)
-            }
-            .onChange(of: workspaceStore.sessions) { _, sessions in
-                restoreLastSessionIfNeeded(in: sessions)
-            }
-            .sheet(item: $renaming) { summary in
-                RenameSessionSheet(initialName: summary.name ?? summary.displayTitle) { newName in
-                    rename(summary, to: newName)
+        Group {
+            if workspaceStore.workspace == nil {
+                WorkspaceGateView()
+            } else {
+                NavigationSplitView {
+                    sidebar
+                } detail: {
+                    detail
+                }
+                .fileImporter(
+                    isPresented: $isPickingFolder,
+                    allowedContentTypes: [.folder],
+                    allowsMultipleSelection: false,
+                    onCompletion: handleWorkspacePick
+                )
+                .confirmationDialog(
+                    "Move this session to the Trash?",
+                    isPresented: deletionDialogBinding,
+                    presenting: pendingDeletion
+                ) { summary in
+                    Button("Move to Trash", role: .destructive) { delete(summary) }
+                    Button("Cancel", role: .cancel) {}
+                } message: { summary in
+                    Text(summary.displayTitle)
+                }
+                .onChange(of: workspaceStore.sessions) { _, sessions in
+                    restoreLastSessionIfNeeded(in: sessions)
+                }
+                .sheet(item: $renaming) { summary in
+                    RenameSessionSheet(initialName: summary.name ?? summary.displayTitle) { newName in
+                        rename(summary, to: newName)
+                    }
                 }
             }
         }
+        .focusedSceneValue(\.sessionCommands, sessionCommands)
+    }
+
+    /// 暴露给 App 菜单的命令处理器（见 `Core/Commands/SessionCommands.swift`）。
+    private var sessionCommands: SessionCommandHandlers {
+        SessionCommandHandlers(
+            newSession: { startNewSession() },
+            chooseWorkspace: { isPickingFolder = true },
+            refresh: { workspaceStore.refresh() },
+            stop: { stopStreaming() },
+            closeWorkspace: { closeWorkspace() },
+            isStreaming: { opened.map { sessionStore.isStreaming($0) } ?? false }
+        )
     }
 
     // MARK: - Detail
@@ -73,11 +88,14 @@ struct ContentView: View {
         if let opened {
             ChatView(session: opened).id(opened.id)
         } else {
-            ContentUnavailableView(
-                "No Session Selected",
-                systemImage: "bubble.left.and.bubble.right",
-                description: Text("Pick a session on the left, or create a new one.")
-            )
+            ContentUnavailableView {
+                Label("No Session Selected", systemImage: "bubble.left.and.bubble.right")
+            } description: {
+                Text("Pick a session on the left, or start a new one.")
+            } actions: {
+                Button("New Session", action: startNewSession)
+                    .buttonStyle(.borderedProminent)
+            }
         }
     }
 
@@ -124,6 +142,18 @@ struct ContentView: View {
                     .truncationMode(.middle)
             }
             Spacer()
+            if workspaceStore.isLoading {
+                ProgressView().controlSize(.small)
+            } else if !workspaceStore.sessions.isEmpty {
+                Text("\(workspaceStore.sessions.count)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(.quaternary, in: Capsule())
+                    .help("Sessions in this folder")
+            }
             Menu {
                 Button("Choose Folder…") { isPickingFolder = true }
                 if !workspaceStore.recentWorkspaces.isEmpty {
@@ -168,6 +198,7 @@ struct ContentView: View {
             else { return }
             open(summary)
         }
+        .listStyle(.sidebar)
     }
 
     private var emptyListMessage: String {
@@ -195,6 +226,12 @@ struct ContentView: View {
         modelContext.insert(session)
         activate(session)
         selection = nil
+    }
+
+    /// 中断当前会话的运行（菜单「Stop」与工具栏共用）。
+    private func stopStreaming() {
+        guard let opened else { return }
+        Task { await sessionStore.interrupt(opened) }
     }
 
     /// 打开 pi 会话。
@@ -335,25 +372,36 @@ struct ContentView: View {
     }
 }
 
-/// 侧栏会话行：标题 + 最近活动时间 + 消息数。
+/// 侧栏会话行：图标 + 标题 + 最近活动时间 + 消息数。
 private struct PiSessionRow: View {
     let summary: PiSessionSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(summary.displayTitle)
-                .lineLimit(1)
-            HStack(spacing: 6) {
-                Text(summary.updatedAt, format: .relative(presentation: .named))
-                if summary.messageCount > 0 {
-                    Text("·")
-                    Text("\(summary.messageCount) msgs")
+        HStack(spacing: 8) {
+            Image(systemName: isNamed ? "tag.fill" : "bubble.left.fill")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(summary.displayTitle)
+                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(summary.updatedAt, format: .relative(presentation: .named))
+                    if summary.messageCount > 0 {
+                        Text("·")
+                        Text("\(summary.messageCount) msgs")
+                    }
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
+    }
+
+    /// 用户显式命名的会话用标签图标区分于默认按首条消息命名的会话。
+    private var isNamed: Bool {
+        !(summary.name?.isEmpty ?? true)
     }
 }
 
@@ -370,7 +418,7 @@ private struct RenameSessionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Rename Session")
+            Label("Rename Session", systemImage: "pencil")
                 .font(.headline)
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)

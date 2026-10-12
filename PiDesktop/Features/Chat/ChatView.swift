@@ -16,6 +16,7 @@ struct ChatView: View {
     @Environment(AppSettingsStore.self) private var appSettings
     @State private var draft = ""
     @State private var models: [AgentModel] = []
+    @FocusState private var isComposerFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,11 +27,13 @@ struct ChatView: View {
             usageFooter
         }
         .navigationTitle(session.title.isEmpty ? "Untitled Session" : session.title)
+        .navigationSubtitle(session.workingDirectory ?? "")
         .task(id: session.id) {
             // 打开会话即激活 pi（懒启动），并加载模型列表。
             await store.activate(session)
             models = await store.availableModels(for: session)
         }
+        .onAppear { isComposerFocused = true }
         .toolbar {
             ToolbarItem { modelMenu }
             if let levels = currentState?.availableThinkingLevels, levels.count > 1 {
@@ -43,8 +46,7 @@ struct ChatView: View {
                     } label: {
                         Label("Stop", systemImage: "stop.circle")
                     }
-                    .keyboardShortcut(".", modifiers: .command)
-                    .help("Stop")
+                    .help("Stop (⌘.)")
                 }
             }
         }
@@ -107,18 +109,27 @@ struct ChatView: View {
     @ViewBuilder
     private var usageFooter: some View {
         if appSettings.showUsageFooter, let usage = store.usage(for: session) {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 if let percent = usage.contextPercent {
-                    Label("\(percent.formatted(.number.precision(.fractionLength(0))))% context", systemImage: "gauge.with.dots.needle.33percent")
+                    HStack(spacing: 6) {
+                        Gauge(value: min(max(percent / 100, 0), 1), in: 0...1) { EmptyView() }
+                            .gaugeStyle(.accessoryLinearCapacity)
+                            .frame(width: 80)
+                            .tint(percent >= 80 ? .orange : .accentColor)
+                        Text("\(Int(percent.rounded()))%")
+                            .monospacedDigit()
+                    }
+                    .help("Context usage")
                 }
                 Label("\(usage.totalTokens.formatted()) tokens", systemImage: "number")
                 Label(usage.costUSD.formatted(.currency(code: "USD")), systemImage: "dollarsign.circle")
                 Spacer()
             }
             .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal)
-            .padding(.bottom, 6)
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
         }
     }
 
@@ -127,11 +138,15 @@ struct ChatView: View {
     private var messageList: some View {
         ScrollViewReader { proxy in
             List {
-                ForEach(timeline) { item in
-                    timelineRow(item).id(item.id)
+                ForEach(Array(timeline.enumerated()), id: \.element.id) { index, item in
+                    timelineRow(item, showsHeader: showsHeader(at: index))
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                        .id(item.id)
                 }
             }
-            .listStyle(.inset)
+            .listStyle(.plain)
+            .contentMargins(.vertical, 8, for: .scrollContent)
             .onChange(of: timeline.count) { _, _ in scrollToBottom(proxy) }
             // 流式追加不会改变条数，需额外监听末条内容变化。
             .onChange(of: sortedMessages.last?.content) { _, _ in scrollToBottom(proxy) }
@@ -147,11 +162,20 @@ struct ChatView: View {
         return (messages + toolCalls).sorted { $0.date < $1.date }
     }
 
+    /// 是否显示角色头部：首条，或与上一条角色不同（连续同一角色的消息合并展示）。
+    private func showsHeader(at index: Int) -> Bool {
+        guard index > 0 else { return true }
+        guard case .message(let previous) = timeline[index - 1],
+              case .message(let current) = timeline[index]
+        else { return true }
+        return previous.role != current.role
+    }
+
     @ViewBuilder
-    private func timelineRow(_ item: TimelineItem) -> some View {
+    private func timelineRow(_ item: TimelineItem, showsHeader: Bool) -> some View {
         switch item {
         case .message(let message):
-            MessageRow(message: message, isStreaming: isStreaming(message))
+            MessageRow(message: message, isStreaming: isStreaming(message), showsHeader: showsHeader)
         case .toolCall(let toolCall):
             ToolCallCard(toolCall: toolCall)
         }
@@ -170,41 +194,53 @@ struct ChatView: View {
         VStack(alignment: .leading, spacing: 0) {
             if let reasoning = store.reasoning(in: session) {
                 ReasoningDisclosure(text: reasoning)
-                    .padding(.horizontal)
+                    .padding(.horizontal, 14)
                     .padding(.top, 6)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
                 Text(statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 12)
             .padding(.vertical, 6)
+            .background(.thinMaterial, in: Capsule())
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
         }
     }
 
     // MARK: - Composer
 
     private var composer: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .bottom, spacing: 8) {
             TextField("Message…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
-                .lineLimit(1...6)
-                .padding(8)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                .lineLimit(1...10)
+                .focused($isComposerFocused)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(isComposerFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator), lineWidth: 1)
+                }
                 .onSubmit(send)
             Button(action: send) {
-                Label("Send", systemImage: "arrow.up.circle.fill")
-                    .labelStyle(.iconOnly)
-                    .font(.title2)
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 12, weight: .bold))
+                    .frame(width: 24, height: 24)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.circle)
             .disabled(trimmedDraft.isEmpty || store.isStreaming(session))
-            .help("Send")
+            .keyboardShortcut(.return, modifiers: .command)
+            .help("Send (⌘↩)")
         }
-        .padding()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Helpers
@@ -256,21 +292,27 @@ private enum TimelineItem: Identifiable {
 
 // MARK: - Message row
 
-/// 单条消息：角色 + 时间 + 内容（助手/用户按 Markdown，工具结果用等宽卡片）。
+/// 单条消息：角色头像 + （可选）头部 + 内容。
+///
+/// 连续的同一角色消息只在其首条显示头部，减少视觉噪音。
 private struct MessageRow: View {
     let message: Message
     let isStreaming: Bool
+    let showsHeader: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            header
-            if let thinking = message.thinking, !thinking.isEmpty {
-                ReasoningDisclosure(text: thinking)
+        HStack(alignment: .top, spacing: 10) {
+            avatar
+            VStack(alignment: .leading, spacing: 5) {
+                if showsHeader { header }
+                if let thinking = message.thinking, !thinking.isEmpty {
+                    ReasoningDisclosure(text: thinking)
+                }
+                content
             }
-            content
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 4)
+        .padding(.vertical, 1)
         .contextMenu {
             Button("Copy") {
                 let pasteboard = NSPasteboard.general
@@ -280,24 +322,33 @@ private struct MessageRow: View {
         }
     }
 
+    /// 角色圆形徽标。
+    private var avatar: some View {
+        Image(systemName: message.role.symbolName)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(message.role.tint)
+            .frame(width: 22, height: 22)
+            .background(message.role.tint.opacity(0.14), in: Circle())
+    }
+
     private var header: some View {
         HStack(spacing: 6) {
-            Image(systemName: message.role.symbolName)
-                .font(.caption)
             Text(message.role.displayName)
-                .font(.caption.weight(.semibold))
-            Spacer()
+                .font(.subheadline.weight(.semibold))
             Text(message.createdAt, format: .dateTime.hour().minute())
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
-        .foregroundStyle(message.role.tint)
     }
 
     @ViewBuilder
     private var content: some View {
         if message.content.isEmpty && isStreaming {
-            Text("…").foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("…").foregroundStyle(.secondary)
+            }
+            .font(.callout)
         } else if message.role == .tool {
             Text(message.content)
                 .font(.system(.caption, design: .monospaced))
@@ -305,7 +356,13 @@ private struct MessageRow: View {
                 .textSelection(.enabled)
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        } else if message.role == .user {
+            MarkdownText(text: message.content)
+                .textSelection(.enabled)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         } else {
             MarkdownText(text: message.content)
                 .textSelection(.enabled)
@@ -318,16 +375,18 @@ private struct ReasoningDisclosure: View {
     let text: String
 
     var body: some View {
-        DisclosureGroup("Reasoning") {
+        DisclosureGroup {
             Text(text)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 4)
+        } label: {
+            Label("Reasoning", systemImage: "brain")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
     }
 }
 
@@ -338,17 +397,21 @@ private struct ToolCallCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Image(systemName: "wrench.and.screwdriver.fill")
+                Image(systemName: symbolName)
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(toolCall.isError ? .red : .orange)
                 Text(toolCall.name)
                     .font(.caption.weight(.semibold))
+                    .monospaced()
                 if let arguments = toolCall.arguments, !arguments.isEmpty {
                     Text(arguments)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: 5))
                 }
                 Spacer()
                 status
@@ -365,9 +428,13 @@ private struct ToolCallCard: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding(8)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.red.opacity(toolCall.isError ? 0.5 : 0), lineWidth: 1)
+        }
         .contextMenu {
             if let output = toolCall.output, !output.isEmpty {
                 Button("Copy Output") {
@@ -376,6 +443,20 @@ private struct ToolCallCard: View {
                     pasteboard.setString(output, forType: .string)
                 }
             }
+        }
+    }
+
+    /// 常见工具映射到 SF Symbols，让卡片一眼可辨。
+    private var symbolName: String {
+        switch toolCall.name {
+        case "bash", "shell": return "terminal"
+        case "read": return "doc.text"
+        case "write": return "square.and.pencil"
+        case "edit", "multi_edit": return "pencil"
+        case "grep", "search": return "magnifyingglass"
+        case "glob", "list", "ls": return "folder"
+        case "web_search", "fetch": return "globe"
+        default: return "wrench.and.screwdriver.fill"
         }
     }
 
