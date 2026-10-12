@@ -29,6 +29,8 @@ Working today:
   branch; compact context on demand and control auto-compaction / auto-retry.
 - 🔄 **Always fresh** — the local mirror is reconciled with pi's history when a session opens.
 - 🪟 **Native look** — built with Apple frameworks and macOS **Liquid Glass**.
+- 🌐 **Localizable** — UI strings live in a String Catalog (`Localizable.xcstrings`) with a Simplified
+  Chinese translation; add more languages without touching code.
 
 In progress:
 

@@ -1,0 +1,594 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Abort" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "中止" }
+        }
+      }
+    },
+    "Abort Retry" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "中止重试" }
+        }
+      }
+    },
+    "Active branch tip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "活动分支末端" }
+        }
+      }
+    },
+    "Appearance" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "外观" }
+        }
+      }
+    },
+    "Ask before moving a session to the Trash." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "将会话移到废纸篓前先确认。" }
+        }
+      }
+    },
+    "Attach images" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "附加图片" }
+        }
+      }
+    },
+    "Attached image" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已附加图片" }
+        }
+      }
+    },
+    "Auto-compaction" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自动压缩" }
+        }
+      }
+    },
+    "Auto-retry" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自动重试" }
+        }
+      }
+    },
+    "Branch" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "分支" }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "取消" }
+        }
+      }
+    },
+    "Chat" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "对话" }
+        }
+      }
+    },
+    "Choose Folder…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择文件夹…" }
+        }
+      }
+    },
+    "Choose a Folder" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择文件夹" }
+        }
+      }
+    },
+    "Clear Queued" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "清空队列" }
+        }
+      }
+    },
+    "Clone Session" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "克隆会话" }
+        }
+      }
+    },
+    "Close Workspace" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "关闭工作区" }
+        }
+      }
+    },
+    "Commands" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "命令" }
+        }
+      }
+    },
+    "Compact" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "压缩" }
+        }
+      }
+    },
+    "Compact Context" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "压缩上下文" }
+        }
+      }
+    },
+    "Compact Now" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "立即压缩" }
+        }
+      }
+    },
+    "Compact with Instructions…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "带指令压缩…" }
+        }
+      }
+    },
+    "Confirm before deleting" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "删除前确认" }
+        }
+      }
+    },
+    "Context" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "上下文" }
+        }
+      }
+    },
+    "Copy" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "复制" }
+        }
+      }
+    },
+    "Copy Last Response" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "复制上一条回复" }
+        }
+      }
+    },
+    "Copy Output" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "复制输出" }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "完成" }
+        }
+      }
+    },
+    "Export as HTML…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "导出为 HTML…" }
+        }
+      }
+    },
+    "Find" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "查找" }
+        }
+      }
+    },
+    "Find in Conversation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "在会话中查找" }
+        }
+      }
+    },
+    "Find in conversation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "在会话中查找" }
+        }
+      }
+    },
+    "Fork" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "分支" }
+        }
+      }
+    },
+    "Fork from Message…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "从消息分支…" }
+        }
+      }
+    },
+    "Fork from a Message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "从某条消息分支" }
+        }
+      }
+    },
+    "Instructions (optional)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "指令（可选）" }
+        }
+      }
+    },
+    "Latest" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "最新" }
+        }
+      }
+    },
+    "Loading session…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "正在加载会话…" }
+        }
+      }
+    },
+    "Loading…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "正在加载…" }
+        }
+      }
+    },
+    "Message…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "消息…" }
+        }
+      }
+    },
+    "Move this session to the Trash?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "将此会话移到废纸篓？" }
+        }
+      }
+    },
+    "Move to Trash" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "移到废纸篓" }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "名称" }
+        }
+      }
+    },
+    "New Session" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "新建会话" }
+        }
+      }
+    },
+    "Next Model" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "下一个模型" }
+        }
+      }
+    },
+    "Next Thinking Level" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "下一思考等级" }
+        }
+      }
+    },
+    "No Session Selected" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未选择会话" }
+        }
+      }
+    },
+    "No details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无详情" }
+        }
+      }
+    },
+    "No matches." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无匹配项。" }
+        }
+      }
+    },
+    "No matching sessions." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "没有匹配的会话。" }
+        }
+      }
+    },
+    "No pi sessions in this folder yet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "此文件夹还没有 pi 会话。" }
+        }
+      }
+    },
+    "No user messages available." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "没有可用的用户消息。" }
+        }
+      }
+    },
+    "Open Workspace…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "打开工作区…" }
+        }
+      }
+    },
+    "Optionally describe what the summary should focus on." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "可选：描述摘要应聚焦的内容。" }
+        }
+      }
+    },
+    "Pick a session on the left, or start a new one." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "在左侧选择一个会话，或新建一个。" }
+        }
+      }
+    },
+    "Reasoning" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "思考" }
+        }
+      }
+    },
+    "Refresh" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "刷新" }
+        }
+      }
+    },
+    "Refresh Sessions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "刷新会话" }
+        }
+      }
+    },
+    "Remove image" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "移除图片" }
+        }
+      }
+    },
+    "Rename" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "重命名" }
+        }
+      }
+    },
+    "Rename Session" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "重命名会话" }
+        }
+      }
+    },
+    "Rename…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "重命名…" }
+        }
+      }
+    },
+    "Reopen the last session" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "重新打开上次的会话" }
+        }
+      }
+    },
+    "Restores the session that was open when you quit." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "恢复退出时打开的会话。" }
+        }
+      }
+    },
+    "Results" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "结果" }
+        }
+      }
+    },
+    "Retry Last Message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "重试上一条消息" }
+        }
+      }
+    },
+    "Running shell command…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "正在执行 shell 命令…" }
+        }
+      }
+    },
+    "Scroll to latest" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "滚动到最新" }
+        }
+      }
+    },
+    "Search sessions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "搜索会话" }
+        }
+      }
+    },
+    "Select a project folder to browse the pi sessions stored for that directory." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择项目文件夹以浏览该目录下的 pi 会话。" }
+        }
+      }
+    },
+    "Send as Follow-up" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "作为后续发送" }
+        }
+      }
+    },
+    "Session" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "会话" }
+        }
+      }
+    },
+    "Session Tree" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "会话树" }
+        }
+      }
+    },
+    "Sessions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "会话" }
+        }
+      }
+    },
+    "Show Tree…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "显示会话树…" }
+        }
+      }
+    },
+    "Show usage footer" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "显示用量页脚" }
+        }
+      }
+    },
+    "Shows context usage, tokens, and cost under the composer." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "在输入框下显示上下文用量、token 与费用。" }
+        }
+      }
+    },
+    "Startup" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启动" }
+        }
+      }
+    },
+    "Steer" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "引导" }
+        }
+      }
+    },
+    "Stop" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "停止" }
+        }
+      }
+    },
+    "This session has no entries yet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "此会话还没有任何条目。" }
+        }
+      }
+    },
+    "Type to search." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "输入以搜索。" }
+        }
+      }
+    },
+    "Unread" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未读" }
+        }
+      }
+    },
+    "Workspace" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "工作区" }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

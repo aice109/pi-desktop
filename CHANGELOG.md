@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- UI strings are localizable through a String Catalog (`Localizable.xcstrings`), with an initial
+  Simplified Chinese (`zh-Hans`) translation; untranslated keys fall back to English.
 - A Chat menu "Retry Last Message" (⇧⌘R) re-sends the last user message after a process exit or error.
 - Fenced code blocks are syntax-colored by a small native tokenizer (comments, strings, numbers,
   keywords), with a per-code cache and no third-party dependency.

@@ -155,13 +155,19 @@ Ask with:
   renders native menu checkmarks. Models are compared by `provider` + `id`, since the metadata returned
   by `get_state` and `get_available_models` can differ (`name`, `contextWindow`).
 
-## 6. Accessibility
+## 6. Localization
+
+- Localization uses a String Catalog (`PiDesktop/Localizable.xcstrings`). `Text` / `Label` / `Button`
+  literals are the keys; only `zh-Hans` is translated so far, and untranslated keys fall back to
+  English. Add a language in the Xcode project (`knownRegions`) and fill the catalog — no code change.
+
+## 7. Accessibility
 
 - Every interactive element needs a readable label (`.accessibilityLabel`).
 - Support keyboard navigation and VoiceOver.
 - Never rely on color alone to convey state; adapt to Dynamic Type and contrast settings.
 
-## 7. UI checklist
+## 8. UI checklist
 
 - [ ] Native components used; no reinvention of built-ins
 - [ ] Glass comes from system APIs; no hand-rolled blur

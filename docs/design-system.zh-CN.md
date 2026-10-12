@@ -137,13 +137,19 @@ GlassEffectContainer(spacing: 16) {
 - 模型与思考等级工具栏菜单用绑定当前选中项的 `Toggle`，渲染系统原生勾选。模型按 `provider` +
   `id` 比较，因为 `get_state` 与 `get_available_models` 返回的元数据（`name`、`contextWindow`）可能不同。
 
-## 6. 可访问性
+## 6. 本地化
+
+- 本地化使用 String Catalog（`PiDesktop/Localizable.xcstrings`）。`Text` / `Label` / `Button` 的字面量
+  即键；目前只提供 `zh-Hans`，未翻译的键回退英文。新增语言只需在 Xcode 工程（`knownRegions`）里添加
+  并填充 catalog，无需改代码。
+
+## 7. 可访问性
 
 - 所有可交互元素必须有可读标签（`.accessibilityLabel`）。
 - 支持键盘导航与 VoiceOver。
 - 不依赖颜色单独传达状态；对动态类型与对比度设置保持适配。
 
-## 7. UI 自检清单
+## 8. UI 自检清单
 
 - [ ] 使用原生组件，未自造已有能力
 - [ ] 玻璃效果来自系统 API，未自绘模糊
