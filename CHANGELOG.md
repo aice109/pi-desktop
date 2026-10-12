@@ -72,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
+- Session summaries are cached by file path + modification time, so refreshing a workspace no longer
+  re-scans every line of every unchanged session file. Modification time is read through
+  `FileManager` (not `URL.resourceValues`, which caches per URL) so the cache invalidates correctly.
 - Block-level Markdown is parsed through a process-wide `NSCache`, so scrolling, focus changes, and
   other unrelated re-renders no longer re-parse every message. Cached blocks keep stable ids, avoiding
   `ForEach` identity churn.

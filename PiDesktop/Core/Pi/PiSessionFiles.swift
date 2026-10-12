@@ -68,7 +68,20 @@ nonisolated enum PiSessionFiles {
     }
 
     /// 解析单个会话文件的摘要；文件不是有效的 pi 会话时返回 `nil`。
+    ///
+    /// 结果按「路径 + 修改时间」缓存：刷新列表时，未改动的会话文件无需重新逐行扫描。
+    /// 修改时间变化（外部续聊、压缩等）以 key 不同体现，自动失效。
     static func summary(of fileURL: URL) -> PiSessionSummary? {
+        let modified = modificationDate(of: fileURL)
+        if let cached = summaryCache.value(forPath: fileURL.path, modified: modified) {
+            return cached.value
+        }
+        let summary = parseSummary(of: fileURL)
+        summaryCache.store(summary, forPath: fileURL.path, modified: modified)
+        return summary
+    }
+
+    private static func parseSummary(of fileURL: URL) -> PiSessionSummary? {
         guard let lines = readLines(fileURL),
               let firstLine = lines.first,
               let header = try? JSONDecoder().decode(Header.self, from: Data(firstLine.utf8)),
@@ -180,6 +193,33 @@ nonisolated enum PiSessionFiles {
         return String(collapsed.prefix(limit)) + "…"
     }
 
+    /// 摘要缓存：`NSCache` 负责线程安全与内存紧张时的淘汰。
+    private static let summaryCache = SummaryCache()
+
+    /// 以可空值为值（无效文件也缓存，避免反复解析）。
+    private final class SummaryBox: @unchecked Sendable {
+        let value: PiSessionSummary?
+        init(_ value: PiSessionSummary?) { self.value = value }
+    }
+
+    private final class SummaryCache: @unchecked Sendable {
+        private let cache = NSCache<NSString, SummaryBox>()
+
+        init() { cache.countLimit = 512 }
+
+        func value(forPath path: String, modified: Date) -> SummaryBox? {
+            cache.object(forKey: key(path, modified))
+        }
+
+        func store(_ summary: PiSessionSummary?, forPath path: String, modified: Date) {
+            cache.setObject(SummaryBox(summary), forKey: key(path, modified))
+        }
+
+        private func key(_ path: String, _ modified: Date) -> NSString {
+            "\(path)|\(modified.timeIntervalSince1970)" as NSString
+        }
+    }
+
     private static func readLines(_ fileURL: URL) -> [Substring]? {
         guard let data = try? Data(contentsOf: fileURL),
               let text = String(data: data, encoding: .utf8)
@@ -187,8 +227,12 @@ nonisolated enum PiSessionFiles {
         return text.split(separator: "\n", omittingEmptySubsequences: true)
     }
 
+    /// 读取文件修改时间。
+    ///
+    /// 用 `FileManager` 而非 `URL.resourceValues`：后者会按 URL 实例缓存属性，导致同一 URL
+    /// 在文件被外部改动后仍返回旧值，摘要缓存无法失效。
     private static func modificationDate(of fileURL: URL) -> Date {
-        (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-            ?? .distantPast
+        let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+        return (attributes?[.modificationDate] as? Date) ?? .distantPast
     }
 }

@@ -132,6 +132,24 @@ final class PiSessionFilesTests: XCTestCase {
         XCTAssertEqual(summaries.map(\.sessionID), ["new", "old"])
     }
 
+    func test_summary_cache_invalidatesWhenFileChanges() throws {
+        let header = #"{"type":"session","version":3,"id":"cache","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#
+        let user = #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"one"}}"#
+        let assistant = #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"two"}]}}"#
+        let url = try writeSession(named: "cache", lines: [header, user])
+
+        XCTAssertEqual(PiSessionFiles.summary(of: url)?.messageCount, 1)
+
+        // 追加一条消息并推进修改时间：缓存应失效并重新解析。
+        try Data(([header, user, assistant].joined(separator: "\n") + "\n").utf8).write(to: url)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 9_999)],
+            ofItemAtPath: url.path
+        )
+
+        XCTAssertEqual(PiSessionFiles.summary(of: url)?.messageCount, 2)
+    }
+
     // MARK: - Helpers
 
     private func writeSession(named name: String, lines: [String]) throws -> URL {
