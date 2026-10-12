@@ -111,7 +111,7 @@ GlassEffectContainer(spacing: 16) {
   Instructions…」（小弹窗）、绑定 `get_state` 的 Auto-compaction `Toggle`，以及 Auto-retry `Toggle`。
   重试进行时状态行会显示「Abort Retry」链接。
 - 工具栏提供 Branch 菜单（`arrow.triangle.branch`），包含「Clone Session」与「Fork from Message…」；
-  后者打开列出可 fork 用户消息的弹窗。
+  后者打开列出可 fork 用户消息的弹窗。选中后会 fork 并把原文本回填输入框，同一流程即「编辑并重发」。
 - 以 `!` 开头的草稿会直接执行 shell 命令（不发送给模型）；执行期间显示「Running shell command…」
   与 Abort 链接。
 - 在输入框键入 `/` 会显示 pi 命令（扩展 / prompt / 技能）的内联建议列表，带描述与来源标签；

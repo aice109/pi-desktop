@@ -141,8 +141,11 @@ actor PiRPCClient: AgentTransport {
         }
     }
 
-    func fork(entryId: String) async -> Bool {
-        await command(["type": "fork", "entryId": entryId]) != nil
+    func fork(entryId: String) async -> String? {
+        guard let data = await command(["type": "fork", "entryId": entryId])?.data,
+              data.cancelled != true
+        else { return nil }
+        return data.text
     }
 
     func clone() async -> Bool {

@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
   External renames and thinking-level changes now propagate to the UI, summarization retries show in
   the status line, and an appended entry reconciles the local mirror when idle.
+- Forking from a message now returns the original text and puts it back in the composer, so the flow
+  doubles as edit-and-resend.
 - A Chat menu cycles the model (⌃⌘M) and thinking level (⌃⌘T) via `cycle_model` /
   `cycle_thinking_level`, and copies the last assistant response (⇧⌘C) via `get_last_assistant_text`.
 - A `!`-prefixed composer input runs pi's direct `bash`; output lands in the timeline/model context as

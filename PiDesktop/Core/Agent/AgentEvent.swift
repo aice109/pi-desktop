@@ -209,8 +209,8 @@ protocol AgentTransport: Sendable {
     func availableCommands() async -> [AgentCommand]
     /// 可 fork 的用户消息（`get_fork_messages`）。
     func forkMessages() async -> [AgentForkMessage]
-    /// 从某条用户消息创建分支（`fork`）；返回是否成功。
-    func fork(entryId: String) async -> Bool
+    /// 从某条用户消息创建分支（`fork`）；返回被 fork 的原始文本（供编辑后重发），失败/取消为 nil。
+    func fork(entryId: String) async -> String?
     /// 复制当前分支为新会话（`clone`）；返回是否成功。
     func clone() async -> Bool
     /// 会话历史条目（`get_entries`）。

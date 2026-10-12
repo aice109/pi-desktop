@@ -420,13 +420,15 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(messages, [message])
     }
 
-    func test_fork_forwardsEntryAndResyncs() async throws {
+    func test_fork_forwardsEntryAndReturnsOriginalText() async throws {
         let fixture = try makeFixture()
+        fixture.transport.forkTextValue = "original prompt"
         await fixture.store.activate(fixture.session)
 
-        await fixture.store.fork(fixture.session, from: "entry-1")
+        let text = await fixture.store.fork(fixture.session, from: "entry-1")
 
         XCTAssertEqual(fixture.transport.forkedEntryIDsValue, ["entry-1"])
+        XCTAssertEqual(text, "original prompt")
     }
 
     func test_clone_forwardsToTransport() async throws {

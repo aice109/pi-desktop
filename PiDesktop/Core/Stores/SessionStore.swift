@@ -333,10 +333,14 @@ final class SessionStore {
         await transports[session.id]?.forkMessages() ?? []
     }
 
-    /// 从指定用户消息创建分支（`fork`）。
-    func fork(_ session: Session, from entryId: String) async {
-        guard let transport = transports[session.id], await transport.fork(entryId: entryId) else { return }
+    /// 从指定用户消息创建分支（`fork`）；返回被 fork 的原始文本，供「编辑并重发」。
+    @discardableResult
+    func fork(_ session: Session, from entryId: String) async -> String? {
+        guard let transport = transports[session.id], let text = await transport.fork(entryId: entryId) else {
+            return nil
+        }
         await resyncAfterBranchChange(session)
+        return text
     }
 
     /// 把当前分支复制为新会话（`clone`）。

@@ -64,7 +64,13 @@ struct ChatView: View {
         .onAppear { isComposerFocused = true }
         .sheet(isPresented: $isChoosingFork) {
             ForkMessageSheet(messages: forkMessages) { entryId in
-                Task { await store.fork(session, from: entryId) }
+                Task {
+                    // fork 后把原消息回填输入框，用户可直接编辑并重发（「编辑并重发」）。
+                    if let text = await store.fork(session, from: entryId), !text.isEmpty {
+                        draft = text
+                        isComposerFocused = true
+                    }
+                }
             }
         }
         .sheet(isPresented: $isCompactionPromptPresented) {

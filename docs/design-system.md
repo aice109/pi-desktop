@@ -120,7 +120,8 @@ Ask with:
   Instructions…" (a small sheet), an Auto-compaction `Toggle` bound to `get_state`, and an Auto-retry
   `Toggle`. While a retry is in progress the status line shows an "Abort Retry" link.
 - The toolbar has a Branch menu (`arrow.triangle.branch`) offering "Clone Session" and "Fork from
-  Message…"; the latter opens a sheet listing forkable user messages.
+  Message…"; the latter opens a sheet listing forkable user messages. Selecting one forks and puts the
+  original text back in the composer, so the same flow doubles as edit-and-resend.
 - A draft starting with `!` runs a direct shell command (nothing is sent to the model); a small
   "Running shell command…" row with an Abort link appears until it finishes.
 - Typing `/` in the composer shows an inline suggestion list of pi commands (extension / prompt /

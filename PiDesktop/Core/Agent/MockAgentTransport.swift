@@ -27,6 +27,8 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已 fork 的 entryId / 已 clone 次数，供断言。
     private let forkedEntryIDs = Mutex<[String]>([])
     private let cloneCount = Mutex<Int>(0)
+    /// `fork` 返回的原始文本。
+    private let forkText = Mutex<String?>(nil)
     /// 已设置的自动压缩开关 / 压缩调用，供断言。
     private let autoCompaction = Mutex<Bool?>(nil)
     private let compactionInstructions = Mutex<[String?]>([])
@@ -98,6 +100,12 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     /// 已 clone 的次数。
     var cloneCountValue: Int { cloneCount.withLock { $0 } }
+
+    /// 注入 `fork` 返回的文本。
+    var forkTextValue: String? {
+        get { forkText.withLock { $0 } }
+        set { forkText.withLock { $0 = newValue } }
+    }
 
     /// 最近一次设置的自动压缩开关。
     var autoCompactionValue: Bool? { autoCompaction.withLock { $0 } }
@@ -234,9 +242,9 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         forks.withLock { $0 }
     }
 
-    func fork(entryId: String) async -> Bool {
+    func fork(entryId: String) async -> String? {
         forkedEntryIDs.withLock { $0.append(entryId) }
-        return true
+        return forkTextValue
     }
 
     func clone() async -> Bool {
