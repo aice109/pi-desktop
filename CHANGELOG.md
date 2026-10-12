@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Block-level Markdown rendering in the chat (`MarkdownText`, native): headings, paragraphs,
+  ordered/unordered lists, fenced code blocks with a language label, block quotes, thematic breaks,
+  and tables (`Grid`), built on Foundation's `AttributedString(markdown:)` + `PresentationIntent` with
+  no third-party dependency.
+- The chat timeline is grouped into turns; only each turn's final assistant text stays expanded, while
+  reasoning, tool calls, and intermediate narration collapse behind `DisclosureGroup`s. Tool cards now
+  collapse to a one-line summary and expand to Arguments / Output.
 - Initial macOS SwiftUI + SwiftData project scaffold.
 - Documentation system: `AGENTS.md` (rules + progressive disclosure) and `docs/`
   (architecture, design system, coding conventions, workflows, pi-agent integration, ADRs).
@@ -66,6 +73,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template `Item` model.
 
 ### Fixed
+- Opening a session with a long history froze the app: the mirror rebuild appended each `Message` /
+  `ToolCall` to the SwiftData relationship one by one, which is O(n²) (~32 s for 6,000 rows) and blocked
+  the main actor, leaving the sidebar stuck on "Loading…". Rows are now registered in bulk and the
+  relationship assigned once (~0.15 s for 6,000 rows). The chat timeline and header flags are also
+  computed once per render instead of being re-sorted inside every row.
+- Tool-call cards from a loaded history spun forever: the card treated a missing `durationMs` as
+  "still running", but historical imports never carry a duration. Running state now comes from the
+  store's live tool registry, so finished/imported calls show a checkmark. This also removes the
+  animation load of many permanent spinners in long sessions.
 - A response whose shape did not deserialize (for example `contextUsage.percent` arriving as a
   decimal) silently hung the pending request forever. Undecodable `response` lines now release their
   request, and the stats DTOs match pi's actual field types.

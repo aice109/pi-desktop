@@ -56,7 +56,7 @@ GlassEffectContainer(spacing: 16) {
 | 菜单 | `Menu`、`.contextMenu` |
 | 弹窗 | `.sheet`、`.popover`、`.alert`、`.confirmationDialog` |
 | 图标 | SF Symbols |
-| 富文本/Markdown | 优先原生 `Text` / `AttributedString`，复杂渲染需确认 |
+| 富文本/Markdown | 优先原生 `Text` / `AttributedString`；块级渲染用 `MarkdownText`（Foundation intent + SwiftUI 原语） |
 
 ## 4. 引入第三方或自定义组件：先询问
 
@@ -86,10 +86,16 @@ GlassEffectContainer(spacing: 16) {
 
 - 消息使用 plain `List` 并隐藏行分隔线；连续同一角色的消息共用一条头部（角色头像 + 名称），
   减少视觉噪音。
+- 时间线按**回合**分组（一条用户消息到下一个之前）。只有每个回合最后一条助手正文（「结论」）
+  常显；思考、工具调用和中间旁白都折叠在系统 `DisclosureGroup` 里。
+- 助手正文按块级 Markdown 渲染（`MarkdownText`）：标题、段落、有序/无序列表、围栏代码块、引用、
+  分隔线、表格（`Grid`）。基于 Foundation 的 `AttributedString(markdown:)` + `PresentationIntent`
+  与 SwiftUI 原语实现，无第三方依赖；行内格式（粗体、行内代码、链接）保留。
 - 用户消息用淡色气泡（`.tint.opacity(0.12)`）；助手消息保持纯文本，便于 Markdown 阅读。
 - 输入框是带聚焦描边的圆角字段，发送为 `.borderedProminent` 圆形按钮（⌘↩）；流式状态行置于
   `.thinMaterial` 的 `Capsule` 中——属于系统预期的叠加层，不是自绘模糊。
-- 工具调用按工具名映射 SF Symbol，参数用等宽字体胶囊，失败时加红色描边。
+- 工具调用折叠成一行摘要（SF Symbol、工具名、参数胶囊、状态），展开后显示 `Arguments` / `Output`；
+  失败时保留红色描边。
 - 用量用 `Gauge`（`.accessoryLinearCapacity`）加 `.monospacedDigit()` 文本，更新时数字不抖动。
 
 ## 6. 可访问性

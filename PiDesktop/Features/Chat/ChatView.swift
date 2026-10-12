@@ -136,22 +136,29 @@ struct ChatView: View {
     // MARK: - Message list
 
     private var messageList: some View {
-        ScrollViewReader { proxy in
+        // 预先算好时间线与行标记。若在每一行里重新访问 `timeline` / `sortedMessages`，
+        // 每次渲染都会重排整条时间线，长会话下退化成 O(n²) 导致卡顿。
+        let items = timeline
+        let rows = chatRows(from: items)
+        let lastMessage = sortedMessages.last
+        let isStreamingSession = store.isStreaming(session)
+
+        return ScrollViewReader { proxy in
             List {
-                ForEach(Array(timeline.enumerated()), id: \.element.id) { index, item in
-                    timelineRow(item, showsHeader: showsHeader(at: index))
+                ForEach(rows) { row in
+                    timelineRow(row, isStreaming: isStreamingSession && row.id == lastMessage?.id)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
-                        .id(item.id)
+                        .id(row.id)
                 }
             }
             .listStyle(.plain)
             .contentMargins(.vertical, 8, for: .scrollContent)
-            .onChange(of: timeline.count) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: items.count) { _, _ in scrollToBottom(proxy, items: items) }
             // 流式追加不会改变条数，需额外监听末条内容变化。
-            .onChange(of: sortedMessages.last?.content) { _, _ in scrollToBottom(proxy) }
-            .onChange(of: session.toolCalls.last?.output) { _, _ in scrollToBottom(proxy) }
-            .onAppear { scrollToBottom(proxy) }
+            .onChange(of: lastMessage?.content) { _, _ in scrollToBottom(proxy, items: items) }
+            .onChange(of: session.toolCalls.last?.output) { _, _ in scrollToBottom(proxy, items: items) }
+            .onAppear { scrollToBottom(proxy, items: items) }
         }
     }
 
@@ -162,27 +169,79 @@ struct ChatView: View {
         return (messages + toolCalls).sorted { $0.date < $1.date }
     }
 
-    /// 是否显示角色头部：首条，或与上一条角色不同（连续同一角色的消息合并展示）。
-    private func showsHeader(at index: Int) -> Bool {
-        guard index > 0 else { return true }
-        guard case .message(let previous) = timeline[index - 1],
-              case .message(let current) = timeline[index]
-        else { return true }
-        return previous.role != current.role
+    /// 把时间线切成「回合」并标注每行的展示方式。
+    ///
+    /// 回合 = 一条用户消息到下一个用户消息之前。每个回合只保留最后一条有正文的助手消息
+    /// 作为「结论」常显；其余（思考、工具调用、中间旁白）默认折叠。
+    private func chatRows(from items: [TimelineItem]) -> [ChatRow] {
+        guard !items.isEmpty else { return [] }
+        let flags = headerFlags(for: items)
+
+        // 回合起点：首条 + 每条（非首位的）用户消息。
+        var starts = [0]
+        for index in items.indices.dropFirst() {
+            if case .message(let message) = items[index], message.role == .user {
+                starts.append(index)
+            }
+        }
+        starts.append(items.count)
+
+        var rows: [ChatRow] = []
+        for turn in 0..<(starts.count - 1) {
+            let range = starts[turn]..<starts[turn + 1]
+            // 结论 = 本回合最后一条有正文的助手消息（流式占位为空时不算）。
+            var conclusionID: UUID?
+            for index in range {
+                if case .message(let message) = items[index],
+                   message.role == .assistant, !message.content.isEmpty {
+                    conclusionID = message.id
+                }
+            }
+            for index in range {
+                rows.append(ChatRow(
+                    item: items[index],
+                    showsHeader: flags[index],
+                    isConclusion: items[index].id == conclusionID,
+                    startsTurn: index == range.lowerBound
+                ))
+            }
+        }
+        return rows
+    }
+
+    /// 每行是否显示角色头部：首条，或与上一条角色不同（连续同一角色消息合并展示）。
+    ///
+    /// 一次算完整列标记，避免每行都去重排整条时间线（长会话的 O(n²) 源头）。
+    private func headerFlags(for items: [TimelineItem]) -> [Bool] {
+        var flags = [Bool](repeating: true, count: items.count)
+        for index in items.indices.dropFirst() {
+            guard case .message(let previous) = items[index - 1],
+                  case .message(let current) = items[index]
+            else { continue }
+            flags[index] = previous.role != current.role
+        }
+        return flags
     }
 
     @ViewBuilder
-    private func timelineRow(_ item: TimelineItem, showsHeader: Bool) -> some View {
-        switch item {
+    private func timelineRow(_ row: ChatRow, isStreaming: Bool) -> some View {
+        switch row.item {
         case .message(let message):
-            MessageRow(message: message, isStreaming: isStreaming(message), showsHeader: showsHeader)
+            MessageRow(
+                message: message,
+                isStreaming: isStreaming,
+                showsHeader: row.showsHeader,
+                isCollapsed: message.role == .assistant && !row.isConclusion
+            )
+            .padding(.top, row.startsTurn ? 8 : 0)
         case .toolCall(let toolCall):
-            ToolCallCard(toolCall: toolCall)
+            ToolCallCard(toolCall: toolCall, isRunning: store.isRunningTool(toolCall.toolCallID))
+                .padding(.top, row.startsTurn ? 8 : 0)
         }
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard let last = timeline.last else { return }
+    private func scrollToBottom(_ proxy: ScrollViewProxy, items: [TimelineItem]) {
+        guard let last = items.last else { return }
         withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(last.id, anchor: .bottom) }
     }
 
@@ -254,12 +313,6 @@ struct ChatView: View {
         draft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func isStreaming(_ message: Message) -> Bool {
-        message.role == .assistant
-            && store.isStreaming(session)
-            && message.id == sortedMessages.last?.id
-    }
-
     private func send() {
         let text = trimmedDraft
         guard !text.isEmpty else { return }
@@ -290,6 +343,18 @@ private enum TimelineItem: Identifiable {
     }
 }
 
+/// 时间线的一行：原始项 + 展示标记。
+private struct ChatRow: Identifiable {
+    let item: TimelineItem
+    let showsHeader: Bool
+    /// 是否为该回合的「结论」（最后一条有正文的助手消息）。
+    let isConclusion: Bool
+    /// 是否为回合首行，用于增加段间距。
+    let startsTurn: Bool
+
+    var id: UUID { item.id }
+}
+
 // MARK: - Message row
 
 /// 单条消息：角色头像 + （可选）头部 + 内容。
@@ -299,6 +364,9 @@ private struct MessageRow: View {
     let message: Message
     let isStreaming: Bool
     let showsHeader: Bool
+    /// 非结论的助手正文默认折叠为「过程」。
+    let isCollapsed: Bool
+    @State private var isProcessExpanded = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -343,12 +411,15 @@ private struct MessageRow: View {
 
     @ViewBuilder
     private var content: some View {
-        if message.content.isEmpty && isStreaming {
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text("…").foregroundStyle(.secondary)
+        if message.content.isEmpty {
+            // 流式占位：等待首个增量时显示加载指示，否则该消息只有思考，正文留空。
+            if isStreaming {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("…").foregroundStyle(.secondary)
+                }
+                .font(.callout)
             }
-            .font(.callout)
         } else if message.role == .tool {
             Text(message.content)
                 .font(.system(.caption, design: .monospaced))
@@ -363,10 +434,39 @@ private struct MessageRow: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
                 .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        } else if isCollapsed {
+            processDisclosure
         } else {
             MarkdownText(text: message.content)
                 .textSelection(.enabled)
         }
+    }
+
+    /// 回合中间旁白：折叠为一行预览，展开后同样按 Markdown 渲染。
+    private var processDisclosure: some View {
+        DisclosureGroup(isExpanded: $isProcessExpanded) {
+            MarkdownText(text: message.content)
+                .textSelection(.enabled)
+                .padding(.top, 4)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "text.bubble")
+                    .font(.caption)
+                Text(processPreview)
+                    .font(.callout)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// 折叠标签用首行文本，方便扫读。
+    private var processPreview: String {
+        let firstLine = message.content
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
+        return firstLine.isEmpty ? "Process" : firstLine
     }
 }
 
@@ -393,40 +493,29 @@ private struct ReasoningDisclosure: View {
 /// 工具调用卡片：名称 + 参数 + 状态 + 可折叠输出。
 private struct ToolCallCard: View {
     let toolCall: ToolCall
+    /// 是否正在执行，由 `SessionStore` 判定（见 `isRunningTool(_:)`）。
+    let isRunning: Bool
+    @State private var isExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: symbolName)
-                    .font(.caption)
-                    .foregroundStyle(toolCall.isError ? .red : .orange)
-                Text(toolCall.name)
-                    .font(.caption.weight(.semibold))
-                    .monospaced()
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let arguments = toolCall.arguments, !arguments.isEmpty {
-                    Text(arguments)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: 5))
+                    detail("Arguments", text: arguments)
                 }
-                Spacer()
-                status
-            }
-            if let output = toolCall.output, !output.isEmpty {
-                DisclosureGroup("Output") {
-                    Text(output)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
+                if let output = toolCall.output, !output.isEmpty {
+                    detail("Output", text: output)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                if (toolCall.arguments?.isEmpty ?? true) && (toolCall.output?.isEmpty ?? true) {
+                    Text("No details")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
+            .padding(.top, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            summary
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -443,6 +532,44 @@ private struct ToolCallCard: View {
                     pasteboard.setString(output, forType: .string)
                 }
             }
+        }
+    }
+
+    /// 折叠时的一行摘要：图标 + 工具名 + 参数 + 状态。
+    private var summary: some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbolName)
+                .font(.caption)
+                .foregroundStyle(toolCall.isError ? .red : .orange)
+            Text(toolCall.name)
+                .font(.caption.weight(.semibold))
+                .monospaced()
+            if let arguments = toolCall.arguments, !arguments.isEmpty {
+                Text(arguments)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: 5))
+            }
+            Spacer()
+            status
+        }
+    }
+
+    /// 展开后的参数 / 输出段落。
+    private func detail(_ title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
+            Text(text)
+                .font(.system(.caption, design: .monospaced))
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -468,31 +595,16 @@ private struct ToolCallCard: View {
             } else if let durationMs = toolCall.durationMs {
                 Text("\(durationMs) ms")
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-            } else {
+            } else if isRunning {
                 ProgressView().controlSize(.mini)
+            } else {
+                // 已结束但耗时未知（多为历史导入）：不能靠 durationMs 判断是否在跑，
+                // 否则长会话里的历史工具会永远转圈。
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
-    }
-}
-
-/// 用原生 Markdown 解析渲染文本；解析失败则回退为纯文本。
-///
-/// 采用 inline-only：保留换行与粗体/行内代码等行内格式，但不解释块级结构
-/// （SwiftUI `Text` 不渲染列表/标题的块级 presentation intent）。
-private struct MarkdownText: View {
-    let text: String
-
-    var body: some View {
-        if let attributed = try? AttributedString(
-            markdown: text,
-            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
-            Text(attributed)
-        } else {
-            Text(text)
-        }
     }
 }
 

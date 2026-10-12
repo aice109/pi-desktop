@@ -56,7 +56,7 @@ Constraints:
 | Menus | `Menu`, `.contextMenu` |
 | Dialogs | `.sheet`, `.popover`, `.alert`, `.confirmationDialog` |
 | Icons | SF Symbols |
-| Rich text / Markdown | Native `Text` / `AttributedString` first; complex rendering requires approval |
+| Rich text / Markdown | Native `Text` / `AttributedString` first; block-level rendering via `MarkdownText` (Foundation intents + SwiftUI primitives) |
 
 ## 4. Third-party or custom components: ask first
 
@@ -86,13 +86,20 @@ Ask with:
 
 - Messages live in a plain `List` with hidden row separators; consecutive messages from the same role
   share one header (role avatar + name) to cut visual noise.
+- The timeline is grouped into **turns** (a user message up to the next one). Only each turn's final
+  assistant text — the conclusion — stays expanded; reasoning, tool calls, and intermediate assistant
+  narration collapse behind system `DisclosureGroup`s.
+- Assistant text renders as block-level Markdown (`MarkdownText`): headings, paragraphs,
+  ordered/unordered lists, fenced code blocks, block quotes, thematic breaks, and tables (`Grid`).
+  It is built on Foundation's `AttributedString(markdown:)` + `PresentationIntent` and SwiftUI
+  primitives; no third-party dependency. Inline formatting (bold, inline code, links) is preserved.
 - User messages render in a tinted bubble (`.tint.opacity(0.12)`); assistant messages are plain text so
   Markdown stays readable.
 - The composer is a rounded field with a focus ring and a `.borderedProminent` circular send button
   (⌘↩). The streaming status line sits in a `.thinMaterial` `Capsule` — a system-intended overlay, not
   a hand-rolled blur.
-- Tool calls use an SF Symbol mapped from the tool name, a monospaced argument chip, and a red outline
-  on failure.
+- Tool calls collapse to a single summary line (SF Symbol, tool name, argument chip, status) and expand
+  to `Arguments` / `Output`; failures keep the red outline.
 - Usage is a `Gauge` (`.accessoryLinearCapacity`) plus `.monospacedDigit()` labels, so the numbers do
   not jitter as they update.
 
