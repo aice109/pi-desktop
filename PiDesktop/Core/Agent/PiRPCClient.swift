@@ -118,7 +118,9 @@ actor PiRPCClient: AgentTransport {
             sessionFile: data.sessionFile,
             sessionId: data.sessionId,
             sessionName: data.sessionName,
-            isStreaming: data.isStreaming ?? false
+            isStreaming: data.isStreaming ?? false,
+            isCompacting: data.isCompacting ?? false,
+            autoCompactionEnabled: data.autoCompactionEnabled ?? true
         )
     }
 
@@ -157,6 +159,18 @@ actor PiRPCClient: AgentTransport {
 
     func setSessionName(_ name: String) async -> Bool {
         await command(["type": "set_session_name", "name": name]) != nil
+    }
+
+    func compact(customInstructions: String?) async -> Bool {
+        var payload: [String: Any] = ["type": "compact"]
+        if let customInstructions, !customInstructions.isEmpty {
+            payload["customInstructions"] = customInstructions
+        }
+        return await command(payload) != nil
+    }
+
+    func setAutoCompaction(enabled: Bool) async -> Bool {
+        await command(["type": "set_auto_compaction", "enabled": enabled]) != nil
     }
 
     func sessionStats() async -> AgentUsage? {

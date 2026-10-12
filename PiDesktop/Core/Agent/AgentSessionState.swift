@@ -40,6 +40,10 @@ nonisolated struct AgentSessionState: Sendable, Equatable {
     var sessionId: String?
     var sessionName: String?
     var isStreaming: Bool = false
+    /// 是否正在压缩上下文（`get_state.isCompacting`）。
+    var isCompacting: Bool = false
+    /// 自动压缩开关（`get_state.autoCompactionEnabled`）。
+    var autoCompactionEnabled: Bool = true
 }
 
 /// 会话的 token / 费用 / 上下文占用（来自 `get_session_stats`）。

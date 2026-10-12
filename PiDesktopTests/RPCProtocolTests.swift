@@ -208,6 +208,15 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertNil(RPCProtocol.agentEvent(from: record))
     }
 
+    func test_getStateResponse_decodesCompactionFlags() {
+        let json = #"{"id":"r1","type":"response","command":"get_state","success":true,"data":{"isCompacting":true,"autoCompactionEnabled":false}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_state 响应应能解码")
+        }
+        XCTAssertEqual(record.data?.isCompacting, true)
+        XCTAssertEqual(record.data?.autoCompactionEnabled, false)
+    }
+
     func test_getCommandsResponse_decodesCommands() {
         let json = #"{"id":"r1","type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"fix-tests","description":"Fix failing tests","source":"prompt"},{"name":"skill:review","source":"skill"}]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {

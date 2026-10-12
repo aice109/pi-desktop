@@ -300,6 +300,26 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
     }
 
+    func test_compact_forwardsInstructions() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.compact(fixture.session, instructions: "focus on auth")
+
+        XCTAssertEqual(fixture.transport.compactionInstructionsValue, ["focus on auth"])
+    }
+
+    func test_setAutoCompaction_forwardsAndRefreshesState() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionStateValue = AgentSessionState(autoCompactionEnabled: true)
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.setAutoCompaction(false, in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.autoCompactionValue, false)
+        XCTAssertEqual(fixture.store.state(for: fixture.session)?.autoCompactionEnabled, false)
+    }
+
     func test_forkMessages_areExposed() async throws {
         let fixture = try makeFixture()
         let message = AgentForkMessage(entryId: "e1", text: "hello")

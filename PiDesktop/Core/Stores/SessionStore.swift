@@ -367,6 +367,21 @@ final class SessionStore {
         await refreshState(for: session)
     }
 
+    /// 手动压缩上下文；可选自定义摘要指令。
+    func compact(_ session: Session, instructions: String? = nil) async {
+        guard let transport = transports[session.id] else { return }
+        _ = await transport.compact(customInstructions: instructions)
+        await refreshState(for: session)
+    }
+
+    /// 开关该会话的自动压缩。
+    func setAutoCompaction(_ enabled: Bool, in session: Session) async {
+        guard let transport = transports[session.id],
+              await transport.setAutoCompaction(enabled: enabled)
+        else { return }
+        await refreshState(for: session)
+    }
+
     /// 重命名会话：经 pi 的 `set_session_name` 写入，并同步本地标题。
     func rename(_ session: Session, to name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)

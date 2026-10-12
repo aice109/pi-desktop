@@ -173,6 +173,10 @@ protocol AgentTransport: Sendable {
     func setThinkingLevel(_ level: String) async -> Bool
     /// 设置会话显示名（`set_session_name`）；返回是否成功。
     func setSessionName(_ name: String) async -> Bool
+    /// 手动压缩上下文（`compact`），可带自定义摘要指令；返回是否成功。
+    func compact(customInstructions: String?) async -> Bool
+    /// 开关自动压缩（`set_auto_compaction`）；返回是否成功。
+    func setAutoCompaction(enabled: Bool) async -> Bool
     /// 会话用量与上下文占用（`get_session_stats`）。
     func sessionStats() async -> AgentUsage?
     /// 可发现的命令列表（`get_commands`）。

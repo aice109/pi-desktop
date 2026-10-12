@@ -104,6 +104,9 @@ enum AgentEvent: Sendable, Equatable {
 `sessionInfoChanged` / `thinkingLevelChanged`（外部改动同步）、`summarizationRetry*`（摘要重试）、
 `entryAppended`（会话树被外部追加，空闲时重新校准镜像）。
 
+上下文可手动压缩（`compact`，可带 `customInstructions`），自动压缩按会话开关（`set_auto_compaction`），
+二者都在工具栏的 Context 菜单里。
+
 可发现的命令（扩展命令、prompt 模板、技能）用 `get_commands` 列出，通过 `prompt` 发送 `/name` 执行；
 输入以 `/` 开头时输入框会给出建议。
 

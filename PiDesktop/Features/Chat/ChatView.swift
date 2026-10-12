@@ -25,6 +25,9 @@ struct ChatView: View {
     /// fork 选择弹窗的数据与开关。
     @State private var forkMessages: [AgentForkMessage] = []
     @State private var isChoosingFork = false
+    /// 手动压缩（可带自定义指令）的弹窗。
+    @State private var isCompactionPromptPresented = false
+    @State private var compactionInstructions = ""
     /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
     @State private var isAtBottom = true
     /// 是否跟随底部：内容增长时自动滚动；用户主动上滑后暂停。
@@ -64,7 +67,13 @@ struct ChatView: View {
                 Task { await store.fork(session, from: entryId) }
             }
         }
+        .sheet(isPresented: $isCompactionPromptPresented) {
+            CompactionSheet(instructions: $compactionInstructions) { text in
+                Task { await store.compact(session, instructions: text) }
+            }
+        }
         .toolbar {
+            ToolbarItem { contextMenu }
             ToolbarItem { branchMenu }
             if !commands.isEmpty { ToolbarItem { commandMenu } }
             ToolbarItem { modelMenu }
@@ -85,6 +94,33 @@ struct ChatView: View {
     }
 
     private var currentState: AgentSessionState? { store.state(for: session) }
+
+    /// 上下文菜单：手动压缩 + 自动压缩开关（pi 的 `compact` / `set_auto_compaction`）。
+    private var contextMenu: some View {
+        Menu {
+            Button("Compact Now") {
+                Task { await store.compact(session) }
+            }
+            Button("Compact with Instructions…") {
+                compactionInstructions = ""
+                isCompactionPromptPresented = true
+            }
+            Divider()
+            Toggle("Auto-compaction", isOn: autoCompactionBinding)
+        } label: {
+            Label("Context", systemImage: "arrow.down.right.and.arrow.up.left")
+        }
+        .help("Context")
+    }
+
+    private var autoCompactionBinding: Binding<Bool> {
+        Binding(
+            get: { currentState?.autoCompactionEnabled ?? true },
+            set: { newValue in
+                Task { await store.setAutoCompaction(newValue, in: session) }
+            }
+        )
+    }
 
     /// 分支菜单：clone 当前分支，或从某条用户消息 fork。
     private var branchMenu: some View {
@@ -1148,6 +1184,39 @@ private struct SessionLoadingView: View {
         }
         .padding(24)
         .glassEffect(.regular, in: .rect(cornerRadius: DesignTokens.Radius.card))
+    }
+}
+
+/// 手动压缩弹窗：可填写自定义摘要指令（pi 的 `compact.customInstructions`）。
+private struct CompactionSheet: View {
+    @Binding var instructions: String
+    let onCompact: (String?) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Compact Context", systemImage: "arrow.down.right.and.arrow.up.left")
+                .font(.headline)
+            Text("Optionally describe what the summary should focus on.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField("Instructions (optional)", text: $instructions, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(3...6)
+                .frame(width: 360)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Compact") {
+                    let trimmed = instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+                    onCompact(trimmed.isEmpty ? nil : trimmed)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
     }
 }
 
