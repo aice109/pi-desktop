@@ -300,6 +300,26 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
     }
 
+    func test_setAutoRetry_tracksLocallyAndForwards() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+        XCTAssertTrue(fixture.store.isAutoRetryEnabled(in: fixture.session))
+
+        await fixture.store.setAutoRetry(false, in: fixture.session)
+
+        XCTAssertFalse(fixture.store.isAutoRetryEnabled(in: fixture.session))
+        XCTAssertEqual(fixture.transport.autoRetryValue, false)
+    }
+
+    func test_abortRetry_forwards() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.abortRetry(in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.abortRetryCountValue, 1)
+    }
+
     func test_compact_forwardsInstructions() async throws {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)

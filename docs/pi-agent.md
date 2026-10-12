@@ -120,7 +120,10 @@ Rendering follows [design-system.md](design-system.md) (native components + glas
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
 Context can be compacted on demand (`compact`, with optional `customInstructions`) and auto-compaction
-is toggled per session (`set_auto_compaction`), both from the toolbar's Context menu.
+is toggled per session (`set_auto_compaction`), both from the toolbar's Context menu. Auto-retry is
+toggled there too (`set_auto_retry`), and an in-progress retry can be stopped from the status line
+(`abort_retry`). pi does not report the auto-retry flag in `get_state`, so the app tracks it locally
+(default on).
 
 Discoverable commands (extension commands, prompt templates, skills) are listed with `get_commands`
 and run by sending `/name` through `prompt`; the composer suggests them while the draft starts with `/`.

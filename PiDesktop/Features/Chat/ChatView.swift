@@ -107,6 +107,7 @@ struct ChatView: View {
             }
             Divider()
             Toggle("Auto-compaction", isOn: autoCompactionBinding)
+            Toggle("Auto-retry", isOn: autoRetryBinding)
         } label: {
             Label("Context", systemImage: "arrow.down.right.and.arrow.up.left")
         }
@@ -118,6 +119,15 @@ struct ChatView: View {
             get: { currentState?.autoCompactionEnabled ?? true },
             set: { newValue in
                 Task { await store.setAutoCompaction(newValue, in: session) }
+            }
+        )
+    }
+
+    private var autoRetryBinding: Binding<Bool> {
+        Binding(
+            get: { store.isAutoRetryEnabled(in: session) },
+            set: { newValue in
+                Task { await store.setAutoRetry(newValue, in: session) }
             }
         )
     }
@@ -457,6 +467,13 @@ struct ChatView: View {
                 Text(statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if case .retrying = store.activity(for: session) {
+                    Button("Abort Retry") {
+                        Task { await store.abortRetry(in: session) }
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
+                }
                 Spacer()
             }
             .padding(.horizontal, 12)

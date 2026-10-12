@@ -173,6 +173,14 @@ actor PiRPCClient: AgentTransport {
         await command(["type": "set_auto_compaction", "enabled": enabled]) != nil
     }
 
+    func setAutoRetry(enabled: Bool) async -> Bool {
+        await command(["type": "set_auto_retry", "enabled": enabled]) != nil
+    }
+
+    func abortRetry() async -> Bool {
+        await command(["type": "abort_retry"]) != nil
+    }
+
     func sessionStats() async -> AgentUsage? {
         guard let record = await command(["type": "get_session_stats"]), let data = record.data else {
             return nil

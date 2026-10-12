@@ -45,6 +45,8 @@ final class SessionStore {
     private var activities: [UUID: AgentActivity] = [:]
     /// 每个会话待处理的 steering / follow-up 队列（`queue_update`）。
     private var queues: [UUID: AgentQueue] = [:]
+    /// 每个会话的自动重试开关。pi 不在 `get_state` 里暴露该值，故本地跟踪（默认开启）。
+    private var autoRetryEnabled: [UUID: Bool] = [:]
     /// 每个会话已应用的历史指纹，用于跳过无变化的重建。
     private var historyFingerprints: [UUID: PiHistoryFingerprint] = [:]
     /// 每个会话的增量同步游标（已见最后一条条目 id）。
@@ -382,6 +384,21 @@ final class SessionStore {
         await refreshState(for: session)
     }
 
+    /// 该会话是否开启自动重试（pi 默认开启）。
+    func isAutoRetryEnabled(in session: Session) -> Bool { autoRetryEnabled[session.id] ?? true }
+
+    /// 开关自动重试。
+    func setAutoRetry(_ enabled: Bool, in session: Session) async {
+        autoRetryEnabled[session.id] = enabled
+        guard let transport = transports[session.id] else { return }
+        _ = await transport.setAutoRetry(enabled: enabled)
+    }
+
+    /// 中止进行中的重试。
+    func abortRetry(in session: Session) async {
+        _ = await transports[session.id]?.abortRetry()
+    }
+
     /// 重命名会话：经 pi 的 `set_session_name` 写入，并同步本地标题。
     func rename(_ session: Session, to name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -509,6 +526,7 @@ final class SessionStore {
         usage.removeAll()
         activities.removeAll()
         queues.removeAll()
+        autoRetryEnabled.removeAll()
         historyFingerprints.removeAll()
         historyCursors.removeAll()
         historyLeafs.removeAll()

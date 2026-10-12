@@ -108,7 +108,8 @@ GlassEffectContainer(spacing: 16) {
   菜单里可选「Send as Follow-up」）。已排队消息显示在状态行下方，「Clear Queued」会将其文本
   还原到输入框（pi 的 Esc 语义）。
 - 工具栏提供 Context 菜单（`arrow.down.right.and.arrow.up.left`）：「Compact Now」「Compact with
-  Instructions…」（小弹窗）与绑定 `get_state` 的 Auto-compaction `Toggle`。
+  Instructions…」（小弹窗）、绑定 `get_state` 的 Auto-compaction `Toggle`，以及 Auto-retry `Toggle`。
+  重试进行时状态行会显示「Abort Retry」链接。
 - 工具栏提供 Branch 菜单（`arrow.triangle.branch`），包含「Clone Session」与「Fork from Message…」；
   后者打开列出可 fork 用户消息的弹窗。
 - 在输入框键入 `/` 会显示 pi 命令（扩展 / prompt / 技能）的内联建议列表，带描述与来源标签；

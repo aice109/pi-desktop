@@ -177,6 +177,10 @@ protocol AgentTransport: Sendable {
     func compact(customInstructions: String?) async -> Bool
     /// 开关自动压缩（`set_auto_compaction`）；返回是否成功。
     func setAutoCompaction(enabled: Bool) async -> Bool
+    /// 开关自动重试（`set_auto_retry`）；返回是否成功。
+    func setAutoRetry(enabled: Bool) async -> Bool
+    /// 中止进行中的重试延迟（`abort_retry`）；返回是否成功。
+    func abortRetry() async -> Bool
     /// 会话用量与上下文占用（`get_session_stats`）。
     func sessionStats() async -> AgentUsage?
     /// 可发现的命令列表（`get_commands`）。

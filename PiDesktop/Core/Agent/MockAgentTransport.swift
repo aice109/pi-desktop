@@ -30,6 +30,9 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已设置的自动压缩开关 / 压缩调用，供断言。
     private let autoCompaction = Mutex<Bool?>(nil)
     private let compactionInstructions = Mutex<[String?]>([])
+    /// 已设置的自动重试开关 / 中止次数，供断言。
+    private let autoRetry = Mutex<Bool?>(nil)
+    private let abortRetryCount = Mutex<Int>(0)
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
@@ -88,6 +91,12 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     /// 每次 `compact` 传入的指令。
     var compactionInstructionsValue: [String?] { compactionInstructions.withLock { $0 } }
+
+    /// 最近一次设置的自动重试开关。
+    var autoRetryValue: Bool? { autoRetry.withLock { $0 } }
+
+    /// `abortRetry` 被调用的次数。
+    var abortRetryCountValue: Int { abortRetryCount.withLock { $0 } }
 
     /// 注入 `sessionStats()` 的返回值。
     var sessionStatsValue: AgentUsage? {
@@ -222,6 +231,16 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
             updated.autoCompactionEnabled = enabled
             current = updated
         }
+        return true
+    }
+
+    func setAutoRetry(enabled: Bool) async -> Bool {
+        autoRetry.withLock { $0 = enabled }
+        return true
+    }
+
+    func abortRetry() async -> Bool {
+        abortRetryCount.withLock { $0 += 1 }
         return true
     }
 

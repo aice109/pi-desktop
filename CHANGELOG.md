@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
   External renames and thinking-level changes now propagate to the UI, summarization retries show in
   the status line, and an appended entry reconciles the local mirror when idle.
+- Auto-retry can be toggled per session and an in-progress retry aborted from the status line
+  (`set_auto_retry` / `abort_retry`). pi does not report the flag in `get_state`, so it is tracked
+  locally, defaulting to on.
 - The toolbar's Context menu can compact the conversation on demand (optionally with custom summary
   instructions) and toggle auto-compaction, backed by `compact` and `set_auto_compaction`.
 - History follows the **active branch**: `get_entries` is a tree, so the mirror walks `parentId` back

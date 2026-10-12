@@ -105,7 +105,8 @@ enum AgentEvent: Sendable, Equatable {
 `entryAppended`（会话树被外部追加，空闲时重新校准镜像）。
 
 上下文可手动压缩（`compact`，可带 `customInstructions`），自动压缩按会话开关（`set_auto_compaction`），
-二者都在工具栏的 Context 菜单里。
+二者都在工具栏的 Context 菜单里；自动重试也在此开关（`set_auto_retry`），进行中的重试可从状态行中止
+（`abort_retry`）。pi 不在 `get_state` 里报告自动重试开关，故应用在本地跟踪（默认开启）。
 
 可发现的命令（扩展命令、prompt 模板、技能）用 `get_commands` 列出，通过 `prompt` 发送 `/name` 执行；
 输入以 `/` 开头时输入框会给出建议。
