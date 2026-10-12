@@ -43,6 +43,8 @@ final class SessionStore {
     private var usage: [UUID: AgentUsage] = [:]
     /// 每个会话的进行中活动（重试 / 压缩）。
     private var activities: [UUID: AgentActivity] = [:]
+    /// 每个会话已应用的历史指纹，用于跳过无变化的重建。
+    private var historyFingerprints: [UUID: PiHistoryFingerprint] = [:]
 
     /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示）。
     var activeToolName: String? { runningTools.values.first }
@@ -79,10 +81,79 @@ final class SessionStore {
     /// 该会话正在进行的活动（重试 / 压缩），用于状态栏提示。
     func activity(for session: Session) -> AgentActivity? { activities[session.id] }
 
-    /// 打开会话：创建传输并加载状态与用量。
+    /// 打开会话：先用会话文件快速填充历史，再启动传输、加载状态，最后用 pi 校准。
     func activate(_ session: Session) async {
+        // 文件解析不依赖 pi 进程，可立即渲染历史，不必等子进程启动。
+        await syncHistory(for: session)
         _ = await ensureTransport(for: session)
         await refreshState(for: session)
+        // 再用 pi 的权威历史校准（例如应用外续聊、压缩后的变化）。
+        await syncHistory(for: session)
+    }
+
+    /// 用 pi 的历史重建本地镜像。
+    ///
+    /// 来源优先 RPC `get_entries`（含压缩前历史），无传输时回退到会话文件。
+    /// 仅在指纹变化时重建，避免切换会话时无谓地替换对象。
+    func syncHistory(for session: Session) async {
+        guard !isStreaming(session) else { return }
+        let history = await loadHistory(for: session)
+        // 重建前重新确认：等待期间可能已开始新一轮对话，不能抹掉它。
+        guard !history.isEmpty, !isStreaming(session) else { return }
+
+        let fingerprint = PiHistoryFingerprint(history)
+        guard historyFingerprints[session.id] != fingerprint else { return }
+        replaceHistory(of: session, with: history)
+        historyFingerprints[session.id] = fingerprint
+    }
+
+    /// 读取该会话的历史快照。
+    private func loadHistory(for session: Session) async -> PiHistory {
+        if let transport = transports[session.id] {
+            let entries = await transport.sessionEntries()
+            if !entries.isEmpty {
+                return PiHistory.make(from: entries.map(\.historyEntry))
+            }
+        }
+        guard let path = session.piSessionPath else { return PiHistory() }
+        let url = URL(fileURLWithPath: path)
+        // 文件解析放后台，避免长会话文件阻塞主线程。
+        return await Task.detached(priority: .userInitiated) {
+            PiSessionFiles.history(in: url)
+        }.value
+    }
+
+    /// 用历史替换本地镜像的消息与工具调用。
+    ///
+    /// 全部本地内容都来自 pi，因此整体替换是安全的；先摘除关系再删除，
+    /// 避免数组里残留已删除对象。
+    private func replaceHistory(of session: Session, with history: PiHistory) {
+        let messages = session.messages
+        session.messages.removeAll()
+        for message in messages { modelContext.delete(message) }
+
+        let toolCalls = session.toolCalls
+        session.toolCalls.removeAll()
+        for toolCall in toolCalls { modelContext.delete(toolCall) }
+
+        for message in history.messages {
+            session.append(Message(
+                role: message.role,
+                content: message.text,
+                thinking: message.thinking,
+                createdAt: message.timestamp
+            ))
+        }
+        for toolCall in history.toolCalls {
+            session.record(ToolCall(
+                toolCallID: toolCall.toolCallID,
+                name: toolCall.name,
+                arguments: toolCall.arguments,
+                output: toolCall.output,
+                isError: toolCall.isError,
+                createdAt: toolCall.timestamp
+            ))
+        }
     }
 
     /// 关闭会话：非流式时释放其传输，避免闲置进程累积。
@@ -93,6 +164,7 @@ final class SessionStore {
         states.removeValue(forKey: session.id)
         usage.removeValue(forKey: session.id)
         activities.removeValue(forKey: session.id)
+        historyFingerprints.removeValue(forKey: session.id)
         Task { await transport.shutdown() }
     }
 
@@ -178,6 +250,7 @@ final class SessionStore {
         states.removeAll()
         usage.removeAll()
         activities.removeAll()
+        historyFingerprints.removeAll()
     }
 
     // MARK: - Transport wiring

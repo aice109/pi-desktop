@@ -126,6 +126,47 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(levelsRecord.data?.levels, ["off", "low", "high", "max"])
     }
 
+    func test_getEntriesResponse_decodesHistory() {
+        // 真实形状：data.entries 是追加式树的节点，message 为 AgentMessage。
+        let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":[{"type":"text","text":"run ls"}]}},{"type":"message","id":"e2","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Now listing."},{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"ls"}}]}},{"type":"message","id":"e3","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","isError":false,"content":[{"type":"text","text":"AGENTS.md"}]}}],"leafId":"e3"}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_entries 响应应能解码")
+        }
+        let entries = record.data?.entries ?? []
+        XCTAssertEqual(entries.count, 3)
+
+        let history = PiHistory.make(from: entries.map(\.historyEntry))
+        XCTAssertEqual(history.messages.map(\.text), ["run ls", "Now listing."])
+        XCTAssertEqual(history.toolCalls.count, 1)
+        XCTAssertEqual(history.toolCalls[0].arguments, "command: ls")
+        XCTAssertEqual(history.toolCalls[0].output, "AGENTS.md")
+        XCTAssertEqual(history.toolCalls[0].timestamp, entries[2].timestamp.flatMap(PiDate.parse))
+    }
+
+    func test_nullContent_decodesAsEmptyText() {
+        // 真实报文：`get_entries` 里 `system` / `bashExecution` 消息的 content 为 null。
+        let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"bashExecution","content":null,"command":"ls","output":""}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}],"leafId":"e2"}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("含 null content 的条目应能解码（否则整条响应失败）")
+        }
+        let entries = record.data?.entries ?? []
+        XCTAssertEqual(entries.count, 2)
+
+        let history = PiHistory.make(from: entries.map(\.historyEntry))
+        XCTAssertEqual(history.messages.map(\.text), ["hi"])
+    }
+
+    func test_missingContentKey_decodesAsEmpty() {
+        // 真实报文：`get_entries` 里部分消息根本没有 content 键。
+        let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"system"}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}]}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("缺少 content 键的条目应能解码")
+        }
+        let entries = record.data?.entries ?? []
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(PiHistory.make(from: entries.map(\.historyEntry)).messages.map(\.text), ["hi"])
+    }
+
     func test_response_decodesButIsNotAnEvent() {
         let json = #"{"id":"req-1","type":"response","command":"prompt","success":true,"data":{"disposition":"started"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {

@@ -22,6 +22,8 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let models = Mutex<[AgentModel]>([])
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
+    /// `sessionEntries()` 的返回值。
+    private let entries = Mutex<[SessionEntryDTO]>([])
 
     nonisolated init() {
         (stream, continuation) = AsyncStream<AgentEvent>.makeStream(bufferingPolicy: .unbounded)
@@ -46,6 +48,12 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     var sessionStatsValue: AgentUsage? {
         get { usage.withLock { $0 } }
         set { usage.withLock { $0 = newValue } }
+    }
+
+    /// 注入 `sessionEntries()` 的返回值。
+    var sessionEntriesValue: [SessionEntryDTO] {
+        get { entries.withLock { $0 } }
+        set { entries.withLock { $0 = newValue } }
     }
 
     func events() async -> AsyncStream<AgentEvent> {
@@ -95,6 +103,10 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func sessionStats() async -> AgentUsage? {
         usage.withLock { $0 }
+    }
+
+    func sessionEntries() async -> [SessionEntryDTO] {
+        entries.withLock { $0 }
     }
 
     func shutdown() async {

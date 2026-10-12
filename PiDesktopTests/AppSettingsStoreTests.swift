@@ -78,4 +78,41 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(AppAppearance.light.colorScheme, .light)
         XCTAssertEqual(AppAppearance.dark.colorScheme, .dark)
     }
+
+    func test_sessionToRestore_matchesThePreviouslyOpenedSession() {
+        let settings = AppSettingsStore(defaults: defaults)
+        let first = Self.summary(path: "/tmp/sessions/a.jsonl")
+        let second = Self.summary(path: "/tmp/sessions/b.jsonl")
+        settings.lastSessionPath = second.fileURL.path
+
+        XCTAssertEqual(settings.sessionToRestore(among: [first, second]), second)
+        // 会话已被删除（或换到别的工作区）：不恢复。
+        XCTAssertNil(settings.sessionToRestore(among: [first]))
+    }
+
+    func test_sessionToRestore_isDisabledByPreference() {
+        let settings = AppSettingsStore(defaults: defaults)
+        let summary = Self.summary(path: "/tmp/sessions/a.jsonl")
+        settings.lastSessionPath = summary.fileURL.path
+        settings.restoreLastSession = false
+        XCTAssertNil(settings.sessionToRestore(among: [summary]))
+    }
+
+    func test_sessionToRestore_isNilWithoutStoredPath() {
+        let settings = AppSettingsStore(defaults: defaults)
+        XCTAssertNil(settings.sessionToRestore(among: [Self.summary(path: "/tmp/sessions/a.jsonl")]))
+    }
+
+    private static func summary(path: String) -> PiSessionSummary {
+        PiSessionSummary(
+            sessionID: URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent,
+            fileURL: URL(fileURLWithPath: path),
+            name: nil,
+            cwd: "/tmp",
+            startedAt: nil,
+            updatedAt: Date(timeIntervalSince1970: 0),
+            messageCount: 0,
+            preview: nil
+        )
+    }
 }

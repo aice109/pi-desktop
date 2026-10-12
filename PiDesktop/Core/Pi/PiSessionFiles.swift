@@ -102,7 +102,7 @@ nonisolated enum PiSessionFiles {
             fileURL: fileURL,
             name: name,
             cwd: header.cwd ?? "",
-            startedAt: header.timestamp.flatMap(parseDate),
+            startedAt: header.timestamp.flatMap(PiDate.parse),
             updatedAt: modificationDate(of: fileURL),
             messageCount: messageCount,
             preview: preview
@@ -111,67 +111,27 @@ nonisolated enum PiSessionFiles {
 
     // MARK: - 消息
 
-    /// 解析会话文件里的可展示消息（user / assistant），保持文件顺序。
-    static func messages(in fileURL: URL) -> [PiDisplayMessage] {
-        guard let lines = readLines(fileURL) else { return [] }
-        var result: [PiDisplayMessage] = []
-        for line in lines {
+    /// 解析会话文件的完整历史（消息 + 工具调用）。
+    ///
+    /// 与 RPC `get_entries` 走同一套映射（`PiHistory.make(from:)`），
+    /// 两条来源因此始终一致（见 ADR-0009）。
+    static func history(in fileURL: URL) -> PiHistory {
+        guard let lines = readLines(fileURL) else { return PiHistory() }
+        let entries = lines.compactMap { line -> PiHistoryEntry? in
             guard let entry = try? JSONDecoder().decode(Entry.self, from: Data(line.utf8)),
                   entry.type == "message",
-                  let message = entry.message,
-                  let role = displayRole(for: message.role)
-            else { continue }
-            let text = message.content?.joinedText ?? ""
-            let thinking = message.content?.joinedThinking ?? ""
-            // 允许仅含思考的助手消息。
-            guard !text.isEmpty || !thinking.isEmpty else { continue }
-            result.append(PiDisplayMessage(
-                role: role,
-                text: text,
-                thinking: thinking.isEmpty ? nil : thinking,
-                timestamp: entry.timestamp.flatMap(parseDate) ?? .now
-            ))
+                  let message = entry.message
+            else { return nil }
+            return PiHistoryEntry(
+                role: message.role,
+                content: message.content ?? .text(""),
+                timestamp: entry.timestamp.flatMap(PiDate.parse),
+                toolCallId: message.toolCallId,
+                toolName: message.toolName,
+                isError: message.isError
+            )
         }
-        return result
-    }
-
-    /// 解析会话文件里的工具调用，保持文件顺序。
-    ///
-    /// 参数不在 `toolResult` 里，而属于助手消息的 `toolCall` 块；因此先收集参数（按 id），
-    /// 再与 `toolResult` 条目关联。
-    static func toolCalls(in fileURL: URL) -> [PiStoredToolCall] {
-        guard let lines = readLines(fileURL) else { return [] }
-        let entries = lines
-            .compactMap { try? JSONDecoder().decode(Entry.self, from: Data($0.utf8)) }
-            .filter { $0.type == "message" }
-
-        // 第一遍：助手消息里的 toolCall 块（携带名称与参数）。
-        var byID: [String: (name: String, arguments: String?)] = [:]
-        for entry in entries {
-            guard let message = entry.message, message.role == "assistant",
-                  case .blocks(let blocks)? = message.content else { continue }
-            for block in blocks where block.type == "toolCall" {
-                guard let id = block.id else { continue }
-                byID[id] = (block.name ?? "tool", block.arguments?.compactDescription)
-            }
-        }
-
-        // 第二遍：toolResult 条目（携带输出）。
-        var result: [PiStoredToolCall] = []
-        for entry in entries {
-            guard let message = entry.message, message.role == "toolResult" else { continue }
-            let id = message.toolCallId ?? UUID().uuidString
-            let block = byID[id]
-            result.append(PiStoredToolCall(
-                toolCallID: id,
-                name: message.toolName ?? block?.name ?? "tool",
-                arguments: block?.arguments,
-                output: message.content?.joinedText ?? "",
-                isError: message.isError ?? false,
-                timestamp: entry.timestamp.flatMap(parseDate) ?? .now
-            ))
-        }
-        return result
+        return PiHistory.make(from: entries)
     }
 
     // MARK: - 解码辅助
@@ -230,13 +190,5 @@ nonisolated enum PiSessionFiles {
     private static func modificationDate(of fileURL: URL) -> Date {
         (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
             ?? .distantPast
-    }
-
-    /// 解析 ISO 8601 时间戳；pi 可能带也可能不带小数秒。
-    private static func parseDate(_ string: String) -> Date? {
-        if let date = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string) {
-            return date
-        }
-        return try? Date.ISO8601FormatStyle().parse(string)
     }
 }

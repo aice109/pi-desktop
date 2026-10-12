@@ -227,7 +227,134 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(refreshed)
     }
 
+    // MARK: - History sync
+
+    func test_activate_syncsHistoryFromTransport() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("run ls")]), timestamp: "2024-12-03T14:00:02.000Z"),
+            entry("assistant", .blocks([
+                thinking("Let me look."),
+                toolCall(id: "call_1", name: "bash", command: "ls"),
+            ]), timestamp: "2024-12-03T14:00:03.000Z"),
+            entry(
+                "toolResult",
+                .blocks([text("AGENTS.md")]),
+                timestamp: "2024-12-03T14:00:04.000Z",
+                toolCallId: "call_1",
+                toolName: "bash"
+            ),
+        ]
+
+        await fixture.store.activate(fixture.session)
+
+        XCTAssertEqual(fixture.session.messages.count, 2)
+        XCTAssertEqual(fixture.session.messages.first?.content, "run ls")
+        XCTAssertEqual(fixture.session.messages.last?.thinking, "Let me look.")
+        XCTAssertEqual(fixture.session.toolCalls.count, 1)
+        XCTAssertEqual(fixture.session.toolCalls.first?.arguments, "command: ls")
+        XCTAssertEqual(fixture.session.toolCalls.first?.output, "AGENTS.md")
+    }
+
+    func test_syncHistory_rebuildsOnlyWhenContentChanges() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z"),
+        ]
+        // `activate` 会建立传输，使 `syncHistory` 走 RPC 而不是会话文件。
+        await fixture.store.activate(fixture.session)
+        let firstIDs = fixture.session.messages.map(\.id)
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["one"])
+
+        // 内容未变：不应替换对象（否则切换会话时会丢失滚动位置）。
+        await fixture.store.syncHistory(for: fixture.session)
+        XCTAssertEqual(fixture.session.messages.map(\.id), firstIDs)
+
+        // 新增一轮（例如应用外续聊）：应同步过来。
+        fixture.transport.sessionEntriesValue.append(
+            entry("assistant", .blocks([text("two")]), timestamp: "2024-12-03T14:00:05.000Z")
+        )
+        await fixture.store.syncHistory(for: fixture.session)
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["one", "two"])
+    }
+
+    func test_syncHistory_fallsBackToSessionFile() async throws {
+        let fixture = try makeFixture()
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).jsonl")
+        try Self.sessionFile.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        fixture.session.piSessionPath = url.path
+
+        // 尚无传输：直接走会话文件。
+        await fixture.store.syncHistory(for: fixture.session)
+
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["hello"])
+        XCTAssertEqual(fixture.session.messages.first?.role, .user)
+    }
+
+    func test_syncHistory_isSkippedWhileStreaming() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("from pi")]), timestamp: "2024-12-03T14:00:02.000Z"),
+        ]
+
+        await fixture.store.syncHistory(for: fixture.session)
+
+        // 流式期间不能抹掉进行中的本地消息。
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["hi", ""])
+    }
+
     // MARK: - Helpers
+
+    /// 一个最小可解析的 pi 会话文件。
+    private static let sessionFile = """
+    {"type":"session","version":3,"id":"s1","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}
+    {"type":"message","id":"a","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"hello"}}
+    """
+
+    private func text(_ value: String) -> ContentBlockDTO {
+        ContentBlockDTO(type: "text", text: value, thinking: nil, id: nil, name: nil, arguments: nil)
+    }
+
+    private func thinking(_ value: String) -> ContentBlockDTO {
+        ContentBlockDTO(type: "thinking", text: nil, thinking: value, id: nil, name: nil, arguments: nil)
+    }
+
+    private func toolCall(id: String, name: String, command: String) -> ContentBlockDTO {
+        ContentBlockDTO(
+            type: "toolCall",
+            text: nil,
+            thinking: nil,
+            id: id,
+            name: name,
+            arguments: .object(["command": .string(command)])
+        )
+    }
+
+    private func entry(
+        _ role: String,
+        _ content: MessageContentDTO,
+        timestamp: String,
+        toolCallId: String? = nil,
+        toolName: String? = nil,
+        isError: Bool? = nil
+    ) -> SessionEntryDTO {
+        SessionEntryDTO(
+            type: "message",
+            id: UUID().uuidString,
+            timestamp: timestamp,
+            message: MessageDTO(
+                role: role,
+                content: content,
+                stopReason: nil,
+                errorMessage: nil,
+                toolCallId: toolCallId,
+                toolName: toolName,
+                isError: isError
+            )
+        )
+    }
 
     private func waitUntil(timeout: TimeInterval = 2, _ condition: () -> Bool) async {
         let deadline = Date().addingTimeInterval(timeout)

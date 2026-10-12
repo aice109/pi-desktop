@@ -1,0 +1,135 @@
+//
+//  PiHistory.swift
+//  PiDesktop
+//
+//  Copyright © 2026 PiDesktop contributors. MIT License.
+//
+
+import Foundation
+
+/// 一条 pi 历史条目。
+///
+/// 由会话文件的 `message` 行或 RPC `get_entries` 的条目归一化而来；只承载原始字段，
+/// 领域语义由 `PiHistory.make(from:)` 赋予（见 ADR-0004 / ADR-0006）。
+nonisolated struct PiHistoryEntry: Sendable, Equatable {
+    var role: String
+    var content: MessageContentDTO
+    var timestamp: Date?
+    var toolCallId: String?
+    var toolName: String?
+    var isError: Bool?
+}
+
+/// 一次历史解析的结果：可展示消息 + 工具调用。
+nonisolated struct PiHistory: Sendable, Equatable {
+    var messages: [PiDisplayMessage] = []
+    var toolCalls: [PiStoredToolCall] = []
+
+    var isEmpty: Bool { messages.isEmpty && toolCalls.isEmpty }
+
+    /// 从条目序列构造（纯函数，便于单测）。
+    ///
+    /// 工具的**参数**不在 `toolResult` 条目里，而属于助手消息的 `toolCall` 块，
+    /// 因此先按 id 收集参数，再与 `toolResult` 关联。
+    static func make(from entries: [PiHistoryEntry], now: Date = .now) -> PiHistory {
+        var history = PiHistory()
+
+        // 第一遍：助手消息里的 toolCall 块（携带名称与参数）。
+        var byID: [String: (name: String, arguments: String?)] = [:]
+        for entry in entries where entry.role == "assistant" {
+            guard case .blocks(let blocks) = entry.content else { continue }
+            for block in blocks where block.type == "toolCall" {
+                guard let id = block.id else { continue }
+                byID[id] = (block.name ?? "tool", block.arguments?.compactDescription)
+            }
+        }
+
+        // 第二遍：按角色产出消息与工具调用，保持条目顺序。
+        for entry in entries {
+            switch entry.role {
+            case "user", "assistant":
+                guard let role = displayRole(for: entry.role) else { continue }
+                let text = entry.content.joinedText
+                let thinking = entry.content.joinedThinking
+                // 允许仅含思考的助手消息。
+                guard !text.isEmpty || !thinking.isEmpty else { continue }
+                history.messages.append(PiDisplayMessage(
+                    role: role,
+                    text: text,
+                    thinking: thinking.isEmpty ? nil : thinking,
+                    timestamp: entry.timestamp ?? now
+                ))
+
+            case "toolResult":
+                let id = entry.toolCallId ?? UUID().uuidString
+                let block = byID[id]
+                history.toolCalls.append(PiStoredToolCall(
+                    toolCallID: id,
+                    name: entry.toolName ?? block?.name ?? "tool",
+                    arguments: block?.arguments,
+                    output: entry.content.joinedText,
+                    isError: entry.isError ?? false,
+                    timestamp: entry.timestamp ?? now
+                ))
+
+            default:
+                continue
+            }
+        }
+        return history
+    }
+
+    /// 条目角色 → 领域角色；工具结果（`toolResult`）单独处理。
+    static func displayRole(for role: String) -> MessageRole? {        switch role {
+        case "user": return .user
+        case "assistant": return .assistant
+        default: return nil
+        }
+    }
+}
+
+/// 历史指纹：内容未变时跳过重建本地镜像。
+///
+/// 只取“形状 + 末尾内容”：足够发现新增回合，又不受时间戳精度差异影响。
+nonisolated struct PiHistoryFingerprint: Equatable {
+    var messageCount: Int
+    var lastMessageText: String
+    var lastThinking: String?
+    var toolCallCount: Int
+    var lastToolCallID: String?
+
+    init(_ history: PiHistory) {
+        messageCount = history.messages.count
+        lastMessageText = history.messages.last?.text ?? ""
+        lastThinking = history.messages.last?.thinking
+        toolCallCount = history.toolCalls.count
+        lastToolCallID = history.toolCalls.last?.toolCallID
+    }
+}
+
+/// 把 RPC `get_entries` 的条目接入同一套历史映射。
+///
+/// 依赖方向保持 `Core/Pi` → `Core/Agent`（与 `PiSessionFiles` 一致）：
+/// 传输层只提供 DTO，历史语义留在 `Core/Pi`。
+extension SessionEntryDTO {
+    var historyEntry: PiHistoryEntry {
+        PiHistoryEntry(
+            role: message?.role ?? "unknown",
+            content: message?.content ?? .text(""),
+            timestamp: timestamp.flatMap(PiDate.parse),
+            toolCallId: message?.toolCallId,
+            toolName: message?.toolName,
+            isError: message?.isError
+        )
+    }
+}
+
+/// pi 的时间戳解析：可能带也可能不带小数秒。
+nonisolated enum PiDate {
+    static func parse(_ string: String) -> Date? {
+        if let date = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string) {
+            return date
+        }
+        return try? Date.ISO8601FormatStyle().parse(string)
+    }
+}

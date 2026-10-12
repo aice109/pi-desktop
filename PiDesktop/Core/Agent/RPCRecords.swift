@@ -58,6 +58,18 @@ nonisolated struct RPCDataDTO: Decodable {
     var tokens: TokensDTO?
     var cost: Double?
     var contextUsage: ContextUsageDTO?
+    // get_entries
+    var entries: [SessionEntryDTO]?
+}
+
+/// `get_entries` 返回的一条会话条目（追加式树的节点）。
+///
+/// 与会话文件里的行同构；`message` 为 nil 的条目（如摘要/分支元数据）会被忽略。
+nonisolated struct SessionEntryDTO: Decodable {
+    var type: String
+    var id: String?
+    var timestamp: String?
+    var message: MessageDTO?
 }
 
 /// 模型定义（完整字段只取需要的部分）。
@@ -104,20 +116,33 @@ nonisolated struct AssistantMessageEventDTO: Decodable {
 }
 
 /// 事件里的消息：只关心 role 与合并后的文本。
+///
+/// `content` 可选：`get_entries` 里有些消息（如 `system` / `bashExecution`）既没有 content 键，
+/// 也可能为 null；若按必填解码，整条响应会失败（曾因此丢失全部历史）。
 nonisolated struct MessageDTO: Decodable {
     var role: String
-    var content: MessageContentDTO
+    var content: MessageContentDTO?
     var stopReason: String?
     var errorMessage: String?
+    // toolResult 专属字段
+    var toolCallId: String?
+    var toolName: String?
+    var isError: Bool?
 }
 
 /// 消息内容可能是字符串（system）或内容块数组（user/assistant）。
-nonisolated enum MessageContentDTO: Decodable {
+nonisolated enum MessageContentDTO: Decodable, Equatable {
     case text(String)
     case blocks([ContentBlockDTO])
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
+        // `content` 可为 null（如 `system` / `bashExecution` 消息）。
+        // 若直接抛出，整条 `get_entries` 响应都会解码失败（曾因此丢失全部历史）。
+        if container.decodeNil() {
+            self = .text("")
+            return
+        }
         if let text = try? container.decode(String.self) {
             self = .text(text)
             return
@@ -143,7 +168,7 @@ nonisolated enum MessageContentDTO: Decodable {
 }
 
 /// 内容块。
-nonisolated struct ContentBlockDTO: Decodable {
+nonisolated struct ContentBlockDTO: Decodable, Equatable {
     var type: String
     var text: String?
     var thinking: String?
@@ -200,7 +225,7 @@ nonisolated enum RPCProtocol {
             // 只关心助手消息；用户/系统消息由本地写入或忽略。
             guard let message = record.message, message.role == "assistant" else { return nil }
             return .assistantMessageCompleted(
-                text: message.content.joinedText,
+                text: message.content?.joinedText ?? "",
                 stopReason: message.stopReason,
                 errorMessage: message.errorMessage
             )

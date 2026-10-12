@@ -71,7 +71,7 @@ final class PiSessionFilesTests: XCTestCase {
             #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"system","content":""}}"#,
         ])
 
-        let messages = PiSessionFiles.messages(in: url)
+        let messages = PiSessionFiles.history(in: url).messages
         XCTAssertEqual(messages.map(\.role), [.user, .assistant])
         XCTAssertEqual(messages.map(\.text), ["Hello", "Hi there"])
     }
@@ -83,7 +83,7 @@ final class PiSessionFilesTests: XCTestCase {
             #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me think."},{"type":"text","text":"Answer"}]}}"#,
         ])
 
-        let messages = PiSessionFiles.messages(in: url)
+        let messages = PiSessionFiles.history(in: url).messages
         XCTAssertEqual(messages.count, 2)
         XCTAssertEqual(messages[1].text, "Answer")
         XCTAssertEqual(messages[1].thinking, "Let me think.")
@@ -98,7 +98,7 @@ final class PiSessionFilesTests: XCTestCase {
             #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","content":[{"type":"text","text":"README.md"}],"isError":false}}"#,
         ])
 
-        let toolCalls = PiSessionFiles.toolCalls(in: url)
+        let toolCalls = PiSessionFiles.history(in: url).toolCalls
         XCTAssertEqual(toolCalls.count, 1)
         XCTAssertEqual(toolCalls.first?.toolCallID, "call_1")
         XCTAssertEqual(toolCalls.first?.name, "bash")
@@ -107,7 +107,7 @@ final class PiSessionFilesTests: XCTestCase {
         XCTAssertEqual(toolCalls.first?.output, "README.md")
         XCTAssertEqual(toolCalls.first?.isError, false)
         // 工具结果/仅含 toolCall 的助手消息都不应作为消息出现。
-        XCTAssertEqual(PiSessionFiles.messages(in: url).map(\.role), [.user])
+        XCTAssertEqual(PiSessionFiles.history(in: url).messages.map(\.role), [.user])
     }
 
     func test_summaries_sortsByRecencyAndIgnoresInvalidFiles() throws {

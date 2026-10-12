@@ -125,6 +125,11 @@ actor PiRPCClient: AgentTransport {
         (await command(["type": "get_available_thinking_levels"]))?.data?.levels ?? []
     }
 
+    func sessionEntries() async -> [SessionEntryDTO] {
+        guard let record = await command(["type": "get_entries"]) else { return [] }
+        return record.data?.entries ?? []
+    }
+
     /// 发送一条命令并等待其响应；失败返回 nil。
     private func command(_ object: [String: Any]) async -> RPCRecord? {
         do {

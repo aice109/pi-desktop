@@ -95,6 +95,14 @@ final class AppSettingsStore {
         lastSessionPath = (path?.isEmpty ?? true) ? nil : path
     }
 
+    /// 启动时该恢复的会话：上次打开的会话仍在当前工作区时返回它，否则为 `nil`。
+    ///
+    /// 放在这里（而不是视图里）是为了可直接单测：恢复与否只取决于「偏好 + 会话列表」。
+    func sessionToRestore(among sessions: [PiSessionSummary]) -> PiSessionSummary? {
+        guard restoreLastSession, let path = lastSessionPath else { return nil }
+        return sessions.first { $0.fileURL.path == path }
+    }
+
     /// 清空所有偏好（仅测试使用）。
     func reset() {
         for key in [

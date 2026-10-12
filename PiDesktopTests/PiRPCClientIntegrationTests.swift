@@ -55,4 +55,48 @@ final class PiRPCClientIntegrationTests: XCTestCase {
 
         XCTAssertTrue(text.lowercased().contains("pong"), "实际收到：\(text)")
     }
+
+    /// 验证 `get_entries` 能在真实 pi 上取回完整历史（历史同步的依据）。
+    ///
+    /// 用真实会话文件的**副本**，不修改用户数据。
+    func test_realPi_getEntriesReturnsHistory() async throws {
+        let environmentEnabled = ProcessInfo.processInfo.environment["PI_INTEGRATION_TESTS"] == "1"
+        let sentinelEnabled = FileManager.default.fileExists(atPath: "/tmp/pi_integration_enabled")
+        try XCTSkipUnless(environmentEnabled || sentinelEnabled, "需要 PI_INTEGRATION_TESTS=1")
+        guard let executable = PiExecutable.locate() else {
+            throw XCTSkip("未找到可执行的 pi")
+        }
+        guard let source = Self.anyExistingSessionFile() else {
+            throw XCTSkip("会话目录里没有可用于测试的会话文件")
+        }
+
+        let copy = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).jsonl")
+        try FileManager.default.copyItem(at: source, to: copy)
+        defer { try? FileManager.default.removeItem(at: copy) }
+
+        let client = PiRPCClient(executable: executable, workingDirectory: nil, sessionPath: copy.path)
+        _ = await client.events()
+        let entries = await client.sessionEntries()
+        await client.shutdown()
+
+        XCTAssertFalse(entries.isEmpty, "get_entries 应返回条目")
+        let history = PiHistory.make(from: entries.map(\.historyEntry))
+        XCTAssertFalse(history.messages.isEmpty, "历史里应有可展示消息")
+    }
+
+    /// 会话目录中的任意一个会话文件（用于只读验证）。
+    private static func anyExistingSessionFile() -> URL? {
+        let root = PiSessionFiles.defaultRoot()
+        guard let groups = try? FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+        for group in groups {
+            let files = (try? FileManager.default.contentsOfDirectory(at: group, includingPropertiesForKeys: nil))
+                ?? []
+            if let file = files.first(where: { $0.pathExtension == "jsonl" }) { return file }
+        }
+        return nil
+    }
 }

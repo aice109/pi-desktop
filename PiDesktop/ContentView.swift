@@ -59,6 +59,9 @@ struct ContentView: View {
                 .onChange(of: workspaceStore.sessions) { _, sessions in
                     restoreLastSessionIfNeeded(in: sessions)
                 }
+                .onAppear {
+                    restoreLastSessionIfNeeded(in: workspaceStore.sessions)
+                }
                 .sheet(item: $renaming) { summary in
                     RenameSessionSheet(initialName: summary.name ?? summary.displayTitle) { newName in
                         rename(summary, to: newName)
@@ -67,6 +70,10 @@ struct ContentView: View {
             }
         }
         .focusedSceneValue(\.sessionCommands, sessionCommands)
+        // 退出时释放 pi 子进程。
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            sessionStore.shutdown()
+        }
     }
 
     /// 暴露给 App 菜单的命令处理器（见 `Core/Commands/SessionCommands.swift`）。
@@ -114,14 +121,12 @@ struct ContentView: View {
                 Button(action: { workspaceStore.refresh() }) {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .keyboardShortcut("r", modifiers: .command)
-                .help("Refresh Sessions")
+                .help("Refresh Sessions (⌘R)")
 
                 Button(action: startNewSession) {
                     Label("New Session", systemImage: "plus")
                 }
-                .keyboardShortcut("n", modifiers: .command)
-                .help("New Session")
+                .help("New Session (⌘N)")
             }
         }
     }
@@ -243,10 +248,8 @@ struct ContentView: View {
 
     /// 启动（或切换工作区）后恢复上次打开的会话；找不到则忽略。
     private func restoreLastSessionIfNeeded(in sessions: [PiSessionSummary]) {
-        guard appSettings.restoreLastSession,
-              selection == nil, opened == nil,
-              let path = appSettings.lastSessionPath,
-              let summary = sessions.first(where: { $0.fileURL.path == path })
+        guard selection == nil, opened == nil,
+              let summary = appSettings.sessionToRestore(among: sessions)
         else { return }
         selection = summary.fileURL
         open(summary)
@@ -269,30 +272,12 @@ struct ContentView: View {
         opened = session
     }
 
-    /// 打开 pi 会话：优先复用本地已镜像的 `Session`，否则新建并把历史导入。
+    /// 打开 pi 会话：优先复用本地已镜像的 `Session`，否则新建一个镜像。
+    ///
+    /// 历史由 `SessionStore.syncHistory` 在激活时填充（先会话文件、再 pi 校准），
+    /// 因此应用外续聊的内容也会同步过来。
     private func openSession(for summary: PiSessionSummary) -> Session {
-        if let existing = localSession(matchingPiPath: summary.fileURL.path) { return existing }
-
-        let session = mirror(for: summary)
-        for message in PiSessionFiles.messages(in: summary.fileURL) {
-            session.append(Message(
-                role: message.role,
-                content: message.text,
-                thinking: message.thinking,
-                createdAt: message.timestamp
-            ))
-        }
-        for toolCall in PiSessionFiles.toolCalls(in: summary.fileURL) {
-            session.record(ToolCall(
-                toolCallID: toolCall.toolCallID,
-                name: toolCall.name,
-                arguments: toolCall.arguments,
-                output: toolCall.output,
-                isError: toolCall.isError,
-                createdAt: toolCall.timestamp
-            ))
-        }
-        return session
+        localSession(matchingPiPath: summary.fileURL.path) ?? mirror(for: summary)
     }
 
     /// 建立一个指向 pi 会话文件的本地镜像（不导入历史）。
