@@ -25,14 +25,16 @@ PiDesktop 是 pi coding agent 的 macOS 原生 GUI。核心职责：
 
 ```
 PiDesktop/
-├── PiDesktopApp.swift          # @main，App 入口、Scene、SwiftData 容器、组装 SessionStore
-├── ContentView.swift           # 根视图（会话列表 + 详情）
+├── PiDesktopApp.swift          # @main，App 入口、Scene、SwiftData 容器、组装各 Store
+├── ContentView.swift           # 根视图（工作区门禁 + 会话列表 + 详情）
 ├── Features/
-│   └── Chat/                   # ChatView：消息流 + 输入框
+│   ├── Chat/                   # ChatView：消息流 + 输入框
+│   └── Workspace/              # WorkspaceGateView：选择目录
 ├── Core/
 │   ├── Agent/                  # AgentEvent、AgentTransport、PiRPCClient、RPCProtocol
+│   ├── Pi/                     # PiSessionFiles、PiSessionSummary（只读解析 pi 会话文件）
 │   ├── Models/                 # Session、Message（ADR-0004）
-│   └── Stores/                 # SessionStore（@Observable，@MainActor）
+│   └── Stores/                 # SessionStore、WorkspaceStore（@Observable，@MainActor）
 └── Assets.xcassets/            # 资源目录
 ```
 
@@ -50,6 +52,7 @@ PiDesktop/
 │   └── Workspace/  # 项目 / 文件上下文
 ├── Core/
 │   ├── Agent/      # 与 pi agent 的通信层（进程/协议/事件）
+│   ├── Pi/         # 读取 pi 磁盘上的会话文件
 │   ├── Models/     # SwiftData 模型
 │   └── Services/   # 通用服务（存储、日志、配置）
 └── DesignSystem/   # 颜色、字体、玻璃封装、通用视图
@@ -80,6 +83,10 @@ pi agent 进程 (pi --mode rpc)
 - **单向数据流**：View 只读状态、发送意图；状态变更集中在 Store。
 - **主线程隔离**：UI 状态标记 `@MainActor`。
 - **通信与 UI 解耦**：Agent 层不 import SwiftUI，只对外暴露 `AgentEvent`。
+
+会话**列表**是只读的，与实时传输分离：`WorkspaceStore` 通过 `Core/Pi` 扫描
+`~/.pi/agent/sessions/--<workspace>--/`；打开会话时先把历史镜像为本地 `Session`（`piSessionPath`），
+再以 `pi --session <path>` 继续（ADR-0005）。
 
 ## 数据模型
 

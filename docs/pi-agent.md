@@ -30,6 +30,10 @@ Decided in [ADR-0003](decisions/0003-pi-transport-and-sandbox.md): **subprocess 
   `Core/Agent/RPCRecords` decodes the wire format.
 - `pi` is located via `PI_EXECUTABLE`, `PATH`, and common install paths; the child `PATH` is augmented
   so the `#!/usr/bin/env node` launcher can find Node.
+- **Sessions.** pi groups sessions by working directory on disk. The app lists
+  `~/.pi/agent/sessions/--<workspace>--/` (read-only, `Core/Pi`) and resumes a chosen session with
+  `--session <path>`; new sessions let pi persist them, and the resulting file path is read back from
+  `get_state`. See [ADR-0005](decisions/0005-workspace-and-pi-sessions.md).
 
 Wire references: pi's `docs/rpc.md`, `docs/rpc-commands.md`, `docs/json.md`, `docs/message-types.md`.
 
@@ -96,6 +100,7 @@ transient "running tool" indicator. Reasoning, tool cards, and error retry are s
 - [x] `Core/Agent` abstraction (`AgentTransport`) + `PiRPCClient`
 - [x] SwiftData models for sessions/messages (ADR-0004)
 - [x] Streaming assistant text render
+- [x] List a workspace's pi sessions + resume them (ADR-0005)
 - [ ] Persist tool calls (`ToolCall` model + cards) — needs an ADR
 - [ ] Model / thinking-level selection, usage & cost display
-- [ ] Session resume + `get_messages` sync, error retry, reasoning view
+- [ ] Delete/rename sessions, `get_messages` sync, error retry, reasoning view

@@ -25,6 +25,9 @@ PiDesktop 是 pi agent 的 **GUI 前端**：
 - stdin 写命令（按行 JSON）；stdout 读响应与会话事件（NDJSON）；stderr 仅作诊断。
 - `Core/Agent/PiRPCClient` 负责进程与「记录 → 领域事件」映射；`Core/Agent/RPCRecords` 负责线格式解码。
 - pi 的定位顺序为 `PI_EXECUTABLE` → `PATH` → 常见安装路径；并给子进程补充 `PATH`，使 `#!/usr/bin/env node` 启动器能找到 Node。
+- **会话。** pi 按工作目录在磁盘上分组保存会话。应用只读列出 `~/.pi/agent/sessions/--<工作区>--/`
+  （`Core/Pi`），并用 `--session <path>` 续聊所选会话；新建会话交由 pi 持久化，其文件路径从 `get_state` 回读。
+  见 [ADR-0005](decisions/0005-workspace-and-pi-sessions.zh-CN.md)。
 
 线格式参考：pi 文档 `docs/rpc.md`、`docs/rpc-commands.md`、`docs/json.md`、`docs/message-types.md`。
 
@@ -91,6 +94,7 @@ enum AgentEvent: Sendable, Equatable {
 - [x] `Core/Agent` 抽象（`AgentTransport`）+ `PiRPCClient`
 - [x] 会话/消息 SwiftData 模型（ADR-0004）
 - [x] 流式助手文本渲染
+- [x] 按工作区列出 pi 会话并续聊（ADR-0005）
 - [ ] 持久化工具调用（`ToolCall` 模型 + 卡片）—— 需新增 ADR
 - [ ] 模型 / 思考等级选择、用量与费用展示
-- [ ] 会话恢复 + `get_messages` 同步、错误重试、思考区
+- [ ] 删除/重命名会话、`get_messages` 同步、错误重试、思考区

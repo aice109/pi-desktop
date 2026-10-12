@@ -25,14 +25,16 @@ PiDesktop is a native macOS GUI for the pi coding agent. Its core responsibiliti
 
 ```
 PiDesktop/
-├── PiDesktopApp.swift          # @main, Scene, SwiftData container, SessionStore assembly
-├── ContentView.swift           # Root view (session list + detail)
+├── PiDesktopApp.swift          # @main, Scene, SwiftData container, store assembly
+├── ContentView.swift           # Root view (workspace gate + session list + detail)
 ├── Features/
-│   └── Chat/                   # ChatView: message stream + composer
+│   ├── Chat/                   # ChatView: message stream + composer
+│   └── Workspace/              # WorkspaceGateView: choose a folder
 ├── Core/
 │   ├── Agent/                  # AgentEvent, AgentTransport, PiRPCClient, RPCProtocol
+│   ├── Pi/                     # PiSessionFiles, PiSessionSummary (read pi's session files)
 │   ├── Models/                 # Session, Message (ADR-0004)
-│   └── Stores/                 # SessionStore (@Observable, @MainActor)
+│   └── Stores/                 # SessionStore, WorkspaceStore (@Observable, @MainActor)
 └── Assets.xcassets/            # Asset catalog
 ```
 
@@ -50,6 +52,7 @@ PiDesktop/
 │   └── Workspace/  # Project / file context
 ├── Core/
 │   ├── Agent/      # Communication with pi (process/protocol/events)
+│   ├── Pi/         # Read pi's on-disk session files
 │   ├── Models/     # SwiftData models
 │   └── Services/   # Storage, logging, configuration
 └── DesignSystem/   # Colors, type, glass wrappers, shared views
@@ -80,6 +83,10 @@ Principles:
 - **Unidirectional data flow**: views read state and send intents; state changes live in stores.
 - **Main-actor isolation**: UI state is marked `@MainActor`.
 - **Transport/UI decoupling**: the agent layer never imports SwiftUI; it exposes only `AgentEvent`.
+
+Session **listing** is read-only and separate from the live transport: `WorkspaceStore` scans
+`~/.pi/agent/sessions/--<workspace>--/` through `Core/Pi`, and opening a session mirrors its history
+into a local `Session` (`piSessionPath`) before continuing it with `pi --session <path>` (ADR-0005).
 
 ## Data model
 

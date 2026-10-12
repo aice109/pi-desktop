@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pi integration over RPC (`pi --mode rpc`): `Core/Agent` (`AgentEvent`, `AgentTransport`,
   `PiRPCClient`, `RPCProtocol`), a `SessionStore`, and a streaming `ChatView`. Verified end-to-end
   against a real pi subprocess (opt-in integration test).
+- Workspace-scoped session browsing (ADR-0005): pick a project folder, list that folder's pi sessions
+  (`Core/Pi`), and resume one via `pi --session`. New sessions are persisted by pi, and a
+  `WorkspaceStore` remembers the chosen folder. Opening a session mirrors its history locally.
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow

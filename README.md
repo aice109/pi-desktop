@@ -9,21 +9,25 @@
 
 A native macOS GUI for the [pi coding agent](https://github.com/earendil-works/pi): manage sessions, watch tool calls unfold, and keep project context — all in a first-class Mac app.
 
-> ⚠️ **Status: early.** Session management and streaming chat with the pi agent work today;
-> tool-call visualization, workspace context, and settings are in progress.
+> ⚠️ **Status: early.** Pick a project folder to browse its pi sessions and chat with the pi agent.
+> Tool-call visualization, reasoning, and settings are in progress.
 
 ---
 
 ## Features
 
-Planned / in progress:
+Working today:
 
-- 🗂 **Session management** — create, list, resume, and organize agent sessions.
-- 💬 **Streaming chat** — render assistant output and reasoning as it arrives.
-- 🛠 **Tool-call visualization** — cards showing tool name, arguments, live output, status, and duration.
-- 📁 **Workspace context** — attach projects and files to a session.
-- ⚙️ **Settings** — model selection, preferences, and theme.
+- 📁 **Workspace sessions** — pick a project folder and browse the pi sessions stored for it; open one to resume it.
+- 💬 **Streaming chat** — send prompts and render the assistant reply as it arrives.
 - 🪟 **Native look** — built with Apple frameworks and macOS **Liquid Glass**.
+
+In progress:
+
+- 🛠 **Tool-call visualization** — cards showing tool name, arguments, live output, status, and duration.
+- 🧠 **Reasoning view** — a collapsible thinking section.
+- ⚙️ **Settings** — model / thinking-level selection, preferences, and theme.
+- 🗂 **Session management** — rename, delete, and organize sessions.
 
 See [`docs/architecture.md`](docs/architecture.md) and [`docs/pi-agent.md`](docs/pi-agent.md) for the design.
 
