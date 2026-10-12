@@ -86,6 +86,16 @@ CI **已暂不启用**：`.github/workflows/ci.yml.disabled`（GitHub 只运行 
 ./scripts/ci.sh
 ```
 
+### 格式化与 Lint
+
+[`scripts/format.sh`](../scripts/format.sh) 使用 Xcode 自带的 `swift-format`（无第三方依赖），并读取仓库的
+[`.swift-format`](../.swift-format) 配置：
+
+```bash
+./scripts/format.sh          # 检查（有发现即非零退出）
+./scripts/format.sh --fix    # 就地格式化
+```
+
 ## 6. 提交规范
 
 采用 [Conventional Commits](https://www.conventionalcommits.org/)：
@@ -103,6 +113,7 @@ CI **已暂不启用**：`.github/workflows/ci.yml.disabled`（GitHub 只运行 
 提交前检查：
 - [ ] `xcodebuild ... build` 通过
 - [ ] 无新增 warning
+- [ ] `./scripts/format.sh` 干净；纯格式化改动单独一个 commit
 - [ ] 未提交密钥 / 个人路径 / `xcuserdata`
 - [ ] 相关文档已更新（见 [README.zh-CN.md](README.zh-CN.md) 维护规则）
 - [ ] 重大取舍已补 ADR

@@ -88,6 +88,16 @@ selects `DEVELOPER_DIR` when `xcodebuild` cannot find Xcode. Run it directly:
 ./scripts/ci.sh
 ```
 
+### Formatting & lint
+
+[`scripts/format.sh`](../scripts/format.sh) uses the `swift-format` bundled with Xcode (no third-party
+dependency) with the repo's [`.swift-format`](../.swift-format) config:
+
+```bash
+./scripts/format.sh          # check (non-zero on any finding)
+./scripts/format.sh --fix    # format in place
+```
+
 ## 6. Commit conventions
 
 [Conventional Commits](https://www.conventionalcommits.org/):
@@ -105,6 +115,7 @@ selects `DEVELOPER_DIR` when `xcodebuild` cannot find Xcode. Run it directly:
 Pre-commit checklist:
 - [ ] `xcodebuild ... build` passes
 - [ ] no new warnings
+- [ ] `./scripts/format.sh` is clean; keep formatting-only changes in their own commit
 - [ ] no secrets / personal paths / `xcuserdata`
 - [ ] affected docs updated ([README.md](README.md) rules)
 - [ ] significant trade-offs have an ADR
