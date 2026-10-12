@@ -76,9 +76,10 @@ final class PiRPCClientIntegrationTests: XCTestCase {
 
         let client = PiRPCClient(executable: executable, workingDirectory: nil, sessionPath: copy.path)
         _ = await client.events()
-        let entries = await client.sessionEntries()
+        let page = await client.sessionEntries(since: nil)
         await client.shutdown()
 
+        let entries = page?.entries ?? []
         XCTAssertFalse(entries.isEmpty, "get_entries 应返回条目")
         let history = PiHistory.make(from: entries.map(\.historyEntry))
         XCTAssertFalse(history.messages.isEmpty, "历史里应有可展示消息")

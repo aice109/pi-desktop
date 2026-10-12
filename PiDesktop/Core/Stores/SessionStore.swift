@@ -47,6 +47,10 @@ final class SessionStore {
     private var queues: [UUID: AgentQueue] = [:]
     /// 每个会话已应用的历史指纹，用于跳过无变化的重建。
     private var historyFingerprints: [UUID: PiHistoryFingerprint] = [:]
+    /// 每个会话的增量同步游标（已见最后一条条目 id）。
+    private var historyCursors: [UUID: String] = [:]
+    /// 每个会话记录的活动分支叶子 id，用于发现分支切换。
+    private var historyLeafs: [UUID: String?] = [:]
     /// 正在激活（加载历史 / 启动传输 / 读取状态）的会话，用于展示等待动画。
     private var activating: Set<UUID> = []
 
@@ -113,40 +117,133 @@ final class SessionStore {
         await syncHistory(for: session)
     }
 
-    /// 用 pi 的历史重建本地镜像。
+    /// 用 pi 的历史校准本地镜像（ADR-0009）。
     ///
-    /// 来源优先 RPC `get_entries`（含压缩前历史），无传输时回退到会话文件。
-    /// 仅在指纹变化时重建，避免切换会话时无谓地替换对象。
+    /// 已记录游标时走**增量**：只取 `get_entries(since:)` 之后的新条目并追加，避免长会话重复
+    /// 拉取与重建；游标失效、活动分支切换或首次打开时退回全量。
     func syncHistory(for session: Session) async {
         guard !isStreaming(session) else { return }
-        let history = await loadHistory(for: session)
-        // 重建前重新确认：等待期间可能已开始新一轮对话，不能抹掉它。
-        guard !history.isEmpty, !isStreaming(session) else { return }
 
-        let fingerprint = PiHistoryFingerprint(history)
+        // 增量路径：需要游标（来自上一次 RPC 全量/增量同步）与活动传输。
+        if let cursor = historyCursors[session.id], let transport = transports[session.id] {
+            guard let page = await transport.sessionEntries(since: cursor) else {
+                // 游标失效（会话被重置等）：丢掉游标，退回全量。
+                historyCursors[session.id] = nil
+                await fullSyncHistory(for: session)
+                return
+            }
+            if page.entries.isEmpty {
+                // 没有新条目；但活动分支可能被切换到别处（leaf 变化）→ 需要整体重建。
+                if let leaf = page.leafId, leaf != historyLeafs[session.id] {
+                    await fullSyncHistory(for: session)
+                }
+                historyLeafs[session.id] = page.leafId
+                return
+            }
+            let snapshots = page.entries.map(\.historyEntry)
+            // 归一化与历史构造放后台，避免阻塞主 actor。
+            let history = await Task.detached(priority: .userInitiated) {
+                PiHistory.make(from: snapshots)
+            }.value
+            // 重建前重新确认：等待期间可能已开始新一轮对话。
+            guard !isStreaming(session) else { return }
+            if let lastEntryID = page.entries.last?.id { historyCursors[session.id] = lastEntryID }
+            historyLeafs[session.id] = page.leafId
+            guard !history.isEmpty else { return }
+            await appendHistory(history, to: session)
+            // 增量追加后旧指纹不再代表完整历史；失效以免后续误判。
+            historyFingerprints[session.id] = nil
+            return
+        }
+
+        await fullSyncHistory(for: session)
+    }
+
+    /// 全量校准：拉取完整历史，仅在指纹变化时重建。
+    private func fullSyncHistory(for session: Session) async {
+        guard !isStreaming(session) else { return }
+        let loaded = await loadHistory(for: session)
+        // 记录游标供后续增量同步；文件来源没有条目 id，不会设置游标。
+        if let lastEntryID = loaded.lastEntryID { historyCursors[session.id] = lastEntryID }
+        historyLeafs[session.id] = loaded.leafID
+        // 重建前重新确认：等待期间可能已开始新一轮对话，不能抹掉它。
+        guard !loaded.history.isEmpty, !isStreaming(session) else { return }
+
+        let fingerprint = PiHistoryFingerprint(loaded.history)
         guard historyFingerprints[session.id] != fingerprint else { return }
-        await replaceHistory(of: session, with: history)
+        await replaceHistory(of: session, with: loaded.history)
         historyFingerprints[session.id] = fingerprint
     }
 
-    /// 读取该会话的历史快照。
-    private func loadHistory(for session: Session) async -> PiHistory {
+    /// 一次全量历史读取的结果：历史 + 增量同步游标。
+    private struct LoadedHistory {
+        var history = PiHistory()
+        /// 追加顺序中的最后一条条目 id；文件来源为 nil。
+        var lastEntryID: String?
+        /// 当前活动分支的叶子 id（`get_entries` 的 `leafId`）。
+        var leafID: String?
+    }
+
+    /// 读取该会话的完整历史快照（优先 RPC，回退会话文件）。
+    private func loadHistory(for session: Session) async -> LoadedHistory {
         if let transport = transports[session.id] {
-            let entries = await transport.sessionEntries()
-            if !entries.isEmpty {
+            if let page = await transport.sessionEntries(since: nil), !page.entries.isEmpty {
                 // 归一化与历史构造可能涉及上千条记录，放后台，避免阻塞主 actor。
-                let snapshots = entries.map(\.historyEntry)
-                return await Task.detached(priority: .userInitiated) {
+                let snapshots = page.entries.map(\.historyEntry)
+                let history = await Task.detached(priority: .userInitiated) {
                     PiHistory.make(from: snapshots)
                 }.value
+                return LoadedHistory(
+                    history: history,
+                    lastEntryID: page.entries.last?.id,
+                    leafID: page.leafId
+                )
             }
         }
-        guard let path = session.piSessionPath else { return PiHistory() }
+        guard let path = session.piSessionPath else { return LoadedHistory() }
         let url = URL(fileURLWithPath: path)
         // 文件解析放后台，避免长会话文件阻塞主线程。
-        return await Task.detached(priority: .userInitiated) {
+        let history = await Task.detached(priority: .userInitiated) {
             PiSessionFiles.history(in: url)
         }.value
+        return LoadedHistory(history: history)
+    }
+
+    /// 把增量历史追加到本地镜像（不删除已有对象，保留滚动位置与对象标识）。
+    private func appendHistory(_ history: PiHistory, to session: Session) async {
+        await Task.yield()
+        var newMessages: [Message] = []
+        for entry in history.messages {
+            let message = Message(
+                role: entry.role,
+                content: entry.text,
+                thinking: entry.thinking,
+                createdAt: entry.timestamp
+            )
+            if !entry.images.isEmpty {
+                let images = entry.images.map { MessageImage(mimeType: $0.mimeType, data: $0.data) }
+                for image in images { modelContext.insert(image) }
+                message.images = images
+            }
+            newMessages.append(message)
+        }
+        let newToolCalls = history.toolCalls.map { toolCall in
+            ToolCall(
+                toolCallID: toolCall.toolCallID,
+                name: toolCall.name,
+                arguments: toolCall.arguments,
+                output: toolCall.output,
+                isError: toolCall.isError,
+                createdAt: toolCall.timestamp
+            )
+        }
+        // 先注册再建立关系（与 `replaceHistory` 同一原因：避免 O(n²) 关系解析）。
+        for message in newMessages { modelContext.insert(message) }
+        for toolCall in newToolCalls { modelContext.insert(toolCall) }
+        session.messages.append(contentsOf: newMessages)
+        session.toolCalls.append(contentsOf: newToolCalls)
+        let timestamps = history.messages.map(\.timestamp) + history.toolCalls.map(\.timestamp)
+        if let latest = timestamps.max() { session.updatedAt = max(session.updatedAt, latest) }
     }
 
     /// 用历史替换本地镜像的消息与工具调用。
@@ -360,6 +457,8 @@ final class SessionStore {
         activities.removeAll()
         queues.removeAll()
         historyFingerprints.removeAll()
+        historyCursors.removeAll()
+        historyLeafs.removeAll()
         activating.removeAll()
     }
 

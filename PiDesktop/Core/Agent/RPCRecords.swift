@@ -70,6 +70,7 @@ nonisolated struct RPCDataDTO: Decodable {
     var contextUsage: ContextUsageDTO?
     // get_entries
     var entries: [SessionEntryDTO]?
+    var leafId: String?
     // clear_queue
     var steering: [String]?
     var followUp: [String]?
@@ -83,6 +84,12 @@ nonisolated struct SessionEntryDTO: Decodable {
     var id: String?
     var timestamp: String?
     var message: MessageDTO?
+}
+
+/// `get_entries` 的一页结果。`since` 游标之外的条目 + 当前叶子 id（用于判断分支是否移动）。
+nonisolated struct SessionEntriesPage {
+    var entries: [SessionEntryDTO]
+    var leafId: String?
 }
 
 /// 模型定义（完整字段只取需要的部分）。

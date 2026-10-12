@@ -93,7 +93,10 @@ into a local `Session` (`piSessionPath`) before continuing it with `pi --session
 
 On open the mirror is **reconciled** with pi instead of being filled once: `SessionStore.syncHistory`
 reads the session file first (fast, offline) and then `get_entries` over RPC, skipping the rebuild when
-the content is unchanged ([ADR-0009](decisions/0009-history-sync.md)).
+the content is unchanged ([ADR-0009](decisions/0009-history-sync.md)). Once a cursor exists, later
+syncs are **incremental**: `get_entries(since: lastEntryID)` returns only new entries, which are
+appended without touching existing rows; a missing cursor, an invalid cursor, or a moved `leafId`
+falls back to a full reconcile.
 
 The rebuild inserts `Message` / `ToolCall` rows in bulk: new objects are registered with the
 `ModelContext` first and then assigned to the relationship in one shot. Building the relationship

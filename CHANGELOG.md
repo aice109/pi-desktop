@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
   External renames and thinking-level changes now propagate to the UI, summarization retries show in
   the status line, and an appended entry reconciles the local mirror when idle.
+- History sync is incremental after the first load: `get_entries` is called with the last seen entry
+  id as `since`, and only new entries are appended without touching existing rows. A missing or stale
+  cursor, or a moved `leafId`, falls back to a full reconcile.
 - Images can be attached to a message from the pasteboard, drag-and-drop, or a file picker. Sent
   images render in the user bubble and are persisted as `MessageImage` rows (ADR-0010); history
   imports pi's `image` blocks. The new `MessageImage` model joins the SwiftData schema.

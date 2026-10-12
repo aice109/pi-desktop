@@ -140,5 +140,5 @@ command; an interrupted turn is not retried automatically yet.
 - [x] Rename sessions (delete moves the file to the Trash)
 - [x] Persist assistant reasoning (ADR-0007)
 - [x] Reconcile the mirror with pi history on open (ADR-0009)
-- [ ] Incremental history sync via `get_entries`'s `since` cursor
+- [x] Incremental history sync via `get_entries`'s `since` cursor
 - [ ] Automatic retry of an interrupted turn after a process exit

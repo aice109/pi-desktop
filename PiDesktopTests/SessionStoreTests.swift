@@ -428,6 +428,42 @@ final class SessionStoreTests: XCTestCase {
         )
         await fixture.store.syncHistory(for: fixture.session)
         XCTAssertEqual(fixture.session.messages.map(\.content), ["one", "two"])
+        // 增量追加保留已有对象标识（不是整体重建）。
+        XCTAssertEqual(fixture.session.messages.first?.id, firstIDs.first)
+    }
+
+    func test_syncHistory_invalidCursorFallsBackToFull() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z"),
+        ]
+        await fixture.store.activate(fixture.session)
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["one"])
+
+        // 游标不再是已知 id（会话被重置）：应退回全量重建。
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("fresh")]), timestamp: "2024-12-04T10:00:00.000Z"),
+        ]
+        await fixture.store.syncHistory(for: fixture.session)
+
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["fresh"])
+    }
+
+    func test_syncHistory_leafChangeTriggersFullRebuild() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z"),
+        ]
+        await fixture.store.activate(fixture.session)
+
+        // 分支切换：增量无新条目但 leaf 变了；全量数据已含另一分支的内容。
+        fixture.transport.sessionEntriesPageValue = SessionEntriesPage(entries: [], leafId: "branch-b")
+        fixture.transport.sessionEntriesValue = [
+            entry("user", .blocks([text("branch-b content")]), timestamp: "2024-12-03T14:00:02.000Z"),
+        ]
+        await fixture.store.syncHistory(for: fixture.session)
+
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["branch-b content"])
     }
 
     func test_syncHistory_fallsBackToSessionFile() async throws {

@@ -155,11 +155,12 @@ protocol AgentTransport: Sendable {
     func setSessionName(_ name: String) async -> Bool
     /// 会话用量与上下文占用（`get_session_stats`）。
     func sessionStats() async -> AgentUsage?
-    /// 会话完整历史条目（`get_entries`）。
+    /// 会话历史条目（`get_entries`）。
     ///
     /// 与只含当前上下文的 `get_messages` 不同，它包含压缩前历史与遗弃分支，
-    /// 因此适合作为刷新本地镜像的权威来源；条目带稳定 id，将来可用 `since` 增量同步。
-    func sessionEntries() async -> [SessionEntryDTO]
+    /// 因此适合作为刷新本地镜像的权威来源。传入上次最后一条的 `since` 只取新增条目（增量同步）；
+    /// 游标失效时返回 `nil`，调用方退回全量。
+    func sessionEntries(since: String?) async -> SessionEntriesPage?
 }
 
 /// 无图片的便捷重载，保持调用点简洁。

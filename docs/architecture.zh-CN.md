@@ -93,6 +93,8 @@ pi agent 进程 (pi --mode rpc)
 
 打开时镜像会与 pi **校准**，而不是只填充一次：`SessionStore.syncHistory` 先读会话文件（快、离线），
 再用 RPC 的 `get_entries` 补齐，内容未变则跳过重建（[ADR-0009](decisions/0009-history-sync.zh-CN.md)）。
+有了游标后，后续同步是**增量**的：`get_entries(since: 最后条目 id)` 只返回新条目并追加，不动已有对象；
+游标缺失、失效或 `leafId` 变化时退回全量校准。
 
 重建时 `Message` / `ToolCall` 采用批量写入：新建对象先向 `ModelContext` 注册，再一次性赋给关系。
 用未注册对象直接搭关系（或逐条 append）在 SwiftData 里是 O(n²)，长历史会阻塞主 actor 数十秒。

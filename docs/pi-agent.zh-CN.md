@@ -124,5 +124,5 @@ enum AgentEvent: Sendable, Equatable {
 - [x] 解析助手 `toolCall` 块，让历史也显示工具参数
 - [x] 重命名会话（删除即移至废纸篓）
 - [x] 持久化助手思考内容（ADR-0007）
-- [ ] 用 `get_entries` 的 `since` 游标做增量历史同步
+- [x] 用 `get_entries` 的 `since` 游标做增量历史同步
 - [ ] 进程退出后自动重试被打断的回合

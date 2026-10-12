@@ -22,8 +22,10 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let models = Mutex<[AgentModel]>([])
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
-    /// `sessionEntries()` 的返回值。
+    /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
     private let entries = Mutex<[SessionEntryDTO]>([])
+    /// 非空时直接作为 `sessionEntries(since:)` 的结果（可注入游标/叶子）。
+    private let entriesPage = Mutex<SessionEntriesPage?>(nil)
     /// `prompt(_:)` 的返回值。
     private let disposition = Mutex<PromptDisposition>(.started)
     /// 已发送的 steering / follow-up 文本，供断言。
@@ -59,10 +61,16 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         set { usage.withLock { $0 = newValue } }
     }
 
-    /// 注入 `sessionEntries()` 的返回值。
+    /// 注入 `sessionEntries(since:)` 的全量返回值。
     var sessionEntriesValue: [SessionEntryDTO] {
         get { entries.withLock { $0 } }
         set { entries.withLock { $0 = newValue } }
+    }
+
+    /// 直接注入 `sessionEntries(since:)` 的结果，覆盖游标过滤（用于测试分支/游标场景）。
+    var sessionEntriesPageValue: SessionEntriesPage? {
+        get { entriesPage.withLock { $0 } }
+        set { entriesPage.withLock { $0 = newValue } }
     }
 
     /// 注入 `prompt(_:)` 的返回值。
@@ -154,8 +162,14 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         usage.withLock { $0 }
     }
 
-    func sessionEntries() async -> [SessionEntryDTO] {
-        entries.withLock { $0 }
+    func sessionEntries(since: String?) async -> SessionEntriesPage? {
+        // 仅增量路径使用注入页；全量路径（since == nil）仍从 `sessionEntriesValue` 构造。
+        if let since, let page = sessionEntriesPageValue { return page }
+        let all = entries.withLock { $0 }
+        guard let since else { return SessionEntriesPage(entries: all, leafId: nil) }
+        // 模拟 pi：`since` 必须命中某条 id，否则视为失效游标（nil → 调用方退回全量）。
+        guard let index = all.firstIndex(where: { $0.id == since }) else { return nil }
+        return SessionEntriesPage(entries: Array(all[(index + 1)...]), leafId: nil)
     }
 
     func shutdown() async {

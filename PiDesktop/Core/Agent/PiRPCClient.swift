@@ -161,9 +161,12 @@ actor PiRPCClient: AgentTransport {
         (await command(["type": "get_available_thinking_levels"]))?.data?.levels ?? []
     }
 
-    func sessionEntries() async -> [SessionEntryDTO] {
-        guard let record = await command(["type": "get_entries"]) else { return [] }
-        return record.data?.entries ?? []
+    func sessionEntries(since: String?) async -> SessionEntriesPage? {
+        var payload: [String: Any] = ["type": "get_entries"]
+        if let since { payload["since"] = since }
+        // 游标失效时 pi 返回 success:false，`command` 会得到 nil；让调用方退回全量。
+        guard let record = await command(payload) else { return nil }
+        return SessionEntriesPage(entries: record.data?.entries ?? [], leafId: record.data?.leafId)
     }
 
     /// 发送一条命令并等待其响应；失败返回 nil。
