@@ -1,0 +1,132 @@
+//
+//  RPCRecords.swift
+//  PiDesktop
+//
+//  Copyright © 2026 PiDesktop contributors. MIT License.
+//
+
+import Foundation
+
+// RPC/JSON 线上报文的解码 DTO 与领域事件映射。
+//
+// 全部标记 `nonisolated`：解码发生在后台读取循环，不能依赖主 actor。
+// 字段只覆盖当前需要的部分，未知字段一律忽略（向前兼容）。
+
+/// 一条 RPC/JSON 记录。`response` 与 session event 复用同一结构，按 `type` 区分。
+nonisolated struct RPCRecord: Decodable {
+    var type: String
+    var id: String?
+    var command: String?
+    var success: Bool?
+    var error: String?
+    var aborted: Bool?
+    var assistantMessageEvent: AssistantMessageEventDTO?
+    var message: MessageDTO?
+    var toolCallId: String?
+    var toolName: String?
+    var isError: Bool?
+    var durationMs: Int?
+}
+
+/// `message_update.assistantMessageEvent`。
+nonisolated struct AssistantMessageEventDTO: Decodable {
+    var type: String
+    var contentIndex: Int?
+    var delta: String?
+    var content: String?
+    var toolName: String?
+}
+
+/// 事件里的消息：只关心 role 与合并后的文本。
+nonisolated struct MessageDTO: Decodable {
+    var role: String
+    var content: MessageContentDTO
+    var stopReason: String?
+    var errorMessage: String?
+}
+
+/// 消息内容可能是字符串（system）或内容块数组（user/assistant）。
+nonisolated enum MessageContentDTO: Decodable {
+    case text(String)
+    case blocks([ContentBlockDTO])
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let text = try? container.decode(String.self) {
+            self = .text(text)
+            return
+        }
+        self = .blocks(try container.decode([ContentBlockDTO].self))
+    }
+
+    /// 拼接所有 `text` 块（忽略 thinking / toolCall 块）。
+    var joinedText: String {
+        switch self {
+        case .text(let value):
+            return value
+        case .blocks(let blocks):
+            return blocks.compactMap { $0.type == "text" ? $0.text : nil }.joined()
+        }
+    }
+}
+
+/// 内容块。
+nonisolated struct ContentBlockDTO: Decodable {
+    var type: String
+    var text: String?
+    var thinking: String?
+}
+
+/// 线上报文 → 领域事件的映射（纯函数，便于单测）。
+nonisolated enum RPCProtocol {
+    static func decode(_ line: Data) -> RPCRecord? {
+        try? JSONDecoder().decode(RPCRecord.self, from: line)
+    }
+
+    /// 把一条记录映射为领域事件；`response` 与未知记录返回 `nil`。
+    static func agentEvent(from record: RPCRecord) -> AgentEvent? {
+        switch record.type {
+        case "agent_start":
+            return .agentStarted
+
+        case "message_update":
+            guard let update = record.assistantMessageEvent else { return nil }
+            switch update.type {
+            case "text_delta":
+                return update.delta.map(AgentEvent.textDelta)
+            case "thinking_delta":
+                return update.delta.map(AgentEvent.thinkingDelta)
+            default:
+                return nil
+            }
+
+        case "tool_execution_start":
+            guard let id = record.toolCallId, let name = record.toolName else { return nil }
+            return .toolCallStarted(id: id, name: name)
+
+        case "tool_execution_end":
+            guard let id = record.toolCallId, let name = record.toolName else { return nil }
+            return .toolCallFinished(
+                id: id,
+                name: name,
+                isError: record.isError ?? false,
+                durationMs: record.durationMs
+            )
+
+        case "message_end":
+            // 只关心助手消息；用户/系统消息由本地写入或忽略。
+            guard let message = record.message, message.role == "assistant" else { return nil }
+            return .assistantMessageCompleted(
+                text: message.content.joinedText,
+                stopReason: message.stopReason,
+                errorMessage: message.errorMessage
+            )
+
+        case "agent_settled":
+            return .settled(aborted: record.aborted ?? false)
+
+        default:
+            return nil
+        }
+    }
+}

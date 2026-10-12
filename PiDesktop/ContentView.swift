@@ -8,63 +8,73 @@
 import SwiftUI
 import SwiftData
 
-/// 根视图。
+/// 根视图：左侧会话列表 + 右侧会话详情。
 ///
-/// 目前是 Xcode 模板生成的「列表 + 详情」骨架，用于验证 SwiftData 读写链路。
-/// 正式开发时替换为 pi agent 主界面（会话列表 + 聊天详情 + 工具调用可视化），
-/// 布局与数据流见 docs/architecture.md、docs/pi-agent.md。
+/// 数据链路：`Session`/`Message`（SwiftData）↔ `SessionStore` ↔ `ChatView`。
+/// 领域事件由 `Core/Agent` 提供，数据流见 docs/architecture.md。
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    /// 由 SwiftData 驱动：数据变更后 `items` 自动刷新，无需手动维护列表状态。
-    @Query private var items: [Item]
+    /// 按最近活动倒序；SwiftData 在数据变更后自动刷新。
+    @Query(sort: \Session.updatedAt, order: .reverse) private var sessions: [Session]
 
     var body: some View {
-        // 双栏结构（侧栏 + 详情），符合 macOS 的导航习惯，
-        // 也是后续「会话列表 + 聊天区」的雏形。
+        // 双栏结构（侧栏 + 详情），符合 macOS 导航习惯。
         NavigationSplitView {
             List {
-                ForEach(items) { item in
+                ForEach(sessions) { session in
                     NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        ChatView(session: session)
                     } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        SessionRow(session: session)
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .onDelete(perform: deleteSessions)
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 240)
             .toolbar {
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: addSession) {
+                        Label("New Session", systemImage: "plus")
                     }
                 }
             }
         } detail: {
-            Text("Select an item")
+            Text("Select a session")
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func addItem() {
-        // 用动画包裹，让列表变化更自然；SwiftData 会在插入后自动持久化。
+    private func addSession() {
         withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+            modelContext.insert(Session(title: "New Session"))
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
-        // 删除同样包在动画里；`offsets` 来自 List 的滑动删除手势。
+    private func deleteSessions(offsets: IndexSet) {
+        // 级联删除由 Session.messages 的 deleteRule 保证。
         withAnimation {
             for index in offsets {
-                modelContext.delete(items[index])
+                modelContext.delete(sessions[index])
             }
         }
     }
 }
 
+/// 会话列表行：标题 + 最近活动时间。
+private struct SessionRow: View {
+    let session: Session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(session.title.isEmpty ? "Untitled Session" : session.title)
+            Text(session.updatedAt, format: .dateTime.month().day().hour().minute())
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 #Preview {
-    // 预览用内存容器，避免写入真实数据库。
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: [Session.self, Message.self], inMemory: true)
 }

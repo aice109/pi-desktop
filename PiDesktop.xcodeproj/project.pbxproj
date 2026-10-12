@@ -6,8 +6,19 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A1000000000000000000A00B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 092F4681307C62F70018B06E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 092F4688307C62F70018B06E;
+			remoteInfo = PiDesktop;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		092F4689307C62F70018B06E /* PiDesktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiDesktop.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000000000000000000A002 /* PiDesktopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiDesktopTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +27,20 @@
 			path = PiDesktop;
 			sourceTree = "<group>";
 		};
+		A1000000000000000000A003 /* PiDesktopTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PiDesktopTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		092F4686307C62F70018B06E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		A1000000000000000000A005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -31,6 +52,7 @@
 			isa = PBXGroup;
 			children = (
 				092F468B307C62F70018B06E /* PiDesktop */,
+				A1000000000000000000A003 /* PiDesktopTests */,
 				092F468A307C62F70018B06E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				092F4689307C62F70018B06E /* PiDesktop.app */,
+				A1000000000000000000A002 /* PiDesktopTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,6 +87,27 @@
 			productReference = 092F4689307C62F70018B06E /* PiDesktop.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A1000000000000000000A001 /* PiDesktopTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000000000000000000A009 /* Build configuration list for PBXNativeTarget "PiDesktopTests" */;
+			buildPhases = (
+				A1000000000000000000A004 /* Sources */,
+				A1000000000000000000A005 /* Frameworks */,
+				A1000000000000000000A006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1000000000000000000A00A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1000000000000000000A003 /* PiDesktopTests */,
+			);
+			name = PiDesktopTests;
+			productName = PiDesktopTests;
+			productReference = A1000000000000000000A002 /* PiDesktopTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -76,6 +120,10 @@
 				TargetAttributes = {
 					092F4688307C62F70018B06E = {
 						CreatedOnToolsVersion = 27.0;
+					};
+					A1000000000000000000A001 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 092F4688307C62F70018B06E;
 					};
 				};
 			};
@@ -94,12 +142,18 @@
 			projectRoot = "";
 			targets = (
 				092F4688307C62F70018B06E /* PiDesktop */,
+				A1000000000000000000A001 /* PiDesktopTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		092F4687307C62F70018B06E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		A1000000000000000000A006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +166,20 @@
 			files = (
 			);
 		};
+		A1000000000000000000A004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1000000000000000000A00A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 092F4688307C62F70018B06E /* PiDesktop */;
+			targetProxy = A1000000000000000000A00B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		092F4694307C62F80018B06E /* Debug configuration for PBXProject "PiDesktop" */ = {
@@ -241,17 +308,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 PiDesktop contributors. MIT License.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.aice109.PiDesktop;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -272,17 +338,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 PiDesktop contributors. MIT License.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.aice109.PiDesktop;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -292,6 +357,52 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A1000000000000000000A007 /* Debug configuration for PBXNativeTarget "PiDesktopTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.aice109.PiDesktopTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PiDesktop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PiDesktop";
+			};
+			name = Debug;
+		};
+		A1000000000000000000A008 /* Release configuration for PBXNativeTarget "PiDesktopTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.aice109.PiDesktopTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PiDesktop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PiDesktop";
 			};
 			name = Release;
 		};
@@ -311,6 +422,14 @@
 			buildConfigurations = (
 				092F4697307C62F80018B06E /* Debug configuration for PBXNativeTarget "PiDesktop" */,
 				092F4698307C62F80018B06E /* Release configuration for PBXNativeTarget "PiDesktop" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		A1000000000000000000A009 /* Build configuration list for PBXNativeTarget "PiDesktopTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000000000000000000A007 /* Debug configuration for PBXNativeTarget "PiDesktopTests" */,
+				A1000000000000000000A008 /* Release configuration for PBXNativeTarget "PiDesktopTests" */,
 			);
 			defaultConfigurationName = Release;
 		};
