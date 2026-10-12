@@ -22,13 +22,13 @@ Working today:
 - 💬 **Streaming chat** — send prompts and render the assistant reply as it arrives, with Markdown.
 - 🛠 **Tool-call visualization** — cards showing tool name, arguments, live output, status, and duration.
 - 🎛 **Model & thinking control** — choose the model and reasoning level, and watch context usage and cost.
+- 🗂 **Session management** — rename, search, refresh, and remove sessions (moved to the Trash).
 - 🪟 **Native look** — built with Apple frameworks and macOS **Liquid Glass**.
 
 In progress:
 
-- 🧠 **Reasoning view** — a collapsible thinking section (live only for now).
-- ⚙️ **Settings** — model / thinking-level selection, preferences, and theme.
-- 🗂 **Session management** — rename and richer organization.
+- 🧠 **Reasoning view** — persist reasoning so it can be revisited later.
+- ⚙️ **Settings** — default model, theme, and preferences.
 
 See [`docs/architecture.md`](docs/architecture.md) and [`docs/pi-agent.md`](docs/pi-agent.md) for the design.
 

@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output. Historical `toolResult` entries are imported too.
 - Per-session model and thinking-level selection, plus a usage footer (context %, total tokens, cost)
   backed by `get_available_models`, `set_model`, `set_thinking_level`, and `get_session_stats`.
+- Session rename through pi's `set_session_name` (sidebar context menu). Historical tool calls now
+  import their arguments from the assistant's `toolCall` blocks.
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow
