@@ -5,8 +5,8 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 /// 应用入口。
 ///
@@ -71,56 +71,56 @@ struct PiDesktopApp: App {
     }
 
     /// 应用菜单：文件 / 会话命令。
-///
-/// 从聚焦窗口读取处理器（`FocusedValue`）；没有匹配窗口时菜单项自动禁用。
-private struct PiDesktopCommands: Commands {
-    @FocusedValue(\.sessionCommands) private var commands
+    ///
+    /// 从聚焦窗口读取处理器（`FocusedValue`）；没有匹配窗口时菜单项自动禁用。
+    private struct PiDesktopCommands: Commands {
+        @FocusedValue(\.sessionCommands) private var commands
 
-    var body: some Commands {
-        CommandGroup(replacing: .newItem) {
-            Button("New Session") { commands?.newSession() }
-                .keyboardShortcut("n", modifiers: .command)
-                .disabled(commands == nil)
-            Button("Open Workspace…") { commands?.chooseWorkspace() }
-                .keyboardShortcut("o", modifiers: .command)
-                .disabled(commands == nil)
-            Divider()
-            Button("Export as HTML…") { commands?.exportHTML() }
-                .keyboardShortcut("e", modifiers: [.command, .shift])
-                .disabled(!(commands?.canExport() ?? false))
-        }
+        var body: some Commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Session") { commands?.newSession() }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .disabled(commands == nil)
+                Button("Open Workspace…") { commands?.chooseWorkspace() }
+                    .keyboardShortcut("o", modifiers: .command)
+                    .disabled(commands == nil)
+                Divider()
+                Button("Export as HTML…") { commands?.exportHTML() }
+                    .keyboardShortcut("e", modifiers: [.command, .shift])
+                    .disabled(!(commands?.canExport() ?? false))
+            }
 
-        CommandMenu("Chat") {
-            Button("Next Model") { commands?.cycleModel() }
-                .keyboardShortcut("m", modifiers: [.command, .control])
-                .disabled(!(commands?.canChat() ?? false))
-            Button("Next Thinking Level") { commands?.cycleThinkingLevel() }
-                .keyboardShortcut("t", modifiers: [.command, .control])
-                .disabled(!(commands?.canChat() ?? false))
-            Divider()
-            Button("Copy Last Response") { commands?.copyLastResponse() }
-                .keyboardShortcut("c", modifiers: [.command, .shift])
-                .disabled(!(commands?.canChat() ?? false))
-            Button("Retry Last Message") { commands?.retryLast() }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .disabled(!(commands?.canRetryLast() ?? false))
-        }
+            CommandMenu("Chat") {
+                Button("Next Model") { commands?.cycleModel() }
+                    .keyboardShortcut("m", modifiers: [.command, .control])
+                    .disabled(!(commands?.canChat() ?? false))
+                Button("Next Thinking Level") { commands?.cycleThinkingLevel() }
+                    .keyboardShortcut("t", modifiers: [.command, .control])
+                    .disabled(!(commands?.canChat() ?? false))
+                Divider()
+                Button("Copy Last Response") { commands?.copyLastResponse() }
+                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                    .disabled(!(commands?.canChat() ?? false))
+                Button("Retry Last Message") { commands?.retryLast() }
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
+                    .disabled(!(commands?.canRetryLast() ?? false))
+            }
 
-        CommandMenu("Session") {
-            Button("Refresh Sessions") { commands?.refresh() }
-                .keyboardShortcut("r", modifiers: .command)
-                .disabled(commands == nil)
-            Button("Stop") { commands?.stop() }
-                .keyboardShortcut(".", modifiers: .command)
-                .disabled(!(commands?.isStreaming() ?? false))
-            Divider()
-            Button("Close Workspace") { commands?.closeWorkspace() }
-                .disabled(commands == nil)
+            CommandMenu("Session") {
+                Button("Refresh Sessions") { commands?.refresh() }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .disabled(commands == nil)
+                Button("Stop") { commands?.stop() }
+                    .keyboardShortcut(".", modifiers: .command)
+                    .disabled(!(commands?.isStreaming() ?? false))
+                Divider()
+                Button("Close Workspace") { commands?.closeWorkspace() }
+                    .disabled(commands == nil)
+            }
         }
     }
-}
 
-/// 创建全局 SwiftData 容器。
+    /// 创建全局 SwiftData 容器。
     ///
     /// 容器是应用的硬依赖，创建失败意味着 schema 或存储配置有误；带着半残状态启动
     /// 只会制造更难排查的问题，因此启动时明确崩溃（`coding-conventions.md` §7）。

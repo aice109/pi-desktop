@@ -334,10 +334,11 @@ nonisolated enum RPCProtocol {
             return .settled(aborted: record.aborted ?? false)
 
         case "queue_update":
-            return .queueUpdated(AgentQueue(
-                steering: record.steering ?? [],
-                followUp: record.followUp ?? []
-            ))
+            return .queueUpdated(
+                AgentQueue(
+                    steering: record.steering ?? [],
+                    followUp: record.followUp ?? []
+                ))
 
         case "session_info_changed":
             return .sessionInfoChanged(name: record.name)

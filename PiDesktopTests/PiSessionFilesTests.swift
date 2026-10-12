@@ -6,6 +6,7 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// `PiSessionFiles` 的解析测试：目录名编码、摘要与消息解析。
@@ -33,14 +34,16 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_summary_parsesHeaderNamePreviewAndCount() throws {
-        let url = try writeSession(named: "one", lines: [
-            #"{"type":"session","version":3,"id":"session-1","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-            #"{"type":"model_change","id":"a","parentId":null,"timestamp":"2024-12-03T14:00:01.000Z","provider":"x","modelId":"y"}"#,
-            #"{"type":"message","id":"b","parentId":"a","timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"Hello there"}}"#,
-            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}"#,
-            #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"toolResult","toolCallId":"x","toolName":"bash","content":[{"type":"text","text":"out"}],"isError":false}}"#,
-            #"{"type":"session_info","id":"e","parentId":"d","timestamp":"2024-12-03T14:00:05.000Z","name":"Refactor auth"}"#,
-        ])
+        let url = try writeSession(
+            named: "one",
+            lines: [
+                #"{"type":"session","version":3,"id":"session-1","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+                #"{"type":"model_change","id":"a","parentId":null,"timestamp":"2024-12-03T14:00:01.000Z","provider":"x","modelId":"y"}"#,
+                #"{"type":"message","id":"b","parentId":"a","timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"Hello there"}}"#,
+                #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}"#,
+                #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"toolResult","toolCallId":"x","toolName":"bash","content":[{"type":"text","text":"out"}],"isError":false}}"#,
+                #"{"type":"session_info","id":"e","parentId":"d","timestamp":"2024-12-03T14:00:05.000Z","name":"Refactor auth"}"#,
+            ])
 
         let summary = try XCTUnwrap(PiSessionFiles.summary(of: url))
         XCTAssertEqual(summary.sessionID, "session-1")
@@ -53,10 +56,12 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_summary_fallsBackToPreviewWhenUnnamed() throws {
-        let url = try writeSession(named: "unnamed", lines: [
-            #"{"type":"session","version":3,"id":"s2","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"What does this project do?"}}"#,
-        ])
+        let url = try writeSession(
+            named: "unnamed",
+            lines: [
+                #"{"type":"session","version":3,"id":"s2","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+                #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"What does this project do?"}}"#,
+            ])
 
         let summary = try XCTUnwrap(PiSessionFiles.summary(of: url))
         XCTAssertNil(summary.name)
@@ -64,12 +69,14 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_messages_mapsRolesAndText() throws {
-        let url = try writeSession(named: "messages", lines: [
-            #"{"type":"session","version":3,"id":"s3","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"Hello"}}"#,
-            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi "},{"type":"text","text":"there"}]}}"#,
-            #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"system","content":""}}"#,
-        ])
+        let url = try writeSession(
+            named: "messages",
+            lines: [
+                #"{"type":"session","version":3,"id":"s3","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+                #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"Hello"}}"#,
+                #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi "},{"type":"text","text":"there"}]}}"#,
+                #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"system","content":""}}"#,
+            ])
 
         let messages = PiSessionFiles.history(in: url).messages
         XCTAssertEqual(messages.map(\.role), [.user, .assistant])
@@ -77,11 +84,13 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_messages_parsesAssistantThinking() throws {
-        let url = try writeSession(named: "thinking", lines: [
-            #"{"type":"session","version":3,"id":"s5","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"why?"}}"#,
-            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me think."},{"type":"text","text":"Answer"}]}}"#,
-        ])
+        let url = try writeSession(
+            named: "thinking",
+            lines: [
+                #"{"type":"session","version":3,"id":"s5","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+                #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"why?"}}"#,
+                #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me think."},{"type":"text","text":"Answer"}]}}"#,
+            ])
 
         let messages = PiSessionFiles.history(in: url).messages
         XCTAssertEqual(messages.count, 2)
@@ -91,12 +100,14 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_toolCalls_parsesToolResultEntries() throws {
-        let url = try writeSession(named: "tools", lines: [
-            #"{"type":"session","version":3,"id":"s4","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"list files"}}"#,
-            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:02.500Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"ls"}}]}}"#,
-            #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","content":[{"type":"text","text":"README.md"}],"isError":false}}"#,
-        ])
+        let url = try writeSession(
+            named: "tools",
+            lines: [
+                #"{"type":"session","version":3,"id":"s4","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+                #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"list files"}}"#,
+                #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:02.500Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"ls"}}]}}"#,
+                #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","content":[{"type":"text","text":"README.md"}],"isError":false}}"#,
+            ])
 
         let toolCalls = PiSessionFiles.history(in: url).toolCalls
         XCTAssertEqual(toolCalls.count, 1)
@@ -111,12 +122,16 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_summaries_sortsByRecencyAndIgnoresInvalidFiles() throws {
-        let older = try writeSession(named: "older", lines: [
-            #"{"type":"session","version":3,"id":"old","timestamp":"2024-12-01T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-        ])
-        let newer = try writeSession(named: "newer", lines: [
-            #"{"type":"session","version":3,"id":"new","timestamp":"2024-12-02T14:00:00.000Z","cwd":"/tmp/proj"}"#,
-        ])
+        let older = try writeSession(
+            named: "older",
+            lines: [
+                #"{"type":"session","version":3,"id":"old","timestamp":"2024-12-01T14:00:00.000Z","cwd":"/tmp/proj"}"#
+            ])
+        let newer = try writeSession(
+            named: "newer",
+            lines: [
+                #"{"type":"session","version":3,"id":"new","timestamp":"2024-12-02T14:00:00.000Z","cwd":"/tmp/proj"}"#
+            ])
         try FileManager.default.setAttributes(
             [.modificationDate: Date(timeIntervalSince1970: 1_000)],
             ofItemAtPath: older.path
@@ -133,9 +148,12 @@ final class PiSessionFilesTests: XCTestCase {
     }
 
     func test_summary_cache_invalidatesWhenFileChanges() throws {
-        let header = #"{"type":"session","version":3,"id":"cache","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#
-        let user = #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"one"}}"#
-        let assistant = #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"two"}]}}"#
+        let header =
+            #"{"type":"session","version":3,"id":"cache","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#
+        let user =
+            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"one"}}"#
+        let assistant =
+            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"two"}]}}"#
         let url = try writeSession(named: "cache", lines: [header, user])
 
         XCTAssertEqual(PiSessionFiles.summary(of: url)?.messageCount, 1)

@@ -5,8 +5,8 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import SwiftUI
 import Foundation
+import SwiftUI
 
 /// 块级 Markdown 渲染。
 ///
@@ -90,10 +90,12 @@ extension MarkdownBlock {
     static func parse(_ markdown: String) -> [MarkdownBlock] {
         let source = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty else { return [] }
-        guard let attributed = try? AttributedString(
-            markdown: source,
-            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full)
-        ) else {
+        guard
+            let attributed = try? AttributedString(
+                markdown: source,
+                options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full)
+            )
+        else {
             return [MarkdownBlock(kind: .paragraph(AttributedString(source)))]
         }
 
@@ -124,7 +126,8 @@ extension MarkdownBlock {
                 blocks.append(MarkdownBlock(kind: .heading(level: level, text: entry.text)))
                 index += 1
             case .codeBlock(let language):
-                blocks.append(MarkdownBlock(kind: .codeBlock(language: language, code: String(entry.text.characters))))
+                blocks.append(
+                    MarkdownBlock(kind: .codeBlock(language: language, code: String(entry.text.characters))))
                 index += 1
             case .thematicBreak:
                 blocks.append(MarkdownBlock(kind: .thematicBreak))
@@ -158,21 +161,28 @@ extension MarkdownBlock {
             switch component.kind {
             case .orderedList:
                 depth += 1
-                if !foundInnermost { isOrdered = true; foundInnermost = true }
+                if !foundInnermost {
+                    isOrdered = true
+                    foundInnermost = true
+                }
             case .unorderedList:
                 depth += 1
-                if !foundInnermost { isOrdered = false; foundInnermost = true }
+                if !foundInnermost {
+                    isOrdered = false
+                    foundInnermost = true
+                }
             case .listItem(let value):
                 ordinal = value
             default:
                 break
             }
         }
-        return MarkdownBlock(kind: .listItem(
-            marker: isOrdered ? "\(ordinal)." : "•",
-            depth: max(depth - 1, 0),
-            text: text
-        ))
+        return MarkdownBlock(
+            kind: .listItem(
+                marker: isOrdered ? "\(ordinal)." : "•",
+                depth: max(depth - 1, 0),
+                text: text
+            ))
     }
 
     /// 把一个表格的所有单元格合并成一个块。
@@ -201,9 +211,9 @@ extension MarkdownBlock {
 
         while index < grouped.count {
             guard let intent = grouped[index].intent,
-                  let outer = intent.components.last,
-                  case .table = outer.kind,
-                  outer.identity == tableIdentity
+                let outer = intent.components.last,
+                case .table = outer.kind,
+                outer.identity == tableIdentity
             else { break }
 
             var column = 0
@@ -212,8 +222,12 @@ extension MarkdownBlock {
             for component in intent.components {
                 switch component.kind {
                 case .tableCell(let index): column = index
-                case .tableHeaderRow: isHeader = true; rowKey = component.identity
-                case .tableRow: isHeader = false; rowKey = component.identity
+                case .tableHeaderRow:
+                    isHeader = true
+                    rowKey = component.identity
+                case .tableRow:
+                    isHeader = false
+                    rowKey = component.identity
                 default: break
                 }
             }
@@ -274,7 +288,8 @@ private struct MarkdownBlockView: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.small))
+            .background(
+                .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.small))
 
         case .blockQuote(let text):
             HStack(alignment: .top, spacing: 10) {
@@ -329,33 +344,35 @@ private struct MarkdownBlockView: View {
 
 #Preview("Markdown") {
     ScrollView {
-        MarkdownText(text: """
-        # Heading 1
+        MarkdownText(
+            text: """
+                # Heading 1
 
-        Some **bold**, *italic*, `inline code` and a [link](https://example.com).
+                Some **bold**, *italic*, `inline code` and a [link](https://example.com).
 
-        - first item
-        - second item with `code`
+                - first item
+                - second item with `code`
 
-        1. ordered one
-        2. ordered two
+                1. ordered one
+                2. ordered two
 
-        > A quoted line.
+                > A quoted line.
 
-        ```swift
-        let value = 42
-        print(value)
-        ```
+                ```swift
+                let value = 42
+                print(value)
+                ```
 
-        | Name | Value |
-        | --- | --- |
-        | alpha | 1 |
-        | beta | 2 |
+                | Name | Value |
+                | --- | --- |
+                | alpha | 1 |
+                | beta | 2 |
 
-        ---
+                ---
 
-        Closing paragraph.
-        """)
+                Closing paragraph.
+                """
+        )
         .padding()
     }
     .frame(width: 520, height: 640)

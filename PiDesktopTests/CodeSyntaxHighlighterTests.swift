@@ -5,8 +5,9 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import XCTest
 import SwiftUI
+import XCTest
+
 @testable import PiDesktop
 
 /// 轻量代码高亮的词法测试。

@@ -5,8 +5,8 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import SwiftUI
 import Foundation
+import SwiftUI
 
 /// 词法单元类别。
 nonisolated enum CodeTokenKind: Equatable {
@@ -94,9 +94,20 @@ nonisolated enum CodeSyntaxHighlighter {
                 var escaped = false
                 while j < count {
                     let d = chars[j]
-                    if escaped { escaped = false; j += 1; continue }
-                    if d == "\\" { escaped = true; j += 1; continue }
-                    if d == c { j += 1; break }
+                    if escaped {
+                        escaped = false
+                        j += 1
+                        continue
+                    }
+                    if d == "\\" {
+                        escaped = true
+                        j += 1
+                        continue
+                    }
+                    if d == c {
+                        j += 1
+                        break
+                    }
                     if d == "\n", c != "`" { break }
                     j += 1
                 }
@@ -196,12 +207,20 @@ nonisolated enum CodeSyntaxHighlighter {
             "nonmutating", "indirect", "fileprivate", "open", "fallthrough", "repeat", "rethrows",
             "precedencegroup", "willSet", "didSet",
         ],
-        "python": ["pass", "raise", "global", "nonlocal", "assert", "del", "except", "cls", "True", "False", "None"],
+        "python": [
+            "pass", "raise", "global", "nonlocal", "assert", "del", "except", "cls", "True", "False", "None",
+        ],
         "javascript": ["undefined", "typeof", "instanceof", "delete", "of", "module", "declare", "abstract"],
         "go": ["func", "chan", "map", "make", "len", "cap", "append", "fallthrough"],
-        "rust": ["fn", "mut", "impl", "trait", "pub", "mod", "crate", "unsafe", "move", "ref", "dyn", "Some", "None", "Ok", "Err"],
+        "rust": [
+            "fn", "mut", "impl", "trait", "pub", "mod", "crate", "unsafe", "move", "ref", "dyn", "Some",
+            "None", "Ok", "Err",
+        ],
         "shell": ["done", "exit", "shift", "source", "elif"],
-        "java": ["final", "val", "fun", "when", "object", "data", "sealed", "companion", "suspend", "override", "internal", "lateinit"],
+        "java": [
+            "final", "val", "fun", "when", "object", "data", "sealed", "companion", "suspend", "override",
+            "internal", "lateinit",
+        ],
         "ruby": ["elsif", "unless", "until", "module", "require"],
     ]
 

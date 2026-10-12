@@ -6,33 +6,39 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// 线上报文 → 领域事件 的映射测试（样本取自真实 pi RPC 输出）。
 final class RPCProtocolTests: XCTestCase {
     private func event(_ json: String) -> AgentEvent? {
         guard let data = json.data(using: .utf8),
-              let record = RPCProtocol.decode(data) else { return nil }
+            let record = RPCProtocol.decode(data)
+        else { return nil }
         return RPCProtocol.agentEvent(from: record)
     }
 
     func test_textDelta_mapsToTextDelta() {
-        let json = #"{"type":"message_update","usage":{},"assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"ong"}}"#
+        let json =
+            #"{"type":"message_update","usage":{},"assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"ong"}}"#
         XCTAssertEqual(event(json), .textDelta("ong"))
     }
 
     func test_thinkingDelta_mapsToThinkingDelta() {
-        let json = #"{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"hmm"}}"#
+        let json =
+            #"{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"hmm"}}"#
         XCTAssertEqual(event(json), .thinkingDelta("hmm"))
     }
 
     func test_textStart_isIgnored() {
-        let json = #"{"type":"message_update","assistantMessageEvent":{"type":"text_start","contentIndex":0}}"#
+        let json =
+            #"{"type":"message_update","assistantMessageEvent":{"type":"text_start","contentIndex":0}}"#
         XCTAssertNil(event(json))
     }
 
     func test_assistantMessageEnd_joinsTextBlocks() {
-        let json = #"{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"pong"}],"stopReason":"stop","timestamp":1}}"#
+        let json =
+            #"{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"pong"}],"stopReason":"stop","timestamp":1}}"#
         XCTAssertEqual(
             event(json),
             .assistantMessageCompleted(text: "pong", stopReason: "stop", errorMessage: nil)
@@ -40,7 +46,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_userMessageEnd_isIgnored() {
-        let json = #"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"hi"}],"timestamp":1}}"#
+        let json =
+            #"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"hi"}],"timestamp":1}}"#
         XCTAssertNil(event(json))
     }
 
@@ -52,16 +59,19 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_toolExecution_mapsStartUpdateAndEnd() {
-        let start = #"{"type":"tool_execution_start","toolCallId":"call_1","toolName":"bash","args":{"command":"ls"}}"#
+        let start =
+            #"{"type":"tool_execution_start","toolCallId":"call_1","toolName":"bash","args":{"command":"ls"}}"#
         XCTAssertEqual(
             event(start),
             .toolCallStarted(id: "call_1", name: "bash", arguments: "command: ls")
         )
 
-        let update = #"{"type":"tool_execution_update","toolCallId":"call_1","toolName":"bash","args":{"command":"ls"},"partialResult":{"content":[{"type":"text","text":"partial output"}],"details":{}}}"#
+        let update =
+            #"{"type":"tool_execution_update","toolCallId":"call_1","toolName":"bash","args":{"command":"ls"},"partialResult":{"content":[{"type":"text","text":"partial output"}],"details":{}}}"#
         XCTAssertEqual(event(update), .toolCallUpdated(id: "call_1", output: "partial output"))
 
-        let end = #"{"type":"tool_execution_end","toolCallId":"call_1","toolName":"bash","result":{"content":[{"type":"text","text":"done"}],"details":{}},"isError":false,"durationMs":42}"#
+        let end =
+            #"{"type":"tool_execution_end","toolCallId":"call_1","toolName":"bash","result":{"content":[{"type":"text","text":"done"}],"details":{}},"isError":false,"durationMs":42}"#
         XCTAssertEqual(
             event(end),
             .toolCallFinished(id: "call_1", name: "bash", isError: false, durationMs: 42, output: "done")
@@ -75,7 +85,9 @@ final class RPCProtocolTests: XCTestCase {
 
     func test_retryAndCompaction_mapToEvents() {
         XCTAssertEqual(
-            event(#"{"type":"auto_retry_start","attempt":1,"maxAttempts":3,"delayMs":2000,"errorMessage":"529 overloaded"}"#),
+            event(
+                #"{"type":"auto_retry_start","attempt":1,"maxAttempts":3,"delayMs":2000,"errorMessage":"529 overloaded"}"#
+            ),
             .retryStarted(attempt: 1, maxAttempts: 3)
         )
         XCTAssertEqual(
@@ -119,7 +131,8 @@ final class RPCProtocolTests: XCTestCase {
             .summarizationRetryStarted
         )
         XCTAssertEqual(
-            event(#"{"type":"summarization_retry_attempt_start","source":"compaction","reason":"threshold"}"#),
+            event(
+                #"{"type":"summarization_retry_attempt_start","source":"compaction","reason":"threshold"}"#),
             .summarizationRetryStarted
         )
         XCTAssertEqual(event(#"{"type":"summarization_retry_finished"}"#), .summarizationRetryFinished)
@@ -132,7 +145,8 @@ final class RPCProtocolTests: XCTestCase {
 
     func test_getSessionStatsResponse_decodesTokensCostAndContext() {
         // 真实报文：`contextUsage.percent` 是小数，曾因按 Int 解码导致整条响应失败。
-        let json = #"{"id":"r1","type":"response","command":"get_session_stats","success":true,"data":{"tokens":{"input":1,"output":2,"cacheRead":3,"cacheWrite":4,"total":10},"cost":0.147,"contextUsage":{"tokens":114525,"contextWindow":1000000,"percent":11.4525}}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_session_stats","success":true,"data":{"tokens":{"input":1,"output":2,"cacheRead":3,"cacheWrite":4,"total":10},"cost":0.147,"contextUsage":{"tokens":114525,"contextWindow":1000000,"percent":11.4525}}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_session_stats 响应应能解码")
         }
@@ -143,7 +157,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_getStateResponse_decodesModelThinkingAndLevels() {
-        let state = #"{"id":"r1","type":"response","command":"get_state","success":true,"data":{"model":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","provider":"deepseek","reasoning":true,"contextWindow":1000000},"thinkingLevel":"high","sessionFile":"/tmp/s.jsonl"}}"#
+        let state =
+            #"{"id":"r1","type":"response","command":"get_state","success":true,"data":{"model":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","provider":"deepseek","reasoning":true,"contextWindow":1000000},"thinkingLevel":"high","sessionFile":"/tmp/s.jsonl"}}"#
         guard let data = state.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_state 响应应能解码")
         }
@@ -151,8 +166,10 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(record.data?.model?.domain.reasoning, true)
         XCTAssertEqual(record.data?.thinkingLevel, "high")
 
-        let levels = #"{"id":"r2","type":"response","command":"get_available_thinking_levels","success":true,"data":{"levels":["off","low","high","max"]}}"#
-        guard let levelsData = levels.data(using: .utf8), let levelsRecord = RPCProtocol.decode(levelsData) else {
+        let levels =
+            #"{"id":"r2","type":"response","command":"get_available_thinking_levels","success":true,"data":{"levels":["off","low","high","max"]}}"#
+        guard let levelsData = levels.data(using: .utf8), let levelsRecord = RPCProtocol.decode(levelsData)
+        else {
             return XCTFail("levels 响应应能解码")
         }
         XCTAssertEqual(levelsRecord.data?.levels, ["off", "low", "high", "max"])
@@ -160,7 +177,8 @@ final class RPCProtocolTests: XCTestCase {
 
     func test_getEntriesResponse_decodesHistory() {
         // 真实形状：data.entries 是追加式树的节点，message 为 AgentMessage。
-        let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":[{"type":"text","text":"run ls"}]}},{"type":"message","id":"e2","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Now listing."},{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"ls"}}]}},{"type":"message","id":"e3","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","isError":false,"content":[{"type":"text","text":"AGENTS.md"}]}}],"leafId":"e3"}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":[{"type":"text","text":"run ls"}]}},{"type":"message","id":"e2","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Now listing."},{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"ls"}}]}},{"type":"message","id":"e3","timestamp":"2024-12-03T14:00:04.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","isError":false,"content":[{"type":"text","text":"AGENTS.md"}]}}],"leafId":"e3"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_entries 响应应能解码")
         }
@@ -176,7 +194,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_getTreeResponse_mapsToDomainTree() {
-        let json = #"{"id":"r1","type":"response","command":"get_tree","success":true,"data":{"tree":[{"entry":{"type":"message","id":"e1","parentId":null,"message":{"role":"user","content":[{"type":"text","text":"hi"}]}},"children":[{"entry":{"type":"message","id":"e2","parentId":"e1","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}},"children":[]}]}],"leafId":"e2"}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_tree","success":true,"data":{"tree":[{"entry":{"type":"message","id":"e1","parentId":null,"message":{"role":"user","content":[{"type":"text","text":"hi"}]}},"children":[{"entry":{"type":"message","id":"e2","parentId":"e1","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}},"children":[]}]}],"leafId":"e2"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_tree 响应应能解码")
         }
@@ -192,7 +211,8 @@ final class RPCProtocolTests: XCTestCase {
 
     func test_nullContent_decodesAsEmptyText() {
         // 真实报文：`get_entries` 里 `system` / `bashExecution` 消息的 content 为 null。
-        let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"bashExecution","content":null,"command":"ls","output":""}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}],"leafId":"e2"}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"bashExecution","content":null,"command":"ls","output":""}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}],"leafId":"e2"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("含 null content 的条目应能解码（否则整条响应失败）")
         }
@@ -206,7 +226,8 @@ final class RPCProtocolTests: XCTestCase {
 
     func test_missingContentKey_decodesAsEmpty() {
         // 真实报文：`get_entries` 里部分消息根本没有 content 键。
-        let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"system"}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}]}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"system"}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("缺少 content 键的条目应能解码")
         }
@@ -216,7 +237,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_response_decodesButIsNotAnEvent() {
-        let json = #"{"id":"req-1","type":"response","command":"prompt","success":true,"data":{"disposition":"started"}}"#
+        let json =
+            #"{"id":"req-1","type":"response","command":"prompt","success":true,"data":{"disposition":"started"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("response 应能解码")
         }
@@ -225,7 +247,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_getStateResponse_decodesCompactionFlags() {
-        let json = #"{"id":"r1","type":"response","command":"get_state","success":true,"data":{"isCompacting":true,"autoCompactionEnabled":false}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_state","success":true,"data":{"isCompacting":true,"autoCompactionEnabled":false}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_state 响应应能解码")
         }
@@ -234,7 +257,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_getCommandsResponse_decodesCommands() {
-        let json = #"{"id":"r1","type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"fix-tests","description":"Fix failing tests","source":"prompt"},{"name":"skill:review","source":"skill"}]}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"fix-tests","description":"Fix failing tests","source":"prompt"},{"name":"skill:review","source":"skill"}]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_commands 响应应能解码")
         }
@@ -245,7 +269,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_getForkMessagesResponse_decodes() {
-        let json = #"{"id":"r1","type":"response","command":"get_fork_messages","success":true,"data":{"messages":[{"entryId":"e1","text":"First"},{"entryId":"e2","text":"Second"}]}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"get_fork_messages","success":true,"data":{"messages":[{"entryId":"e1","text":"First"},{"entryId":"e2","text":"Second"}]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_fork_messages 响应应能解码")
         }
@@ -254,7 +279,8 @@ final class RPCProtocolTests: XCTestCase {
     }
 
     func test_clearQueueResponse_decodesQueues() {
-        let json = #"{"id":"r1","type":"response","command":"clear_queue","success":true,"data":{"steering":["stop"],"followUp":["then"]}}"#
+        let json =
+            #"{"id":"r1","type":"response","command":"clear_queue","success":true,"data":{"steering":["stop"],"followUp":["then"]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("clear_queue 响应应能解码")
         }

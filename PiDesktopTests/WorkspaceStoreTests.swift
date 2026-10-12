@@ -6,6 +6,7 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// `WorkspaceStore` 的选择与最近列表持久化测试。

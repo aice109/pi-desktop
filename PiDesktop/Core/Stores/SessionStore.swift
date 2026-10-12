@@ -17,7 +17,8 @@ final class SessionStore {
     /// 为会话创建传输实例。测试/预览注入 mock，生产注入 `PiRPCClient`。
     /// 参数为工作目录与会话文件路径（nil 表示新建会话）。
     /// 标注 `@MainActor`：工厂仅在主 actor 上调用，且 `PiRPCClient` 的初始化器受主 actor 隔离。
-    typealias TransportFactory = @MainActor (_ workingDirectory: URL?, _ sessionPath: String?) -> any AgentTransport
+    typealias TransportFactory =
+        @MainActor (_ workingDirectory: URL?, _ sessionPath: String?) -> any AgentTransport
 
     /// 新会话被 pi 落盘（获得会话文件路径）后回调，用于刷新工作区列表。
     var onSessionPersisted: (@MainActor () -> Void)?
@@ -352,7 +353,9 @@ final class SessionStore {
 
     /// 关闭会话：非流式时释放其传输，避免闲置进程累积。
     func deactivate(_ session: Session) {
-        guard !isStreaming(session), let transport = transports.removeValue(forKey: session.id) else { return }
+        guard !isStreaming(session), let transport = transports.removeValue(forKey: session.id) else {
+            return
+        }
         subscriptions.removeValue(forKey: session.id)?.cancel()
         openSessions.removeValue(forKey: session.id)
         states.removeValue(forKey: session.id)
@@ -427,7 +430,9 @@ final class SessionStore {
 
     /// 循环到下一个思考等级并刷新状态。
     func cycleThinkingLevel(in session: Session) async {
-        guard let transport = transports[session.id], await transport.cycleThinkingLevel() != nil else { return }
+        guard let transport = transports[session.id], await transport.cycleThinkingLevel() != nil else {
+            return
+        }
         await refreshState(for: session)
     }
 
@@ -452,7 +457,7 @@ final class SessionStore {
     /// 开关该会话的自动压缩。
     func setAutoCompaction(_ enabled: Bool, in session: Session) async {
         guard let transport = transports[session.id],
-              await transport.setAutoCompaction(enabled: enabled)
+            await transport.setAutoCompaction(enabled: enabled)
         else { return }
         await refreshState(for: session)
     }
@@ -481,8 +486,8 @@ final class SessionStore {
     func runBash(_ command: String, in session: Session) async {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
-              !runningBash.contains(session.id),
-              let transport = transports[session.id]
+            !runningBash.contains(session.id),
+            let transport = transports[session.id]
         else { return }
         runningBash.insert(session.id)
         defer { runningBash.remove(session.id) }
@@ -586,8 +591,8 @@ final class SessionStore {
     ) async {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || !images.isEmpty,
-              isStreaming(session),
-              let transport = transports[session.id]
+            isStreaming(session),
+            let transport = transports[session.id]
         else { return }
         do {
             _ = try await enqueue(transport, text, images)
@@ -620,7 +625,7 @@ final class SessionStore {
     /// 仅在用户明确触发时执行，且会新增一条用户消息（重试即再问一次）。
     func retryLast(in session: Session) async {
         guard !isStreaming(session),
-              let last = session.messages.last(where: { $0.role == .user })
+            let last = session.messages.last(where: { $0.role == .user })
         else { return }
         let images = last.images.map { AgentImage(mimeType: $0.mimeType, data: $0.data) }
         await send(last.content, images: images, in: session)
@@ -812,7 +817,8 @@ final class SessionStore {
     /// 新会话首轮结束后，从 pi 取回会话文件路径并回写领域对象。
     private func discoverSessionPath(for sessionID: UUID) {
         guard let session = openSessions[sessionID], session.piSessionPath == nil,
-              let transport = transports[sessionID] else { return }
+            let transport = transports[sessionID]
+        else { return }
         Task {
             guard let state = await transport.sessionState() else { return }
             if let path = state.sessionFile, !path.isEmpty {

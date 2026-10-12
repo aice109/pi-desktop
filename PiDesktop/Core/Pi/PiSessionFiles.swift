@@ -61,7 +61,8 @@ nonisolated enum PiSessionFiles {
             options: [.skipsHiddenFiles]
         )
         guard let contents else { return [] }
-        return contents
+        return
+            contents
             .filter { $0.pathExtension == "jsonl" }
             .compactMap(summary(of:))
             .sorted { $0.updatedAt > $1.updatedAt }
@@ -83,9 +84,9 @@ nonisolated enum PiSessionFiles {
 
     private static func parseSummary(of fileURL: URL) -> PiSessionSummary? {
         guard let lines = readLines(fileURL),
-              let firstLine = lines.first,
-              let header = try? JSONDecoder().decode(Header.self, from: Data(firstLine.utf8)),
-              header.type == "session"
+            let firstLine = lines.first,
+            let header = try? JSONDecoder().decode(Header.self, from: Data(firstLine.utf8)),
+            header.type == "session"
         else { return nil }
 
         var name: String?
@@ -132,8 +133,8 @@ nonisolated enum PiSessionFiles {
         guard let lines = readLines(fileURL) else { return PiHistory() }
         let entries = lines.compactMap { line -> PiHistoryEntry? in
             guard let entry = try? JSONDecoder().decode(Entry.self, from: Data(line.utf8)),
-                  entry.type == "message",
-                  let message = entry.message
+                entry.type == "message",
+                let message = entry.message
             else { return nil }
             return PiHistoryEntry(
                 role: message.role,
@@ -194,7 +195,8 @@ nonisolated enum PiSessionFiles {
 
     /// 把首条用户消息压成单行预览并截断。
     private static func preview(from text: String, limit: Int = 140) -> String? {
-        let collapsed = text
+        let collapsed =
+            text
             .split(whereSeparator: { $0.isWhitespace || $0.isNewline })
             .joined(separator: " ")
         guard !collapsed.isEmpty else { return nil }
@@ -231,7 +233,7 @@ nonisolated enum PiSessionFiles {
 
     private static func readLines(_ fileURL: URL) -> [Substring]? {
         guard let data = try? Data(contentsOf: fileURL),
-              let text = String(data: data, encoding: .utf8)
+            let text = String(data: data, encoding: .utf8)
         else { return nil }
         return text.split(separator: "\n", omittingEmptySubsequences: true)
     }

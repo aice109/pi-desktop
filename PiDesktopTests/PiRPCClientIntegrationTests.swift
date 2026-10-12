@@ -6,6 +6,7 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// 真实 `pi` 子进程的端到端验证。
@@ -24,7 +25,8 @@ final class PiRPCClientIntegrationTests: XCTestCase {
             throw XCTSkip("未找到可执行的 pi")
         }
 
-        let client = PiRPCClient(executable: executable, workingDirectory: nil, additionalArguments: ["--no-session"])
+        let client = PiRPCClient(
+            executable: executable, workingDirectory: nil, additionalArguments: ["--no-session"])
         let stream = await client.events()
 
         let settled = expectation(description: "agent_settled")
@@ -88,13 +90,16 @@ final class PiRPCClientIntegrationTests: XCTestCase {
     /// 会话目录中的任意一个会话文件（用于只读验证）。
     private static func anyExistingSessionFile() -> URL? {
         let root = PiSessionFiles.defaultRoot()
-        guard let groups = try? FileManager.default.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        ) else { return nil }
+        guard
+            let groups = try? FileManager.default.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+        else { return nil }
         for group in groups {
-            let files = (try? FileManager.default.contentsOfDirectory(at: group, includingPropertiesForKeys: nil))
+            let files =
+                (try? FileManager.default.contentsOfDirectory(at: group, includingPropertiesForKeys: nil))
                 ?? []
             if let file = files.first(where: { $0.pathExtension == "jsonl" }) { return file }
         }

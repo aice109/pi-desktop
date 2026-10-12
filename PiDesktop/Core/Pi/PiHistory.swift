@@ -67,36 +67,39 @@ nonisolated struct PiHistory: Sendable, Equatable {
                 let images = entry.content.images
                 // 允许仅含思考的助手消息，以及仅含图片的用户消息（ADR-0010）。
                 guard !text.isEmpty || !thinking.isEmpty || !images.isEmpty else { continue }
-                history.messages.append(PiDisplayMessage(
-                    role: role,
-                    text: text,
-                    thinking: thinking.isEmpty ? nil : thinking,
-                    images: images,
-                    timestamp: entry.timestamp ?? now
-                ))
+                history.messages.append(
+                    PiDisplayMessage(
+                        role: role,
+                        text: text,
+                        thinking: thinking.isEmpty ? nil : thinking,
+                        images: images,
+                        timestamp: entry.timestamp ?? now
+                    ))
 
             case "bashExecution":
                 // 直接执行的 shell（`!command`）：以工具消息展示，随历史保留。
                 let command = entry.command ?? ""
                 let output = entry.output ?? entry.content.joinedText
                 guard !command.isEmpty || !output.isEmpty else { continue }
-                history.messages.append(PiDisplayMessage(
-                    role: .tool,
-                    text: bashText(command: command, output: output),
-                    timestamp: entry.timestamp ?? now
-                ))
+                history.messages.append(
+                    PiDisplayMessage(
+                        role: .tool,
+                        text: bashText(command: command, output: output),
+                        timestamp: entry.timestamp ?? now
+                    ))
 
             case "toolResult":
                 let id = entry.toolCallId ?? UUID().uuidString
                 let block = byID[id]
-                history.toolCalls.append(PiStoredToolCall(
-                    toolCallID: id,
-                    name: entry.toolName ?? block?.name ?? "tool",
-                    arguments: block?.arguments,
-                    output: entry.content.joinedText,
-                    isError: entry.isError ?? false,
-                    timestamp: entry.timestamp ?? now
-                ))
+                history.toolCalls.append(
+                    PiStoredToolCall(
+                        toolCallID: id,
+                        name: entry.toolName ?? block?.name ?? "tool",
+                        arguments: block?.arguments,
+                        output: entry.content.joinedText,
+                        isError: entry.isError ?? false,
+                        timestamp: entry.timestamp ?? now
+                    ))
 
             default:
                 continue
@@ -135,7 +138,8 @@ nonisolated struct PiHistory: Sendable, Equatable {
     }
 
     /// 条目角色 → 领域角色；工具结果（`toolResult`）单独处理。
-    static func displayRole(for role: String) -> MessageRole? {        switch role {
+    static func displayRole(for role: String) -> MessageRole? {
+        switch role {
         case "user": return .user
         case "assistant": return .assistant
         default: return nil

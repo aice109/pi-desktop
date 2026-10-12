@@ -6,6 +6,7 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// 子进程退出后传输仍可复用（回归：曾因未清理 `process` 而静默丢弃后续 prompt）。

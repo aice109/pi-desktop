@@ -6,6 +6,7 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// 块级 Markdown 解析测试：验证常见块被识别为正确的 `MarkdownBlock.Kind`。
@@ -55,7 +56,8 @@ final class MarkdownTextTests: XCTestCase {
         let blocks = MarkdownBlock.parse("1. first\n2. second\n")
         XCTAssertEqual(blocks.count, 2)
         guard case .listItem(let first, _, _) = blocks[0].kind,
-              case .listItem(let second, _, _) = blocks[1].kind else {
+            case .listItem(let second, _, _) = blocks[1].kind
+        else {
             return XCTFail("expected ordered list items")
         }
         XCTAssertEqual(first, "1.")
@@ -90,12 +92,13 @@ final class MarkdownTextTests: XCTestCase {
     }
 
     func test_table_parsesHeaderAndRows() {
-        let blocks = MarkdownBlock.parse("""
-        | Name | Value |
-        | --- | --- |
-        | alpha | 1 |
-        | beta | 2 |
-        """)
+        let blocks = MarkdownBlock.parse(
+            """
+            | Name | Value |
+            | --- | --- |
+            | alpha | 1 |
+            | beta | 2 |
+            """)
         XCTAssertEqual(blocks.count, 1)
         guard case .table(let header, let rows) = blocks[0].kind else {
             return XCTFail("expected table, got \(blocks[0].kind)")

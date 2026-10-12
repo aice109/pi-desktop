@@ -5,9 +5,9 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// 会话详情：消息流 + 输入框，经 `SessionStore` 与 pi 通信（ADR-0003）。
@@ -160,7 +160,9 @@ struct ChatView: View {
 
     /// 会话内搜索入口（工具栏放大镜）。
     private var findButton: some View {
-        Button { isSearching = true } label: {
+        Button {
+            isSearching = true
+        } label: {
             Label("Find", systemImage: "magnifyingglass")
         }
         .help("Find in Conversation")
@@ -211,20 +213,22 @@ struct ChatView: View {
         guard !query.isEmpty else { return [] }
         var results: [ConversationSearchResult] = []
         for message in sortedMessages where message.content.localizedCaseInsensitiveContains(query) {
-            results.append(ConversationSearchResult(
-                id: message.id,
-                title: message.role.displayName,
-                snippet: snippet(message.content, matching: query)
-            ))
+            results.append(
+                ConversationSearchResult(
+                    id: message.id,
+                    title: message.role.displayName,
+                    snippet: snippet(message.content, matching: query)
+                ))
         }
         for call in session.toolCalls {
             let combined = [call.arguments, call.output].compactMap { $0 }.joined(separator: "\n")
             guard combined.localizedCaseInsensitiveContains(query) else { continue }
-            results.append(ConversationSearchResult(
-                id: call.id,
-                title: call.name,
-                snippet: snippet(combined, matching: query)
-            ))
+            results.append(
+                ConversationSearchResult(
+                    id: call.id,
+                    title: call.name,
+                    snippet: snippet(combined, matching: query)
+                ))
         }
         return Array(results.prefix(50))
     }
@@ -355,7 +359,7 @@ struct ChatView: View {
     /// 保证当前等级在列（例如模型切换后返回的等级不在可选列表里）。
     private func displayedThinkingLevels(_ levels: [String]) -> [String] {
         guard let current = currentState?.thinkingLevel,
-              !levels.contains(where: { $0.caseInsensitiveCompare(current) == .orderedSame })
+            !levels.contains(where: { $0.caseInsensitiveCompare(current) == .orderedSame })
         else { return levels }
         return levels + [current]
     }
@@ -488,17 +492,19 @@ struct ChatView: View {
             var conclusionID: UUID?
             for index in range {
                 if case .message(let message) = items[index],
-                   message.role == .assistant, !message.content.isEmpty {
+                    message.role == .assistant, !message.content.isEmpty
+                {
                     conclusionID = message.id
                 }
             }
             for index in range {
-                rows.append(ChatRow(
-                    item: items[index],
-                    showsHeader: flags[index],
-                    isConclusion: items[index].id == conclusionID,
-                    startsTurn: index == range.lowerBound
-                ))
+                rows.append(
+                    ChatRow(
+                        item: items[index],
+                        showsHeader: flags[index],
+                        isConclusion: items[index].id == conclusionID,
+                        startsTurn: index == range.lowerBound
+                    ))
             }
         }
         return rows
@@ -511,7 +517,7 @@ struct ChatView: View {
         var flags = [Bool](repeating: true, count: items.count)
         for index in items.indices.dropFirst() {
             guard case .message(let previous) = items[index - 1],
-                  case .message(let current) = items[index]
+                case .message(let current) = items[index]
             else { continue }
             flags[index] = previous.role != current.role
         }
@@ -680,10 +686,14 @@ struct ChatView: View {
                 .focused($isComposerFocused)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
+                .background(
+                    .quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.control)
+                )
                 .overlay {
                     RoundedRectangle(cornerRadius: DesignTokens.Radius.control)
-                        .strokeBorder(isComposerFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator), lineWidth: 1)
+                        .strokeBorder(
+                            isComposerFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator), lineWidth: 1
+                        )
                 }
                 .onSubmit { submit() }
             sendControl
@@ -711,7 +721,8 @@ struct ChatView: View {
         let trimmed = draft.trimmingCharacters(in: .whitespaces)
         guard trimmed.hasPrefix("/"), !trimmed.contains(" "), !commands.isEmpty else { return [] }
         let query = trimmed.dropFirst().lowercased()
-        let matches = query.isEmpty
+        let matches =
+            query.isEmpty
             ? commands
             : commands.filter { $0.name.lowercased().hasPrefix(query) }
         return Array(matches.prefix(8))
@@ -909,7 +920,8 @@ struct ChatView: View {
         for provider in providers {
             _ = provider.loadDataRepresentation(for: .image) { data, _ in
                 guard let data else { return }
-                let mimeType = provider.registeredTypeIdentifiers
+                let mimeType =
+                    provider.registeredTypeIdentifiers
                     .compactMap { UTType($0)?.preferredMIMEType }
                     .first ?? "image/png"
                 Task { @MainActor in
@@ -1053,7 +1065,8 @@ private struct MessageRow: View {
                 .textSelection(.enabled)
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.small))
+                .background(
+                    .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.small))
         } else if message.role == .user {
             MarkdownText(text: message.content)
                 .textSelection(.enabled)
@@ -1089,7 +1102,8 @@ private struct MessageRow: View {
 
     /// 折叠标签用首行文本，方便扫读。
     private var processPreview: String {
-        let firstLine = message.content
+        let firstLine =
+            message.content
             .split(whereSeparator: \.isNewline)
             .first
             .map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
@@ -1215,7 +1229,9 @@ private struct ToolCallCard: View {
                     .truncationMode(.middle)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.chip))
+                    .background(
+                        .quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
+                    )
             }
             Spacer()
             status
@@ -1271,8 +1287,8 @@ private struct ToolCallCard: View {
     }
 }
 
-private extension MessageRole {
-    var displayName: String {
+extension MessageRole {
+    fileprivate var displayName: String {
         switch self {
         case .user: return "You"
         case .assistant: return "Assistant"
@@ -1280,7 +1296,7 @@ private extension MessageRole {
         }
     }
 
-    var symbolName: String {
+    fileprivate var symbolName: String {
         switch self {
         case .user: return "person.fill"
         case .assistant: return "sparkles"
@@ -1288,7 +1304,7 @@ private extension MessageRole {
         }
     }
 
-    var tint: Color {
+    fileprivate var tint: Color {
         switch self {
         case .user: return .accentColor
         case .assistant: return .primary
@@ -1299,9 +1315,9 @@ private extension MessageRole {
 
 // MARK: - Scroll helpers
 
-private extension ScrollPhase {
+extension ScrollPhase {
     /// 是否由用户手势驱动（拖动 / 交互 / 惯性减速）。程序滚动为 `animating`，不算。
-    var isUserScroll: Bool {
+    fileprivate var isUserScroll: Bool {
         switch self {
         case .tracking, .interacting, .decelerating: return true
         default: return false
@@ -1507,9 +1523,9 @@ private struct SessionTreeRow: View {
     }
 }
 
-private extension AgentTreeNode {
+extension AgentTreeNode {
     /// `OutlineGroup` 用：叶子返回 nil 即不显示展开箭头。
-    var optionalChildren: [AgentTreeNode]? { children.isEmpty ? nil : children }
+    fileprivate var optionalChildren: [AgentTreeNode]? { children.isEmpty ? nil : children }
 }
 
 #Preview {
@@ -1527,18 +1543,21 @@ private extension AgentTreeNode {
     let session = Session(title: "Preview")
     container.mainContext.insert(session)
     session.append(Message(role: .user, content: "What does this project do?"))
-    session.record(ToolCall(
-        toolCallID: "call_1",
-        name: "bash",
-        arguments: "command: ls",
-        output: "AGENTS.md  README.md  PiDesktop",
-        durationMs: 12
-    ))
-    session.append(Message(
-        role: .assistant,
-        content: "PiDesktop is a **native macOS GUI** for the `pi` coding agent.\n\n- Sessions\n- Streaming chat",
-        thinking: "The user asks what the project does, so summarize the README."
-    ))
+    session.record(
+        ToolCall(
+            toolCallID: "call_1",
+            name: "bash",
+            arguments: "command: ls",
+            output: "AGENTS.md  README.md  PiDesktop",
+            durationMs: 12
+        ))
+    session.append(
+        Message(
+            role: .assistant,
+            content:
+                "PiDesktop is a **native macOS GUI** for the `pi` coding agent.\n\n- Sessions\n- Streaming chat",
+            thinking: "The user asks what the project does, so summarize the README."
+        ))
 
     let store = SessionStore(container: container, makeTransport: { _, _ in MockAgentTransport() })
     return NavigationStack { ChatView(session: session) }

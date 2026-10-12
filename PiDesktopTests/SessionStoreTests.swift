@@ -5,8 +5,9 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import XCTest
 import SwiftData
+import XCTest
+
 @testable import PiDesktop
 
 /// `SessionStore` 的事件 → 消息映射测试。用 `MockAgentTransport`，不启动真实进程。
@@ -67,7 +68,8 @@ final class SessionStoreTests: XCTestCase {
     func test_send_allowsImageOnlyMessages() async throws {
         let fixture = try makeFixture()
 
-        await fixture.store.send("", images: [AgentImage(mimeType: "image/png", data: Data([9]))], in: fixture.session)
+        await fixture.store.send(
+            "", images: [AgentImage(mimeType: "image/png", data: Data([9]))], in: fixture.session)
 
         XCTAssertEqual(fixture.transport.sentPrompts, [""])
         XCTAssertEqual(fixture.session.messages.filter { $0.role == .user }.count, 1)
@@ -91,7 +93,8 @@ final class SessionStoreTests: XCTestCase {
 
         // 增量内容最终应被 message_end 的权威内容替换。
         fixture.transport.emit(.textDelta("Hel"))
-        fixture.transport.emit(.assistantMessageCompleted(text: "Hello!", stopReason: "stop", errorMessage: nil))
+        fixture.transport.emit(
+            .assistantMessageCompleted(text: "Hello!", stopReason: "stop", errorMessage: nil))
         fixture.transport.emit(.settled(aborted: false))
         await waitUntil { !fixture.store.isStreaming(fixture.session) }
 
@@ -165,9 +168,10 @@ final class SessionStoreTests: XCTestCase {
         fixture.transport.emit(.toolCallUpdated(id: "call_1", output: "partial"))
         await waitUntil { fixture.session.toolCalls.first?.output == "partial" }
 
-        fixture.transport.emit(.toolCallFinished(
-            id: "call_1", name: "bash", isError: false, durationMs: 12, output: "done"
-        ))
+        fixture.transport.emit(
+            .toolCallFinished(
+                id: "call_1", name: "bash", isError: false, durationMs: 12, output: "done"
+            ))
         await waitUntil { fixture.session.toolCalls.first?.durationMs == 12 }
         XCTAssertEqual(fixture.session.toolCalls.first?.output, "done")
         XCTAssertFalse(fixture.store.isRunningTool("call_1"))
@@ -179,7 +183,8 @@ final class SessionStoreTests: XCTestCase {
 
     func test_activate_loadsStateAndUsage() async throws {
         let fixture = try makeFixture()
-        let model = AgentModel(id: "m1", name: "Model One", provider: "p", reasoning: true, contextWindow: 1000)
+        let model = AgentModel(
+            id: "m1", name: "Model One", provider: "p", reasoning: true, contextWindow: 1000)
         fixture.transport.sessionStateValue = AgentSessionState(
             model: model,
             thinkingLevel: "high",
@@ -210,12 +215,18 @@ final class SessionStoreTests: XCTestCase {
     }
 
     func test_agentModel_matchesByProviderAndID() {
-        let model = AgentModel(id: "m1", name: "Model One", provider: "p", reasoning: true, contextWindow: 1000)
+        let model = AgentModel(
+            id: "m1", name: "Model One", provider: "p", reasoning: true, contextWindow: 1000)
         // 同一模型来自不同命令时，展示字段（name / contextWindow / reasoning）可能不同。
-        let other = AgentModel(id: "m1", name: "Catalog Name", provider: "p", reasoning: false, contextWindow: nil)
+        let other = AgentModel(
+            id: "m1", name: "Catalog Name", provider: "p", reasoning: false, contextWindow: nil)
         XCTAssertTrue(model.matches(other))
-        XCTAssertFalse(model.matches(AgentModel(id: "m2", name: "Model One", provider: "p", reasoning: true, contextWindow: nil)))
-        XCTAssertFalse(model.matches(AgentModel(id: "m1", name: "Model One", provider: "q", reasoning: true, contextWindow: nil)))
+        XCTAssertFalse(
+            model.matches(
+                AgentModel(id: "m2", name: "Model One", provider: "p", reasoning: true, contextWindow: nil)))
+        XCTAssertFalse(
+            model.matches(
+                AgentModel(id: "m1", name: "Model One", provider: "q", reasoning: true, contextWindow: nil)))
     }
 
     func test_selectModel_updatesState() async throws {
@@ -244,7 +255,8 @@ final class SessionStoreTests: XCTestCase {
 
         fixture.transport.emit(.thinkingDelta("step 1 "))
         fixture.transport.emit(.thinkingDelta("step 2"))
-        fixture.transport.emit(.assistantMessageCompleted(text: "Done", stopReason: "stop", errorMessage: nil))
+        fixture.transport.emit(
+            .assistantMessageCompleted(text: "Done", stopReason: "stop", errorMessage: nil))
         await waitUntil { fixture.assistantMessage?.content == "Done" }
 
         XCTAssertEqual(fixture.assistantMessage?.thinking, "step 1 step 2")
@@ -386,15 +398,17 @@ final class SessionStoreTests: XCTestCase {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)
         fixture.transport.sessionTreeValue = AgentSessionTree(
-            roots: [AgentTreeNode(
-                id: "e1",
-                parentId: nil,
-                kind: "message",
-                preview: "hi",
-                role: "user",
-                isUserMessage: true,
-                children: []
-            )],
+            roots: [
+                AgentTreeNode(
+                    id: "e1",
+                    parentId: nil,
+                    kind: "message",
+                    preview: "hi",
+                    role: "user",
+                    isUserMessage: true,
+                    children: []
+                )
+            ],
             leafId: "e1"
         )
 
@@ -605,10 +619,12 @@ final class SessionStoreTests: XCTestCase {
         let fixture = try makeFixture()
         fixture.transport.sessionEntriesValue = [
             entry("user", .blocks([text("run ls")]), timestamp: "2024-12-03T14:00:02.000Z"),
-            entry("assistant", .blocks([
-                thinking("Let me look."),
-                toolCall(id: "call_1", name: "bash", command: "ls"),
-            ]), timestamp: "2024-12-03T14:00:03.000Z"),
+            entry(
+                "assistant",
+                .blocks([
+                    thinking("Let me look."),
+                    toolCall(id: "call_1", name: "bash", command: "ls"),
+                ]), timestamp: "2024-12-03T14:00:03.000Z"),
             entry(
                 "toolResult",
                 .blocks([text("AGENTS.md")]),
@@ -656,7 +672,7 @@ final class SessionStoreTests: XCTestCase {
     func test_syncHistory_rebuildsOnlyWhenContentChanges() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionEntriesValue = [
-            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z"),
+            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z")
         ]
         // `activate` 会建立传输，使 `syncHistory` 走 RPC 而不是会话文件。
         await fixture.store.activate(fixture.session)
@@ -680,14 +696,14 @@ final class SessionStoreTests: XCTestCase {
     func test_syncHistory_invalidCursorFallsBackToFull() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionEntriesValue = [
-            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z"),
+            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z")
         ]
         await fixture.store.activate(fixture.session)
         XCTAssertEqual(fixture.session.messages.map(\.content), ["one"])
 
         // 游标不再是已知 id（会话被重置）：应退回全量重建。
         fixture.transport.sessionEntriesValue = [
-            entry("user", .blocks([text("fresh")]), timestamp: "2024-12-04T10:00:00.000Z"),
+            entry("user", .blocks([text("fresh")]), timestamp: "2024-12-04T10:00:00.000Z")
         ]
         await fixture.store.syncHistory(for: fixture.session)
 
@@ -697,14 +713,14 @@ final class SessionStoreTests: XCTestCase {
     func test_syncHistory_leafChangeTriggersFullRebuild() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionEntriesValue = [
-            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z"),
+            entry("user", .blocks([text("one")]), timestamp: "2024-12-03T14:00:02.000Z")
         ]
         await fixture.store.activate(fixture.session)
 
         // 分支切换：增量无新条目但 leaf 变了；全量数据已含另一分支的内容。
         fixture.transport.sessionEntriesPageValue = SessionEntriesPage(entries: [], leafId: "branch-b")
         fixture.transport.sessionEntriesValue = [
-            entry("user", .blocks([text("branch-b content")]), timestamp: "2024-12-03T14:00:02.000Z"),
+            entry("user", .blocks([text("branch-b content")]), timestamp: "2024-12-03T14:00:02.000Z")
         ]
         await fixture.store.syncHistory(for: fixture.session)
 
@@ -729,7 +745,7 @@ final class SessionStoreTests: XCTestCase {
         let fixture = try makeFixture()
         await fixture.store.send("hi", in: fixture.session)
         fixture.transport.sessionEntriesValue = [
-            entry("user", .blocks([text("from pi")]), timestamp: "2024-12-03T14:00:02.000Z"),
+            entry("user", .blocks([text("from pi")]), timestamp: "2024-12-03T14:00:02.000Z")
         ]
 
         await fixture.store.syncHistory(for: fixture.session)
@@ -742,9 +758,9 @@ final class SessionStoreTests: XCTestCase {
 
     /// 一个最小可解析的 pi 会话文件。
     private static let sessionFile = """
-    {"type":"session","version":3,"id":"s1","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}
-    {"type":"message","id":"a","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"hello"}}
-    """
+        {"type":"session","version":3,"id":"s1","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}
+        {"type":"message","id":"a","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"hello"}}
+        """
 
     private func text(_ value: String) -> ContentBlockDTO {
         ContentBlockDTO(type: "text", text: value, thinking: nil, id: nil, name: nil, arguments: nil)

@@ -5,9 +5,9 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// 根视图。
@@ -204,11 +204,11 @@ struct ContentView: View {
                             isUnread: sessionStore.isUnread(path: summary.fileURL.path)
                         )
                         .tag(summary.fileURL)
-                            .contextMenu {
-                                Button("Rename…") { renaming = summary }
-                                Divider()
-                                Button("Move to Trash", role: .destructive) { requestDelete(summary) }
-                            }
+                        .contextMenu {
+                            Button("Rename…") { renaming = summary }
+                            Divider()
+                            Button("Move to Trash", role: .destructive) { requestDelete(summary) }
+                        }
                     }
                 }
             } header: {
@@ -227,7 +227,7 @@ struct ContentView: View {
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue,
-                  let summary = workspaceStore.sessions.first(where: { $0.fileURL == newValue })
+                let summary = workspaceStore.sessions.first(where: { $0.fileURL == newValue })
             else { return }
             open(summary)
         }
@@ -319,7 +319,7 @@ struct ContentView: View {
     /// 启动（或切换工作区）后恢复上次打开的会话；找不到则忽略。
     private func restoreLastSessionIfNeeded(in sessions: [PiSessionSummary]) {
         guard selection == nil, opened == nil,
-              let summary = appSettings.sessionToRestore(among: sessions)
+            let summary = appSettings.sessionToRestore(among: sessions)
         else { return }
         selection = summary.fileURL
         open(summary)

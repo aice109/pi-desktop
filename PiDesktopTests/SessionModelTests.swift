@@ -5,8 +5,9 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
-import XCTest
 import SwiftData
+import XCTest
+
 @testable import PiDesktop
 
 /// 领域模型（ADR-0004）的持久化行为测试。

@@ -143,7 +143,7 @@ actor PiRPCClient: AgentTransport {
 
     func fork(entryId: String) async -> String? {
         guard let data = await command(["type": "fork", "entryId": entryId])?.data,
-              data.cancelled != true
+            data.cancelled != true
         else { return nil }
         return data.text
     }
@@ -417,7 +417,7 @@ actor PiRPCClient: AgentTransport {
     /// 在类型化解码失败时，仍尽量从报文里取出响应 id。
     nonisolated private static func responseID(in line: Data) -> String? {
         guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-              object["type"] as? String == "response"
+            object["type"] as? String == "response"
         else { return nil }
         return object["id"] as? String
     }

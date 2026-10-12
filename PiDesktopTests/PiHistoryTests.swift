@@ -6,6 +6,7 @@
 //
 
 import XCTest
+
 @testable import PiDesktop
 
 /// `PiHistory` 的条目 → 消息 / 工具调用映射测试。
@@ -67,10 +68,12 @@ final class PiHistoryTests: XCTestCase {
     func test_make_mapsMessagesAndAssociatesToolArguments() {
         let history = PiHistory.make(from: [
             entry("user", .blocks([textBlock("run ls")])),
-            entry("assistant", .blocks([
-                thinkingBlock("Let me look."),
-                toolCallBlock(id: "call_1", name: "bash", command: "ls"),
-            ])),
+            entry(
+                "assistant",
+                .blocks([
+                    thinkingBlock("Let me look."),
+                    toolCallBlock(id: "call_1", name: "bash", command: "ls"),
+                ])),
             entry("toolResult", .blocks([textBlock("AGENTS.md")]), toolCallId: "call_1", toolName: "bash"),
         ])
 
@@ -86,14 +89,16 @@ final class PiHistoryTests: XCTestCase {
 
     func test_make_carriesToolErrorFlag() {
         let history = PiHistory.make(from: [
-            entry("toolResult", .blocks([textBlock("boom")]), toolCallId: "call_9", toolName: "bash", isError: true),
+            entry(
+                "toolResult", .blocks([textBlock("boom")]), toolCallId: "call_9", toolName: "bash",
+                isError: true)
         ])
         XCTAssertTrue(history.toolCalls[0].isError)
     }
 
     func test_make_keepsThinkingOnlyAssistantMessages() {
         let history = PiHistory.make(from: [
-            entry("assistant", .blocks([thinkingBlock("hmm")])),
+            entry("assistant", .blocks([thinkingBlock("hmm")]))
         ])
         XCTAssertEqual(history.messages.count, 1)
         XCTAssertEqual(history.messages[0].text, "")
@@ -122,7 +127,7 @@ final class PiHistoryTests: XCTestCase {
 
     func test_make_namesUnknownTools() {
         let history = PiHistory.make(from: [
-            entry("toolResult", .blocks([textBlock("x")]), toolCallId: "call_1", toolName: nil),
+            entry("toolResult", .blocks([textBlock("x")]), toolCallId: "call_1", toolName: nil)
         ])
         XCTAssertEqual(history.toolCalls[0].name, "tool")
     }
@@ -140,7 +145,7 @@ final class PiHistoryTests: XCTestCase {
                 parentId: nil,
                 command: "ls",
                 output: "file.txt"
-            ),
+            )
         ])
 
         XCTAssertEqual(history.messages.count, 1)
@@ -176,7 +181,7 @@ final class PiHistoryTests: XCTestCase {
     func test_make_parsesImageBlocks() {
         let raw = Data("hello".utf8).base64EncodedString()
         let history = PiHistory.make(from: [
-            entry("user", .blocks([textBlock("look"), imageBlock(base64: raw)])),
+            entry("user", .blocks([textBlock("look"), imageBlock(base64: raw)]))
         ])
 
         XCTAssertEqual(history.messages.count, 1)
@@ -196,7 +201,7 @@ final class PiHistoryTests: XCTestCase {
 
     func test_make_skipsInvalidBase64Image() {
         let history = PiHistory.make(from: [
-            entry("user", .blocks([textBlock("hi"), imageBlock(base64: "!!!not-base64")])),
+            entry("user", .blocks([textBlock("hi"), imageBlock(base64: "!!!not-base64")]))
         ])
         XCTAssertEqual(history.messages[0].images.count, 0)
     }
@@ -204,7 +209,8 @@ final class PiHistoryTests: XCTestCase {
     func test_fingerprint_changesWithContent() {
         let base = PiHistory.make(from: [entry("user", .text("one"))])
         var extended = base
-        extended.messages.append(PiDisplayMessage(role: .assistant, text: "two", thinking: nil, timestamp: .now))
+        extended.messages.append(
+            PiDisplayMessage(role: .assistant, text: "two", thinking: nil, timestamp: .now))
 
         XCTAssertNotEqual(PiHistoryFingerprint(base), PiHistoryFingerprint(extended))
         XCTAssertEqual(PiHistoryFingerprint(base), PiHistoryFingerprint(base))
