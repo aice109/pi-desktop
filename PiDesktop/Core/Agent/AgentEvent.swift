@@ -108,6 +108,18 @@ nonisolated struct AgentImage: Sendable, Equatable, Identifiable {
     }
 }
 
+/// 一个可发现的 pi 命令（`get_commands`）：扩展命令、prompt 模板或技能。
+///
+/// 通过 `prompt` 发送 `/name` 执行；技能名已带 `skill:` 前缀。
+nonisolated struct AgentCommand: Sendable, Equatable, Identifiable {
+    var name: String
+    var description: String?
+    /// 来源：`extension` / `prompt` / `skill`。
+    var source: String?
+
+    var id: String { name }
+}
+
 /// `prompt` 被 pi 接受后的处置方式（对应响应的 `data.disposition`）。
 nonisolated enum PromptDisposition: String, Sendable, Equatable {
     /// 已开始一次运行，之后会收到事件流。
@@ -155,6 +167,8 @@ protocol AgentTransport: Sendable {
     func setSessionName(_ name: String) async -> Bool
     /// 会话用量与上下文占用（`get_session_stats`）。
     func sessionStats() async -> AgentUsage?
+    /// 可发现的命令列表（`get_commands`）。
+    func availableCommands() async -> [AgentCommand]
     /// 会话历史条目（`get_entries`）。
     ///
     /// 与只含当前上下文的 `get_messages` 不同，它包含压缩前历史与遗弃分支，

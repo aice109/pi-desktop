@@ -114,6 +114,9 @@ fails the whole response and silently yields empty history.
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
+Discoverable commands (extension commands, prompt templates, skills) are listed with `get_commands`
+and run by sending `/name` through `prompt`; the composer suggests them while the draft starts with `/`.
+
 `prompt` / `steer` / `follow_up` accept `images` (`ImageContent`: base64 + mimeType); user messages
 render their images and history imports `image` blocks ([ADR-0010](decisions/0010-image-attachments.md)).
 

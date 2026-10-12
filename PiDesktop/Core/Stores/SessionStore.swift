@@ -317,6 +317,11 @@ final class SessionStore {
         await transports[session.id]?.availableModels() ?? []
     }
 
+    /// 可发现的命令（扩展 / prompt 模板 / 技能），用于斜杠命令面板。
+    func availableCommands(for session: Session) async -> [AgentCommand] {
+        await transports[session.id]?.availableCommands() ?? []
+    }
+
     /// 切换模型并刷新状态。
     func selectModel(_ model: AgentModel, in session: Session) async {
         guard let transport = transports[session.id], await transport.setModel(model) else { return }

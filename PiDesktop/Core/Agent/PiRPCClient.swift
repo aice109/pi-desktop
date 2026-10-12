@@ -127,6 +127,11 @@ actor PiRPCClient: AgentTransport {
         return (record.data?.models ?? []).map(\.domain)
     }
 
+    func availableCommands() async -> [AgentCommand] {
+        guard let record = await command(["type": "get_commands"]) else { return [] }
+        return (record.data?.commands ?? []).map(\.domain)
+    }
+
     func setModel(_ model: AgentModel) async -> Bool {
         await command(["type": "set_model", "provider": model.provider, "modelId": model.id]) != nil
     }

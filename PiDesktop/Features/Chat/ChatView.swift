@@ -20,6 +20,8 @@ struct ChatView: View {
     @State private var attachments: [AgentImage] = []
     @State private var isPickingImages = false
     @State private var models: [AgentModel] = []
+    /// 可发现的 pi 命令（`get_commands`），用于斜杠建议。
+    @State private var commands: [AgentCommand] = []
     /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
     @State private var isAtBottom = true
     /// 是否跟随底部：内容增长时自动滚动；用户主动上滑后暂停。
@@ -51,9 +53,11 @@ struct ChatView: View {
             // 打开会话即激活 pi（懒启动），并加载模型列表。
             await store.activate(session)
             models = await store.availableModels(for: session)
+            commands = await store.availableCommands(for: session)
         }
         .onAppear { isComposerFocused = true }
         .toolbar {
+            if !commands.isEmpty { ToolbarItem { commandMenu } }
             ToolbarItem { modelMenu }
             if let levels = currentState?.availableThinkingLevels, levels.count > 1 {
                 ToolbarItem { thinkingMenu(levels) }
@@ -72,6 +76,26 @@ struct ChatView: View {
     }
 
     private var currentState: AgentSessionState? { store.state(for: session) }
+
+    /// 工具栏命令菜单：不输入 `/` 也能发现并插入命令。
+    private var commandMenu: some View {
+        Menu {
+            ForEach(commands) { command in
+                Button {
+                    applyCommand(command)
+                } label: {
+                    if let description = command.description, !description.isEmpty {
+                        Text("/\(command.name) — \(description)")
+                    } else {
+                        Text("/\(command.name)")
+                    }
+                }
+            }
+        } label: {
+            Label("Commands", systemImage: "command")
+        }
+        .help("Commands")
+    }
 
     /// 状态栏文案：重试/压缩优先，其次工具，最后默认“思考中”。
     private var statusText: String {
@@ -419,6 +443,7 @@ struct ChatView: View {
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !attachments.isEmpty { attachmentStrip }
+            if !commandSuggestions.isEmpty { commandSuggestionList }
             composerField
         }
         .padding(.horizontal, 16)
@@ -465,6 +490,64 @@ struct ChatView: View {
                 .onSubmit { submit() }
             sendControl
         }
+    }
+
+    /// 输入以 `/` 开头时的命令建议（最多 8 条）。
+    private var commandSuggestions: [AgentCommand] {
+        let trimmed = draft.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("/"), !trimmed.contains(" "), !commands.isEmpty else { return [] }
+        let query = trimmed.dropFirst().lowercased()
+        let matches = query.isEmpty
+            ? commands
+            : commands.filter { $0.name.lowercased().hasPrefix(query) }
+        return Array(matches.prefix(8))
+    }
+
+    private var commandSuggestionList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(commandSuggestions) { command in
+                Button {
+                    applyCommand(command)
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("/\(command.name)")
+                            .font(.system(.callout, design: .monospaced))
+                        Spacer(minLength: 8)
+                        if let description = command.description, !description.isEmpty {
+                            Text(description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        if let source = command.source {
+                            Text(source)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(.quaternary.opacity(0.7), in: Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if command.id != commandSuggestions.last?.id { Divider() }
+            }
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
+                .strokeBorder(.separator, lineWidth: 1)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 选中命令：填入 `/name `（不直接发送，允许补充参数）。
+    private func applyCommand(_ command: AgentCommand) {
+        draft = "/\(command.name) "
+        isComposerFocused = true
     }
 
     /// 待发送图片的缩略图行，每张可单独移除。

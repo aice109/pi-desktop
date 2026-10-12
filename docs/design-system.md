@@ -116,6 +116,9 @@ Ask with:
 - While the agent runs the composer stays enabled: Enter queues a **steering** message (the send
   control becomes a `Menu` whose primary action steers, offering "Send as Follow-up"). Queued messages
   appear under the status line with a "Clear Queued" link that restores their text to the composer.
+- Typing `/` in the composer shows an inline suggestion list of pi commands (extension / prompt /
+  skill) with description and source chips; selecting one fills `/name ` without sending. A toolbar
+  command menu offers the same list for discoverability.
 - Images attach from the pasteboard, a drag-and-drop onto the composer, or the paperclip's file
   importer. Pending images show as removable 56 pt thumbnails above the field; sent images render at
   up to 200 pt in the user bubble ([ADR-0010](decisions/0010-image-attachments.md)).

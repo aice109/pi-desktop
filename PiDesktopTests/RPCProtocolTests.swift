@@ -208,6 +208,17 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertNil(RPCProtocol.agentEvent(from: record))
     }
 
+    func test_getCommandsResponse_decodesCommands() {
+        let json = #"{"id":"r1","type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"fix-tests","description":"Fix failing tests","source":"prompt"},{"name":"skill:review","source":"skill"}]}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_commands 响应应能解码")
+        }
+        let commands = (record.data?.commands ?? []).map(\.domain)
+        XCTAssertEqual(commands.map(\.name), ["fix-tests", "skill:review"])
+        XCTAssertEqual(commands.first?.description, "Fix failing tests")
+        XCTAssertEqual(commands.last?.source, "skill")
+    }
+
     func test_clearQueueResponse_decodesQueues() {
         let json = #"{"id":"r1","type":"response","command":"clear_queue","success":true,"data":{"steering":["stop"],"followUp":["then"]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {

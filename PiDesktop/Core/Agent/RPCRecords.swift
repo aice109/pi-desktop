@@ -71,6 +71,8 @@ nonisolated struct RPCDataDTO: Decodable {
     // get_entries
     var entries: [SessionEntryDTO]?
     var leafId: String?
+    // get_commands
+    var commands: [CommandDTO]?
     // clear_queue
     var steering: [String]?
     var followUp: [String]?
@@ -84,6 +86,17 @@ nonisolated struct SessionEntryDTO: Decodable {
     var id: String?
     var timestamp: String?
     var message: MessageDTO?
+}
+
+/// `get_commands` 返回的一个可发现命令（扩展命令 / prompt 模板 / 技能）。
+nonisolated struct CommandDTO: Decodable {
+    var name: String
+    var description: String?
+    var source: String?
+
+    var domain: AgentCommand {
+        AgentCommand(name: name, description: description, source: source)
+    }
 }
 
 /// `get_entries` 的一页结果。`since` 游标之外的条目 + 当前叶子 id（用于判断分支是否移动）。

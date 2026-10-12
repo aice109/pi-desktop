@@ -100,6 +100,9 @@ enum AgentEvent: Sendable, Equatable {
 `sessionInfoChanged` / `thinkingLevelChanged`（外部改动同步）、`summarizationRetry*`（摘要重试）、
 `entryAppended`（会话树被外部追加，空闲时重新校准镜像）。
 
+可发现的命令（扩展命令、prompt 模板、技能）用 `get_commands` 列出，通过 `prompt` 发送 `/name` 执行；
+输入以 `/` 开头时输入框会给出建议。
+
 `prompt` / `steer` / `follow_up` 接受 `images`（`ImageContent`：base64 + mimeType）；用户消息会渲染其
 图片，历史也会导入 `image` 块（[ADR-0010](decisions/0010-image-attachments.zh-CN.md)）。
 

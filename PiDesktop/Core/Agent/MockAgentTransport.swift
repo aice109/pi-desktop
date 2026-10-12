@@ -20,6 +20,8 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let state = Mutex<AgentSessionState?>(nil)
     /// `availableModels()` 的返回值。
     private let models = Mutex<[AgentModel]>([])
+    /// `availableCommands()` 的返回值。
+    private let commands = Mutex<[AgentCommand]>([])
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
@@ -53,6 +55,12 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     var availableModelsValue: [AgentModel] {
         get { models.withLock { $0 } }
         set { models.withLock { $0 = newValue } }
+    }
+
+    /// 注入 `availableCommands()` 的返回值。
+    var availableCommandsValue: [AgentCommand] {
+        get { commands.withLock { $0 } }
+        set { commands.withLock { $0 = newValue } }
     }
 
     /// 注入 `sessionStats()` 的返回值。
@@ -129,6 +137,10 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func availableModels() async -> [AgentModel] {
         models.withLock { $0 }
+    }
+
+    func availableCommands() async -> [AgentCommand] {
+        commands.withLock { $0 }
     }
 
     func setModel(_ model: AgentModel) async -> Bool {
