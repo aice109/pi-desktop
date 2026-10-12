@@ -92,7 +92,8 @@ enum AgentEvent: Sendable, Equatable {
 呈现遵循 [design-system.zh-CN.md](design-system.zh-CN.md)（原生组件 + 玻璃）。工具调用会持久化并渲染为
 卡片（见 [ADR-0006](decisions/0006-tool-calls.zh-CN.md)）。
 
-当前实时可用：流式助手文本（Markdown）、思考区（实时 + 持久化）、工具调用卡片。错误重试待实现。
+当前实时可用：流式助手文本（Markdown）、思考区（实时 + 持久化）、工具调用卡片。pi 进程退出时，
+传输层会释放句柄并在下一条命令时重新拉起；被打断的回合仍不会自动重试。
 
 ## 6. 安全与隐私
 
@@ -112,4 +113,5 @@ enum AgentEvent: Sendable, Equatable {
 - [x] 解析助手 `toolCall` 块，让历史也显示工具参数
 - [x] 重命名会话（删除即移至废纸篓）
 - [x] 持久化助手思考内容（ADR-0007）
-- [ ] `get_messages` 同步、错误重试
+- [ ] 用 `get_entries` 的 `since` 游标做增量历史同步
+- [ ] 进程退出后自动重试被打断的回合

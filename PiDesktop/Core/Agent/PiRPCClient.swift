@@ -142,20 +142,28 @@ actor PiRPCClient: AgentTransport {
     }
 
     func shutdown() async {
+        process?.terminate()
+        teardownProcess()
+        eventContinuation?.finish()
+        eventContinuation = nil
+        resumePending(with: nil)
+    }
+
+    /// 释放与子进程相关的所有句柄，使 `startProcessIfNeeded` 能在下次命令时重新拉起。
+    ///
+    /// 这样退出/崩溃后传输仍是可复用的：保留 `eventContinuation`，重启后的 stdout 会继续
+    /// 汇入同一条事件流，上层订阅无需重建。
+    private func teardownProcess() {
         readTask?.cancel()
         readTask = nil
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
         try? stdinHandle?.close()
         stdinHandle = nil
-        process?.terminate()
         process = nil
         stdinPipe = nil
         stdoutPipe = nil
         stderrPipe = nil
-        eventContinuation?.finish()
-        eventContinuation = nil
-        resumePending(with: nil)
     }
 
     // MARK: - Process lifecycle
@@ -182,7 +190,7 @@ actor PiRPCClient: AgentTransport {
         process.standardError = stderrPipe
         process.terminationHandler = { [weak self] process in
             let status = process.terminationStatus
-            Task { await self?.handleTermination(status: status) }
+            Task { await self?.handleExit(of: process, status: status) }
         }
 
         do {
@@ -196,12 +204,20 @@ actor PiRPCClient: AgentTransport {
         self.stdoutPipe = stdoutPipe
         self.stderrPipe = stderrPipe
         self.stdinHandle = stdinPipe.fileHandleForWriting
-        startReading(stdoutPipe.fileHandleForReading)
+        startReading(stdoutPipe.fileHandleForReading, process: process)
         discard(stderrPipe.fileHandleForReading)
     }
 
-    private func handleTermination(status: Int32) {
-        yield(.failed("pi 进程已退出（status \(status)）"))
+    /// 子进程退出 / stdout 关闭的统一处理。
+    ///
+    /// 用进程对象做身份校验：退出事件与读取结束可能先后到达，也可能在重启后才到；
+    /// 只处理当前进程，避免误伤刚拉起的新进程。清理句柄是必要的——否则 `process` 一直是
+    /// 非 nil，`startProcessIfNeeded` 会直接返回死进程，后续 prompt 被静默丢弃。
+    private func handleExit(of exited: Process, status: Int32?) {
+        guard exited === process else { return }
+        teardownProcess()
+        let message = status.map { "pi 进程已退出（status \($0)）" } ?? "pi 的输出流已关闭"
+        yield(.failed(message))
         resumePending(with: nil)
     }
 
@@ -212,7 +228,7 @@ actor PiRPCClient: AgentTransport {
     /// 用 `readabilityHandler`（而非 `FileHandle.bytes`）：后者在管道上不可靠，
     /// 只吐出第一段数据后就静默停止。刻意不用 `lines`：它会把 `U+2028/U+2029`
     /// 误当记录边界，而这些字符在 JSON 字符串内合法（见 pi `docs/rpc.md`）。
-    private func startReading(_ handle: FileHandle) {
+    private func startReading(_ handle: FileHandle, process: Process) {
         readTask = Task { [weak self] in
             var buffer = Data()
             for await chunk in Self.byteStream(from: handle) {
@@ -223,7 +239,7 @@ actor PiRPCClient: AgentTransport {
                     if !line.isEmpty { await self?.consume(line) }
                 }
             }
-            await self?.yield(.failed("pi 的 stdout 已关闭"))
+            await self?.handleExit(of: process, status: nil)
         }
     }
 

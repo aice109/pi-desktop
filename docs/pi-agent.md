@@ -101,7 +101,8 @@ Rendering follows [design-system.md](design-system.md) (native components + glas
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
 Currently live: streaming assistant text (Markdown), a reasoning section (live and persisted), and
-tool-call cards. Error retry is still pending.
+tool-call cards. If the pi process exits, the transport releases its handles and relaunches on the next
+command; an interrupted turn is not retried automatically yet.
 
 ## 6. Security & privacy
 
@@ -122,4 +123,5 @@ tool-call cards. Error retry is still pending.
 - [x] Rename sessions (delete moves the file to the Trash)
 - [x] Persist assistant reasoning (ADR-0007)
 - [x] Reconcile the mirror with pi history on open (ADR-0009)
-- [ ] Incremental history sync via `get_entries`'s `since` cursor, error retry
+- [ ] Incremental history sync via `get_entries`'s `since` cursor
+- [ ] Automatic retry of an interrupted turn after a process exit
