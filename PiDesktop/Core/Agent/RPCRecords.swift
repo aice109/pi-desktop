@@ -54,6 +54,8 @@ nonisolated struct RPCDataDTO: Decodable {
     var levels: [String]?
     var models: [ModelDTO]?
     var isStreaming: Bool?
+    /// `prompt` 结果的处置方式：`started` / `queued` / `handled`。
+    var disposition: String?
     // get_session_stats
     var tokens: TokensDTO?
     var cost: Double?

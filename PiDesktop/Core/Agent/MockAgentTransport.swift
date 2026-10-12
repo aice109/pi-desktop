@@ -24,6 +24,8 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries()` 的返回值。
     private let entries = Mutex<[SessionEntryDTO]>([])
+    /// `prompt(_:)` 的返回值。
+    private let disposition = Mutex<PromptDisposition>(.started)
 
     nonisolated init() {
         (stream, continuation) = AsyncStream<AgentEvent>.makeStream(bufferingPolicy: .unbounded)
@@ -56,12 +58,20 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         set { entries.withLock { $0 = newValue } }
     }
 
+    /// 注入 `prompt(_:)` 的返回值。
+    var promptDispositionValue: PromptDisposition {
+        get { disposition.withLock { $0 } }
+        set { disposition.withLock { $0 = newValue } }
+    }
+
     func events() async -> AsyncStream<AgentEvent> {
         stream
     }
 
-    func prompt(_ message: String) async throws {
+    @discardableResult
+    func prompt(_ message: String) async throws -> PromptDisposition {
         sent.withLock { $0.append(message) }
+        return promptDispositionValue
     }
 
     func abort() async {}

@@ -256,7 +256,12 @@ final class SessionStore {
         streaming[session.id] = Streaming(message: assistant, text: "", thinking: "")
 
         do {
-            try await transport.prompt(text)
+            let disposition = try await transport.prompt(text)
+            // 扩展命令/输入处理器会立即消费 prompt（`handled`），不会启动运行、也不会有
+            // `agent_settled`；必须主动收尾，否则占位助手气泡会一直转圈。
+            if disposition == .handled {
+                finish(sessionID: session.id)
+            }
         } catch {
             finish(sessionID: session.id, error: error.localizedDescription)
         }

@@ -92,6 +92,23 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.assistantMessage?.content, "boom")
     }
 
+    func test_handledPrompt_stopsStreamingWithoutWaitingForSettled() async throws {
+        let fixture = try makeFixture()
+        // 扩展命令/输入处理器立即消费 prompt：不会再有 agent_settled。
+        fixture.transport.promptDispositionValue = .handled
+
+        await fixture.store.send("/some-command", in: fixture.session)
+        // 删除占位消息后，SwiftData 的关系数组需要一次运行循环才更新，等待其传播。
+        await waitUntil {
+            !fixture.store.isStreaming(fixture.session)
+                && fixture.session.messages.allSatisfy { $0.role != .assistant }
+        }
+
+        // 无正文的占位助手气泡应被移除，用户消息保留。
+        XCTAssertEqual(fixture.session.messages.filter { $0.role == .assistant }.count, 0)
+        XCTAssertEqual(fixture.session.messages.filter { $0.role == .user }.count, 1)
+    }
+
     func test_streamingReasoning_isExposedWhileStreaming() async throws {
         let fixture = try makeFixture()
         await fixture.store.send("hi", in: fixture.session)

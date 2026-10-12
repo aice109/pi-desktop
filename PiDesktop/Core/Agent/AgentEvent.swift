@@ -60,11 +60,29 @@ nonisolated enum AgentActivity: Sendable, Equatable {
 ///
 /// 用协议隔离真实子进程，便于测试与未来更换传输方式（`coding-conventions.md` §8）。
 /// 约定：`events()` 只需调用一次，且必须在 `prompt(_:)` 之前调用，避免丢失早期事件。
+/// `prompt` 被 pi 接受后的处置方式（对应响应的 `data.disposition`）。
+nonisolated enum PromptDisposition: String, Sendable, Equatable {
+    /// 已开始一次运行，之后会收到事件流。
+    case started
+    /// 运行中，已进入队列（需要 `streamingBehavior`）。
+    case queued
+    /// 被扩展命令 / 输入处理器立即消费，不会启动运行、也不会有 `agent_settled`。
+    case handled
+
+    /// 未知值按 `started` 处理，兼容 pi 未来新增的处置方式。
+    init(raw: String?) {
+        self = raw.flatMap(PromptDisposition.init(rawValue:)) ?? .started
+    }
+}
+
 protocol AgentTransport: Sendable {
     /// 事件流。
     func events() async -> AsyncStream<AgentEvent>
     /// 发送一条用户 prompt；返回即表示已被接受（不代表运行完成）。
-    func prompt(_ message: String) async throws
+    ///
+    /// 返回值区分「启动运行」「排队」「被立即处理」：`handled` 不会再有事件，调用方需据此收尾。
+    @discardableResult
+    func prompt(_ message: String) async throws -> PromptDisposition
     /// 中断当前运行。
     func abort() async
     /// 关闭底层进程/连接。

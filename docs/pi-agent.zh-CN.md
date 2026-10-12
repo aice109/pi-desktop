@@ -73,6 +73,10 @@ enum AgentEvent: Sendable, Equatable {
 
 需要处理：启动失败、连接中断、用户中断、超时、并发回合、会话恢复。
 
+`prompt` 响应带有 `disposition`：`started` 启动一次运行，`queued` 进入待处理队列，`handled` 表示
+被扩展命令或输入处理器立即消费——不会启动运行，也就不会再有 `agent_settled`，客户端必须自行收尾
+（`AgentTransport.prompt` 因此返回 `PromptDisposition`）。
+
 打开时会与 pi 校准本地镜像（`get_entries`；无进程运行时回退到会话文件），因此应用外产生的回合也会
 出现（[ADR-0009](decisions/0009-history-sync.zh-CN.md)）。解码必须容忍 pi 消息**缺少** `content` 或为
 `null`：把这类字段当必填会让整条响应失败、静默得到空历史。

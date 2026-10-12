@@ -80,6 +80,11 @@ create/resume session → start or connect to agent → send user input
 
 Must handle: startup failure, connection loss, user interruption, timeouts, concurrent turns, session resume.
 
+A `prompt` response reports a `disposition`: `started` begins a run, `queued` joins the pending queue,
+and `handled` means an extension command or input handler consumed it — no run starts, so no
+`agent_settled` follows and the client must finalize the turn itself (`AgentTransport.prompt` returns
+`PromptDisposition` for this reason).
+
 On open, the local mirror is reconciled with pi (`get_entries`, falling back to the session file when no
 process is running) so turns made outside the app show up ([ADR-0009](decisions/0009-history-sync.md)).
 Decoding must tolerate pi messages without `content` (or with `content: null`): a required field there

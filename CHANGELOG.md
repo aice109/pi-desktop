@@ -87,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template `Item` model.
 
 ### Fixed
+- A prompt that pi handled immediately (an extension command or input handler) never emitted
+  `agent_settled`, so the assistant placeholder spun forever. `prompt` now returns the response's
+  `disposition`, and a `handled` prompt is finalized right away.
 - After the pi process exited, the transport kept a stale handle: later prompts were silently dropped
   because the client believed a process was still running. Exit and stdout-close now release the
   process and its pipes, so the next command relaunches pi and the existing event stream keeps working.

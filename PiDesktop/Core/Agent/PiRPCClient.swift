@@ -60,12 +60,14 @@ actor PiRPCClient: AgentTransport {
         return stream
     }
 
-    func prompt(_ message: String) async throws {
+    @discardableResult
+    func prompt(_ message: String) async throws -> PromptDisposition {
         try startProcessIfNeeded()
         let response = await send(["type": "prompt", "message": message])
         if response?.success == false {
             throw AgentTransportError.commandFailed(response?.error ?? "unknown")
         }
+        return PromptDisposition(raw: response?.data?.disposition)
     }
 
     func abort() async {
