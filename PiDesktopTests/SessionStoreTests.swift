@@ -269,13 +269,14 @@ final class SessionStoreTests: XCTestCase {
 
         fixture.transport.emit(.retryStarted(attempt: 2, maxAttempts: 3))
         await waitUntil { fixture.store.activity(for: fixture.session) != nil }
-        XCTAssertEqual(fixture.store.activity(for: fixture.session)?.displayText, "Retrying (2/3)…")
+        // 断言活动本身而非展示文案：文案走 String Catalog，会随语言变化。
+        XCTAssertEqual(fixture.store.activity(for: fixture.session), .retrying(attempt: 2, maxAttempts: 3))
 
         fixture.transport.emit(.retryFinished(success: true))
         await waitUntil { fixture.store.activity(for: fixture.session) == nil }
 
         fixture.transport.emit(.compactionStarted)
-        await waitUntil { fixture.store.activity(for: fixture.session)?.displayText == "Compacting context…" }
+        await waitUntil { fixture.store.activity(for: fixture.session) == .compacting }
 
         fixture.transport.emit(.compactionFinished(aborted: false, errorMessage: nil))
         await waitUntil { fixture.store.activity(for: fixture.session) == nil }
@@ -515,6 +516,68 @@ final class SessionStoreTests: XCTestCase {
         await fixture.store.compact(fixture.session, instructions: "focus on auth")
 
         XCTAssertEqual(fixture.transport.compactionInstructionsValue, ["focus on auth"])
+    }
+
+    /// 压缩等一次性操作不设置 `streaming`，状态栏必须靠 `isBusy` 才能显示。
+    func test_activityMakesSessionBusyWithoutStreaming() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+        XCTAssertFalse(fixture.store.isBusy(fixture.session))
+
+        fixture.transport.emit(.compactionStarted)
+        await waitUntil { fixture.store.isBusy(fixture.session) }
+
+        XCTAssertFalse(fixture.store.isStreaming(fixture.session))
+        XCTAssertEqual(fixture.store.activity(for: fixture.session), .compacting)
+
+        fixture.transport.emit(.compactionFinished(aborted: false, errorMessage: nil))
+        await waitUntil { !fixture.store.isBusy(fixture.session) }
+    }
+
+    func test_compact_showsSuccessNoticeAndClearsActivity() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.compact(fixture.session)
+
+        XCTAssertNil(fixture.store.activity(for: fixture.session))
+        XCTAssertEqual(fixture.store.notice?.kind, .success)
+    }
+
+    func test_compact_failure_showsFailureNotice() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.compactResultValue = false
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.compact(fixture.session)
+
+        XCTAssertEqual(fixture.store.notice?.kind, .failure)
+    }
+
+    func test_exportHTML_reportsOutcome() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        fixture.transport.exportResultValue = "/tmp/session.html"
+        let exported = await fixture.store.exportHTML(fixture.session, to: "/tmp/session.html")
+        XCTAssertEqual(exported, "/tmp/session.html")
+        XCTAssertEqual(fixture.store.notice?.kind, .success)
+
+        fixture.store.dismissNotice()
+        fixture.transport.exportResultValue = nil
+        let failed = await fixture.store.exportHTML(fixture.session, to: "/tmp/session.html")
+        XCTAssertNil(failed)
+        XCTAssertEqual(fixture.store.notice?.kind, .failure)
+    }
+
+    func test_clone_failure_showsFailureNotice() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.cloneResultValue = false
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.clone(fixture.session)
+
+        XCTAssertEqual(fixture.store.notice?.kind, .failure)
     }
 
     func test_setAutoCompaction_forwardsAndRefreshesState() async throws {

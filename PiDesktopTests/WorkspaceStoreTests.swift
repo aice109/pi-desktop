@@ -69,4 +69,15 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.recentWorkspaces.map(\.lastPathComponent), ["proj-a"])
         XCTAssertNil(defaults.string(forKey: WorkspaceStore.workspacePathKey))
     }
+
+    func test_reportAndDismissError() {
+        let store = makeStore()
+        XCTAssertNil(store.errorMessage)
+
+        store.report(URLError(.notConnectedToInternet))
+        XCTAssertNotNil(store.errorMessage)
+
+        store.dismissError()
+        XCTAssertNil(store.errorMessage)
+    }
 }

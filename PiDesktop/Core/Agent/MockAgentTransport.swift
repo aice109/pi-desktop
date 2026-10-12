@@ -35,6 +35,9 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已设置的自动压缩开关 / 压缩调用，供断言。
     private let autoCompaction = Mutex<Bool?>(nil)
     private let compactionInstructions = Mutex<[String?]>([])
+    /// `compact` / `clone` 的返回值，测试可注入失败。
+    private let compactResult = Mutex<Bool>(true)
+    private let cloneResult = Mutex<Bool>(true)
     /// 已设置的自动重试开关 / 中止次数，供断言。
     private let autoRetry = Mutex<Bool?>(nil)
     private let abortRetryCount = Mutex<Int>(0)
@@ -122,6 +125,18 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     /// 每次 `compact` 传入的指令。
     var compactionInstructionsValue: [String?] { compactionInstructions.withLock { $0 } }
+
+    /// 注入 `compact` 的返回值。
+    var compactResultValue: Bool {
+        get { compactResult.withLock { $0 } }
+        set { compactResult.withLock { $0 = newValue } }
+    }
+
+    /// 注入 `clone` 的返回值。
+    var cloneResultValue: Bool {
+        get { cloneResult.withLock { $0 } }
+        set { cloneResult.withLock { $0 = newValue } }
+    }
 
     /// 最近一次设置的自动重试开关。
     var autoRetryValue: Bool? { autoRetry.withLock { $0 } }
@@ -259,7 +274,7 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func clone() async -> Bool {
         cloneCount.withLock { $0 += 1 }
-        return true
+        return cloneResultValue
     }
 
     func setModel(_ model: AgentModel) async -> Bool {
@@ -291,7 +306,7 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func compact(customInstructions: String?) async -> Bool {
         compactionInstructions.withLock { $0.append(customInstructions) }
-        return true
+        return compactResultValue
     }
 
     func setAutoCompaction(enabled: Bool) async -> Bool {
