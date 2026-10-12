@@ -4,9 +4,9 @@
 
 How PiDesktop talks to the pi coding agent. Read when working on agent logic.
 
-> ⚠️ Integration details depend on pi's actual interface. This page records **design constraints and the
-> target shape**; the concrete protocol follows pi's official docs and source. Verify against the latest
-> pi docs before implementing.
+> Integration follows pi's official RPC interface (see [ADR-0003](decisions/0003-pi-transport-and-sandbox.md)).
+> The concrete wire format lives in pi's docs (`rpc.md`, `rpc-commands.md`, `json.md`,
+> `message-types.md`); verify against the installed pi version when extending.
 
 ## 1. Roles
 
@@ -17,40 +17,46 @@ PiDesktop is the **GUI front end** for the pi agent:
 
 **The UI never calls models/tools directly**; it consumes domain events from pi and sends user intents.
 
-## 2. Integration approach (TBD, needs an ADR)
+## 2. Integration approach
 
-Candidates:
+Decided in [ADR-0003](decisions/0003-pi-transport-and-sandbox.md): **subprocess + RPC**
+(`pi --mode rpc`), with the App Sandbox disabled.
 
-| Approach | Description | Trade-offs |
-| --- | --- | --- |
-| Subprocess + stdio protocol | App launches the pi CLI and communicates line/JSON | Simple, reuses the CLI; must manage process lifecycle |
-| Local service / RPC | pi runs as a service; app connects via socket/HTTP | Loosely coupled; extra service management |
-| Direct SDK linking | If pi offers a Swift/embeddable SDK | Tightest coupling; depends on availability |
+- PiDesktop launches `pi --mode rpc --no-session` as a child process; one client per session, with the
+  child's working directory set to the session's `workingDirectory`.
+- Commands are newline-delimited JSON on stdin; responses and session events are NDJSON on stdout;
+  stderr is diagnostics only.
+- `Core/Agent/PiRPCClient` owns the process and maps records to domain events;
+  `Core/Agent/RPCRecords` decodes the wire format.
+- `pi` is located via `PI_EXECUTABLE`, `PATH`, and common install paths; the child `PATH` is augmented
+  so the `#!/usr/bin/env node` launcher can find Node.
 
-> Once decided, **write an ADR**, then backfill this section.
+Wire references: pi's `docs/rpc.md`, `docs/rpc-commands.md`, `docs/json.md`, `docs/message-types.md`.
 
-## 3. Event model (target)
+## 3. Event model
 
-The agent layer exposes domain events upward (no transport details):
+Implemented in `Core/Agent/AgentEvent.swift`; the wire→event mapping lives in `RPCProtocol` so nothing
+above `Core/Agent` sees the transport format:
 
 ```swift
-enum AgentEvent {
-    case sessionStarted(id: SessionID)
-    case messageDelta(id, text)          // streaming text delta
-    case messageCompleted(id, Message)
-    case reasoningDelta(id, text)        // reasoning, if exposed
-    case toolCallStarted(ToolCall)
-    case toolCallOutput(ToolCallID, chunk)
-    case toolCallFinished(ToolCallID, result, status)
-    case turnFinished(usage)
-    case error(AgentError)
+enum AgentEvent: Sendable, Equatable {
+    case agentStarted
+    case textDelta(String)               // streaming assistant text
+    case thinkingDelta(String)           // reasoning, if exposed
+    case toolCallStarted(id: String, name: String)
+    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?)
+    case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
+    case settled(aborted: Bool)          // agent_settled: no automatic work remains
+    case failed(String)                  // transport failure
 }
 ```
 
 Rules:
-- Mapping transport format → domain events happens in `Core/Agent` only.
-- Events are pushed upward as an `AsyncStream` (or equivalent sequence).
-- Events update UI state on a `@MainActor` store.
+- Mapping wire records → domain events happens in `Core/Agent` only.
+- Events are delivered upward as an `AsyncStream`.
+- Events update UI state on a `@MainActor` store (`SessionStore`).
+
+Not yet modelled: token usage/cost and persisted tool calls (see §7).
 
 ## 4. Session lifecycle
 
@@ -75,6 +81,9 @@ Must handle: startup failure, connection loss, user interruption, timeouts, conc
 
 Rendering follows [design-system.md](design-system.md) (native components + glass).
 
+Currently implemented: streaming assistant text (`textDelta` / `assistantMessageCompleted`) and a
+transient "running tool" indicator. Reasoning, tool cards, and error retry are still pending.
+
 ## 6. Security & privacy
 
 - Never log or persist sensitive content (keys, full file contents).
@@ -83,8 +92,10 @@ Rendering follows [design-system.md](design-system.md) (native components + glas
 
 ## 7. TODO
 
-- [ ] Confirm pi's protocol → write an ADR
-- [ ] Define the full domain event set
-- [ ] Implement the `Core/Agent` abstraction + one concrete implementation
-- [ ] SwiftData models for sessions/messages
-- [ ] Streaming render + tool-call card UI
+- [x] Confirm pi's protocol → ADR-0003
+- [x] `Core/Agent` abstraction (`AgentTransport`) + `PiRPCClient`
+- [x] SwiftData models for sessions/messages (ADR-0004)
+- [x] Streaming assistant text render
+- [ ] Persist tool calls (`ToolCall` model + cards) — needs an ADR
+- [ ] Model / thinking-level selection, usage & cost display
+- [ ] Session resume + `get_messages` sync, error retry, reasoning view

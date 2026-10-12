@@ -6,12 +6,13 @@
 
 - macOS 27.0+，Xcode（含匹配 SDK）。
 - 目前无第三方依赖。
-- Scheme：`PiDesktop`（已勾选 Shared，由 Xcode autocreate 自动生成，`-scheme` 直接可用）。
+- Scheme：`PiDesktop` —— 已作为共享 scheme 提交到
+  `PiDesktop.xcodeproj/xcshareddata/xcschemes/PiDesktop.xcscheme`，全新 clone / CI 无需依赖 Xcode
+  自动生成即可 `-scheme` 构建；其中已包含 `PiDesktopTests` 测试 target。
 
-> **关于共享 scheme**：`xcuserdata/` 属于用户本地状态，已加入 `.gitignore`；scheme 本身依赖 Xcode 的
-> 自动生成（target 存在即可用），因此全新 clone / CI 无需本仓库提交 `.xcscheme` 也能 `-scheme` 构建。
-> 若日后需要固定 run/test/archive 的显式配置，再在 Xcode 勾选 Shared 生成
-> `xcshareddata/xcschemes/PiDesktop.xcscheme` 并提交。
+> **关于共享 scheme**：`xcuserdata/` 属于用户本地状态，已加入 `.gitignore`；共享 scheme 已提交，
+> 使 run/test/archive 行为显式且可复现。若新增 target 或测试 bundle，请在 Xcode「Manage Schemes」
+> 中更新 scheme，或直接编辑其 XML。
 >
 > **关于 `requires Xcode`**：若 `xcodebuild` 报此错，是 `xcode-select` 指向了 CommandLineTools。
 > 用 `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` 修复，或对单条命令设置
@@ -50,7 +51,11 @@ xcodebuild -project PiDesktop.xcodeproj -scheme PiDesktop test
 
 - 新增逻辑应补单测；UI 关键路径补 UI 测试。
 - 测试命名：`test_<行为>_<条件>_<预期>`。
-- 注意：目前还没有 test target，命令会失败，直到添加为止。
+- `PiDesktopTests` target 承载单测（如 `SessionModelTests`），基于内存中的 SwiftData 容器。
+  用例必须持有 `ModelContainer` 直到结束：`ModelContext` 不持有其容器，容器被释放后再使用 context
+  会触发崩溃（SIGTRAP）。
+- `PiRPCClientIntegrationTests` 会启动真实 `pi` 子进程，**默认跳过**（会调用模型、产生费用）。
+  设置 `PI_INTEGRATION_TESTS=1` 或创建 `/tmp/pi_integration_enabled` 以启用。
 
 ## 5. 清理与排障
 

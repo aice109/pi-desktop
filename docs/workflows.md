@@ -6,12 +6,13 @@
 
 - macOS 27.0+, Xcode with a matching SDK.
 - No third-party dependencies yet.
-- Scheme: `PiDesktop` (Shared is checked; Xcode autocreates it, so `-scheme` works out of the box).
+- Scheme: `PiDesktop` — committed as a shared scheme at
+  `PiDesktop.xcodeproj/xcshareddata/xcschemes/PiDesktop.xcscheme`, so `-scheme` works from a fresh
+  clone and CI without relying on Xcode autocreation. It includes the `PiDesktopTests` test target.
 
-> **About shared schemes**: `xcuserdata/` is user-local state and is gitignored. The scheme relies on
-> Xcode's autocreation (a target is enough), so a fresh clone / CI can build with `-scheme` without this
-> repo committing a `.xcscheme`. If you later want to pin explicit run/test/archive settings, check
-> Shared in Xcode to emit `xcshareddata/xcschemes/PiDesktop.xcscheme` and commit it.
+> **About shared schemes**: `xcuserdata/` is user-local state and is gitignored. The shared scheme is
+> committed so run/test/archive behavior is explicit and reproducible. If you add targets or test
+> bundles, update the scheme (Scheme ▸ Manage Schemes in Xcode, or edit the XML directly).
 >
 > **About `requires Xcode`**: if `xcodebuild` reports it, `xcode-select` points at CommandLineTools.
 > Fix with `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, or set
@@ -50,7 +51,12 @@ xcodebuild -project PiDesktop.xcodeproj -scheme PiDesktop test
 
 - Add unit tests for new logic; add UI tests for critical flows.
 - Test naming: `test_<behavior>_<condition>_<expectation>`.
-- Note: there is no test target yet; the command fails until one is added.
+- The `PiDesktopTests` target hosts unit tests (e.g. `SessionModelTests`) backed by an in-memory
+  SwiftData container. Hold the `ModelContainer` for the test's lifetime: a `ModelContext` does not
+  retain its container, and using a context after its container is deallocated crashes (SIGTRAP).
+- `PiRPCClientIntegrationTests` launches a real `pi` subprocess and is **skipped by default** (it calls
+  a model and costs money). Enable it with `PI_INTEGRATION_TESTS=1` or by creating
+  `/tmp/pi_integration_enabled`.
 
 ## 5. Clean & troubleshoot
 

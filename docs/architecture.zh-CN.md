@@ -25,13 +25,16 @@ PiDesktop 是 pi coding agent 的 macOS 原生 GUI。核心职责：
 
 ```
 PiDesktop/
-├── PiDesktopApp.swift      # @main，App 入口、Scene、SwiftData 容器
-├── ContentView.swift       # 根视图
-├── Item.swift              # 模板示例模型（SwiftData）
-└── Assets.xcassets/        # 资源目录
+├── PiDesktopApp.swift          # @main，App 入口、Scene、SwiftData 容器、组装 SessionStore
+├── ContentView.swift           # 根视图（会话列表 + 详情）
+├── Features/
+│   └── Chat/                   # ChatView：消息流 + 输入框
+├── Core/
+│   ├── Agent/                  # AgentEvent、AgentTransport、PiRPCClient、RPCProtocol
+│   ├── Models/                 # Session、Message（ADR-0004）
+│   └── Stores/                 # SessionStore（@Observable，@MainActor）
+└── Assets.xcassets/            # 资源目录
 ```
-
-> 初始化模板中的 `Item` 仅为示例，正式开发时应替换为真实领域模型（见下）。
 
 ## 规划中的模块划分
 
@@ -57,27 +60,36 @@ PiDesktop/
 - 跨 feature 复用的能力下沉到 `Core/` 或 `DesignSystem/`。
 - 通信层（`Core/Agent`）对外只暴露领域事件，不泄漏传输细节。
 
-## 数据流（目标形态）
+## 数据流
+
+已落地（见 [ADR-0003](decisions/0003-pi-transport-and-sandbox.zh-CN.md)）：
 
 ```
-pi agent 进程/协议
-      │  事件流 (AsyncStream)
+pi agent 进程 (pi --mode rpc)
+      │  stdout 上的 NDJSON
       ▼
- Core/Agent  ──► 领域事件  ──►  SessionStore (@Observable, @MainActor)
-                                      │
-                                      ▼
-                                   SwiftUI Views
+ Core/Agent  ──►  AgentEvent 流 (AsyncStream)
+      │                     │
+      │                     ▼
+      │        SessionStore (@Observable, @MainActor)  ──►  SwiftData (Message)
+      │                     │
+      └── stdin JSONL ◄──── SwiftUI Views (ChatView)
 ```
 
 原则：
 - **单向数据流**：View 只读状态、发送意图；状态变更集中在 Store。
 - **主线程隔离**：UI 状态标记 `@MainActor`。
-- **通信与 UI 解耦**：Agent 层不 import SwiftUI。
+- **通信与 UI 解耦**：Agent 层不 import SwiftUI，只对外暴露 `AgentEvent`。
 
-## 数据模型（规划）
+## 数据模型
 
-- `Session`：一次会话，含标题、时间、工作目录、状态。
-- `Message`：角色（user/assistant/tool）、内容、时间、关联的工具调用。
+**已实现**（[ADR-0004](decisions/0004-domain-model.zh-CN.md)）：
+
+- `Session`：一次会话，含 id、标题、创建/更新时间、工作目录、状态。
+- `Message`：角色（user/assistant/tool）、内容、时间、所属会话。
+
+**规划中：**
+
 - `ToolCall`：工具名、参数、状态、结果、耗时。
 - `AppSettings`：模型、主题、偏好。
 

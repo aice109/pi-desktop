@@ -9,7 +9,8 @@
 
 A native macOS GUI for the [pi coding agent](https://github.com/earendil-works/pi): manage sessions, watch tool calls unfold, and keep project context — all in a first-class Mac app.
 
-> ⚠️ **Status: early.** The repository is scaffolded; feature work is ongoing.
+> ⚠️ **Status: early.** Session management and streaming chat with the pi agent work today;
+> tool-call visualization, workspace context, and settings are in progress.
 
 ---
 

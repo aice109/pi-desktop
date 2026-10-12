@@ -25,13 +25,16 @@ PiDesktop is a native macOS GUI for the pi coding agent. Its core responsibiliti
 
 ```
 PiDesktop/
-├── PiDesktopApp.swift      # @main, Scene, SwiftData container
-├── ContentView.swift       # Root view
-├── Item.swift              # Template sample model (SwiftData)
-└── Assets.xcassets/        # Asset catalog
+├── PiDesktopApp.swift          # @main, Scene, SwiftData container, SessionStore assembly
+├── ContentView.swift           # Root view (session list + detail)
+├── Features/
+│   └── Chat/                   # ChatView: message stream + composer
+├── Core/
+│   ├── Agent/                  # AgentEvent, AgentTransport, PiRPCClient, RPCProtocol
+│   ├── Models/                 # Session, Message (ADR-0004)
+│   └── Stores/                 # SessionStore (@Observable, @MainActor)
+└── Assets.xcassets/            # Asset catalog
 ```
-
-> The template `Item` is a placeholder; replace it with real domain models (below).
 
 ## Planned module layout
 
@@ -57,27 +60,36 @@ Rules:
 - Cross-feature capabilities sink into `Core/` or `DesignSystem/`.
 - The agent layer exposes domain events only; it never leaks transport details.
 
-## Data flow (target)
+## Data flow
+
+Implemented (see [ADR-0003](decisions/0003-pi-transport-and-sandbox.md)):
 
 ```
-pi agent process/protocol
-      │  event stream (AsyncStream)
+pi agent process (pi --mode rpc)
+      │  NDJSON on stdout
       ▼
- Core/Agent  ──►  domain events  ──►  SessionStore (@Observable, @MainActor)
-                                            │
-                                            ▼
-                                         SwiftUI Views
+ Core/Agent  ──►  AgentEvent stream (AsyncStream)
+      │                     │
+      │                     ▼
+      │        SessionStore (@Observable, @MainActor)  ──►  SwiftData (Message)
+      │                     │
+      └── stdin JSONL ◄──── SwiftUI Views (ChatView)
 ```
 
 Principles:
 - **Unidirectional data flow**: views read state and send intents; state changes live in stores.
 - **Main-actor isolation**: UI state is marked `@MainActor`.
-- **Transport/UI decoupling**: the agent layer never imports SwiftUI.
+- **Transport/UI decoupling**: the agent layer never imports SwiftUI; it exposes only `AgentEvent`.
 
-## Data model (planned)
+## Data model
 
-- `Session` — a conversation: title, timestamps, working directory, status.
-- `Message` — role (user/assistant/tool), content, timestamp, related tool call.
+**Implemented** ([ADR-0004](decisions/0004-domain-model.md)):
+
+- `Session` — a conversation: id, title, created/updated timestamps, working directory, status.
+- `Message` — role (user/assistant/tool), content, timestamp, owning session.
+
+**Planned:**
+
 - `ToolCall` — tool name, arguments, status, result, duration.
 - `AppSettings` — model, theme, preferences.
 

@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Community health files: contributing guide, code of conduct, security policy.
 - CI workflow, issue and pull request templates.
 - `.gitignore` covering Xcode user state, build output, and secrets.
+- Real SwiftData domain models `Session` / `Message` replacing the template `Item`
+  (ADR-0004), with unit tests for append/persist and cascade delete.
+- `PiDesktopTests` unit-test target and a committed shared scheme
+  (`PiDesktop.xcscheme`) that includes it.
+- ADR-0003 (Accepted): pi transport and app sandbox / entitlements.
+- ADR-0004 (Accepted): SwiftData domain model (Session / Message).
+- pi integration over RPC (`pi --mode rpc`): `Core/Agent` (`AgentEvent`, `AgentTransport`,
+  `PiRPCClient`, `RPCProtocol`), a `SessionStore`, and a streaming `ChatView`. Verified end-to-end
+  against a real pi subprocess (opt-in integration test).
+
+### Changed
+- App Sandbox disabled and the `files.user-selected` entitlement removed to allow
+  the subprocess transport (ADR-0003); the app runs unsandboxed with hardened runtime.
+- Session list sorted by most-recent activity instead of relying on undefined
+  insertion order.
+- App version aligned to `0.1.0` (`MARKETING_VERSION`) to match the README badge;
+  nothing has been released yet, so the changelog stays under `[Unreleased]`.
+
+### Removed
+- Template `Item` model.
 
 ### Notes
 - Released under the MIT License.
