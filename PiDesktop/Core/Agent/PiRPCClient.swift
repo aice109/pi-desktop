@@ -70,6 +70,33 @@ actor PiRPCClient: AgentTransport {
         return PromptDisposition(raw: response?.data?.disposition)
     }
 
+    @discardableResult
+    func steer(_ message: String) async throws -> PromptDisposition {
+        try await queueCommand("steer", message: message)
+    }
+
+    @discardableResult
+    func followUp(_ message: String) async throws -> PromptDisposition {
+        try await queueCommand("follow_up", message: message)
+    }
+
+    private func queueCommand(_ type: String, message: String) async throws -> PromptDisposition {
+        try startProcessIfNeeded()
+        let response = await send(["type": type, "message": message])
+        if response?.success == false {
+            throw AgentTransportError.commandFailed(response?.error ?? "unknown")
+        }
+        return PromptDisposition(raw: response?.data?.disposition)
+    }
+
+    func clearQueue() async -> AgentQueue {
+        guard let record = await command(["type": "clear_queue"]) else { return AgentQueue() }
+        return AgentQueue(
+            steering: record.data?.steering ?? [],
+            followUp: record.data?.followUp ?? []
+        )
+    }
+
     func abort() async {
         _ = await send(["type": "abort"])
     }

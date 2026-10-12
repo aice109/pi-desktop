@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
   External renames and thinking-level changes now propagate to the UI, summarization retries show in
   the status line, and an appended entry reconciles the local mirror when idle.
+- Messages can be queued while the agent is running: Enter sends a steering message (delivered after
+  the current tool calls) and the send control's menu offers "Send as Follow-up". The status area lists
+  the pending queue, and "Clear Queued" restores the text to the composer. Backed by pi's `steer`,
+  `follow_up`, and `clear_queue` commands.
 - The chat now follows new output only while the user is at the bottom. Scrolling up pauses the
   follow and shows a glass "scroll to latest" button; tapping it resumes. The follow is intent-based,
   so streaming growth no longer stops it prematurely.

@@ -106,6 +106,14 @@ protocol AgentTransport: Sendable {
     /// 返回值区分「启动运行」「排队」「被立即处理」：`handled` 不会再有事件，调用方需据此收尾。
     @discardableResult
     func prompt(_ message: String) async throws -> PromptDisposition
+    /// 在运行中排队一条 steering 消息；在当前回合的工具调用完成后投递。
+    @discardableResult
+    func steer(_ message: String) async throws -> PromptDisposition
+    /// 在运行中排队一条 follow-up 消息；仅在 agent 完全停下后才投递。
+    @discardableResult
+    func followUp(_ message: String) async throws -> PromptDisposition
+    /// 清空待处理的 steering / follow-up 队列，并返回被清空的文本（供客户端还原到输入框）。
+    func clearQueue() async -> AgentQueue
     /// 中断当前运行。
     func abort() async
     /// 关闭底层进程/连接。

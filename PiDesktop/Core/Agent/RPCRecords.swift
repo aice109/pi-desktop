@@ -70,6 +70,9 @@ nonisolated struct RPCDataDTO: Decodable {
     var contextUsage: ContextUsageDTO?
     // get_entries
     var entries: [SessionEntryDTO]?
+    // clear_queue
+    var steering: [String]?
+    var followUp: [String]?
 }
 
 /// `get_entries` 返回的一条会话条目（追加式树的节点）。

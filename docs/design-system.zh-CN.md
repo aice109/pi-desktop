@@ -104,6 +104,9 @@ GlassEffectContainer(spacing: 16) {
 - 用户消息用淡色气泡（`.tint.opacity(0.12)`）；助手消息保持纯文本，便于 Markdown 阅读。
 - 输入框是带聚焦描边的圆角字段，发送为 `.borderedProminent` 圆形按钮（⌘↩）；流式状态行置于
   `.thinMaterial` 的 `Capsule` 中——属于系统预期的叠加层，不是自绘模糊。
+- 运行中输入框保持可用：回车排队一条 **steering** 消息（发送控件变为 `Menu`，点击即 steer，
+  菜单里可选「Send as Follow-up」）。已排队消息显示在状态行下方，「Clear Queued」会将其文本
+  还原到输入框（pi 的 Esc 语义）。
 - 工具调用折叠成一行摘要（SF Symbol、工具名、参数胶囊、状态），展开后显示 `Arguments` / `Output`；
   失败时保留红色描边。
 - 用量用 `Gauge`（`.accessoryLinearCapacity`）加 `.monospacedDigit()` 文本，更新时数字不抖动。

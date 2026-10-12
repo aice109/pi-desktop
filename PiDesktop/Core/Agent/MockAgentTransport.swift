@@ -26,6 +26,11 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let entries = Mutex<[SessionEntryDTO]>([])
     /// `prompt(_:)` 的返回值。
     private let disposition = Mutex<PromptDisposition>(.started)
+    /// 已发送的 steering / follow-up 文本，供断言。
+    private let steered = Mutex<[String]>([])
+    private let followUps = Mutex<[String]>([])
+    /// `clearQueue()` 的返回值。
+    private let clearedQueue = Mutex<AgentQueue>(AgentQueue())
 
     nonisolated init() {
         (stream, continuation) = AsyncStream<AgentEvent>.makeStream(bufferingPolicy: .unbounded)
@@ -64,6 +69,18 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         set { disposition.withLock { $0 = newValue } }
     }
 
+    /// 已发送的 steering 文本。
+    var steeredMessages: [String] { steered.withLock { $0 } }
+
+    /// 已发送的 follow-up 文本。
+    var followUpMessages: [String] { followUps.withLock { $0 } }
+
+    /// 注入 `clearQueue()` 的返回值。
+    var clearedQueueValue: AgentQueue {
+        get { clearedQueue.withLock { $0 } }
+        set { clearedQueue.withLock { $0 = newValue } }
+    }
+
     func events() async -> AsyncStream<AgentEvent> {
         stream
     }
@@ -72,6 +89,22 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     func prompt(_ message: String) async throws -> PromptDisposition {
         sent.withLock { $0.append(message) }
         return promptDispositionValue
+    }
+
+    @discardableResult
+    func steer(_ message: String) async throws -> PromptDisposition {
+        steered.withLock { $0.append(message) }
+        return .queued
+    }
+
+    @discardableResult
+    func followUp(_ message: String) async throws -> PromptDisposition {
+        followUps.withLock { $0.append(message) }
+        return .queued
+    }
+
+    func clearQueue() async -> AgentQueue {
+        clearedQueueValue
     }
 
     func abort() async {}

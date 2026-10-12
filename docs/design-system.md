@@ -113,6 +113,9 @@ Ask with:
 - The composer is a rounded field with a focus ring and a `.borderedProminent` circular send button
   (⌘↩). The streaming status line sits in a `.thinMaterial` `Capsule` — a system-intended overlay, not
   a hand-rolled blur.
+- While the agent runs the composer stays enabled: Enter queues a **steering** message (the send
+  control becomes a `Menu` whose primary action steers, offering "Send as Follow-up"). Queued messages
+  appear under the status line with a "Clear Queued" link that restores their text to the composer.
 - Tool calls collapse to a single summary line (SF Symbol, tool name, argument chip, status) and expand
   to `Arguments` / `Output`; failures keep the red outline.
 - Usage is a `Gauge` (`.accessoryLinearCapacity`) plus `.monospacedDigit()` labels, so the numbers do

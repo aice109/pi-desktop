@@ -273,6 +273,47 @@ final class SessionStore {
         }
     }
 
+    /// 流式期间排队一条 steering 消息：在当前回合的工具调用执行完后投递。
+    func steer(_ rawText: String, in session: Session) async {
+        await enqueue(rawText, in: session) { transport, text in
+            try await transport.steer(text)
+        }
+    }
+
+    /// 流式期间排队一条 follow-up 消息：仅在 agent 完全停下后投递。
+    func followUp(_ rawText: String, in session: Session) async {
+        await enqueue(rawText, in: session) { transport, text in
+            try await transport.followUp(text)
+        }
+    }
+
+    /// 排队消息的公共入口。
+    ///
+    /// 不在本地乐观写入用户消息：pi 的 `queue_update` 事件会回传权威队列，UI 据此渲染；
+    /// 投递后的历史则由 `syncHistory` 统一校准，避免与 pi 的真实顺序不一致。
+    private func enqueue(
+        _ rawText: String,
+        in session: Session,
+        using enqueue: (any AgentTransport, String) async throws -> PromptDisposition
+    ) async {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, isStreaming(session), let transport = transports[session.id] else { return }
+        do {
+            _ = try await enqueue(transport, text)
+        } catch {
+            // 排队失败不终止当前运行：真正的连接问题会经由事件流触发 `.failed`。
+        }
+    }
+
+    /// 清空待处理队列，并返回被清空的文本（供输入框还原，pi 的 Esc 语义）。
+    @discardableResult
+    func clearQueue(in session: Session) async -> AgentQueue {
+        guard let transport = transports[session.id] else { return AgentQueue() }
+        let cleared = await transport.clearQueue()
+        queues[session.id] = AgentQueue()
+        return cleared
+    }
+
     /// 中断该会话当前运行。
     func interrupt(_ session: Session) async {
         await transports[session.id]?.abort()

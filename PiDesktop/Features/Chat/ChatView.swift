@@ -350,7 +350,7 @@ struct ChatView: View {
 
     // MARK: - Status
 
-    /// 运行状态：实时思考（可折叠）+ 工具/思考指示。
+    /// 运行状态：实时思考（可折叠）+ 已排队消息 + 工具/思考指示。
     @ViewBuilder
     private var statusArea: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -359,6 +359,8 @@ struct ChatView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
             }
+            let queued = store.queued(for: session)
+            if !queued.isEmpty { queuedMessages(queued) }
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
                 Text(statusText)
@@ -371,6 +373,40 @@ struct ChatView: View {
             .background(.thinMaterial, in: Capsule())
             .padding(.horizontal, 16)
             .padding(.bottom, 6)
+        }
+    }
+
+    /// 已排队的 steering / follow-up 消息：可一键清空并还原到输入框。
+    private func queuedMessages(_ queued: AgentQueue) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(queued.steering.enumerated()), id: \.offset) { _, text in
+                queuedRow(symbol: "arrow.turn.down.right", text: text)
+            }
+            ForEach(Array(queued.followUp.enumerated()), id: \.offset) { _, text in
+                queuedRow(symbol: "text.append", text: text)
+            }
+            HStack {
+                Spacer()
+                Button("Clear Queued", action: clearQueue)
+                    .buttonStyle(.link)
+                    .font(.caption2)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+    }
+
+    private func queuedRow(symbol: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
         }
     }
 
@@ -389,20 +425,44 @@ struct ChatView: View {
                     RoundedRectangle(cornerRadius: DesignTokens.Radius.control)
                         .strokeBorder(isComposerFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator), lineWidth: 1)
                 }
-                .onSubmit(send)
-            Button(action: send) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 12, weight: .bold))
-                    .frame(width: 24, height: 24)
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.circle)
-            .disabled(trimmedDraft.isEmpty || store.isStreaming(session))
-            .keyboardShortcut(.return, modifiers: .command)
-            .help("Send (⌘↩)")
+                .onSubmit { submit() }
+            sendControl
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    /// 发送控件：空闲时普通发送；运行中可排队（点击 = steer，菜单可选 follow-up）。
+    @ViewBuilder
+    private var sendControl: some View {
+        if store.isStreaming(session) {
+            Menu {
+                Button("Steer", action: { submit(as: .steer) })
+                Button("Send as Follow-up", action: { submit(as: .followUp) })
+            } label: {
+                sendLabel
+            } primaryAction: {
+                submit(as: .steer)
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(trimmedDraft.isEmpty)
+            .keyboardShortcut(.return, modifiers: .command)
+            .help("Queue for this run (⌘↩ steers)")
+        } else {
+            Button(action: { submit(as: .prompt) }) { sendLabel }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.circle)
+                .disabled(trimmedDraft.isEmpty)
+                .keyboardShortcut(.return, modifiers: .command)
+                .help("Send (⌘↩)")
+        }
+    }
+
+    private var sendLabel: some View {
+        Image(systemName: "arrow.up")
+            .font(.system(size: 12, weight: .bold))
+            .frame(width: 24, height: 24)
     }
 
     // MARK: - Helpers
@@ -416,11 +476,38 @@ struct ChatView: View {
         draft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func send() {
+    /// 一次提交的投递方式。
+    private enum Submission { case prompt, steer, followUp }
+
+    /// 提交输入框内容：空闲时普通发送，运行中按指定方式排队（默认 steer）。
+    private func submit(as kind: Submission = .prompt) {
         let text = trimmedDraft
         guard !text.isEmpty else { return }
         draft = ""
-        Task { await store.send(text, in: session) }
+        Task {
+            switch kind {
+            case .prompt:
+                // 若提交瞬间回合已结束，`steer` 会落空——此时退回普通发送。
+                if store.isStreaming(session) {
+                    await store.steer(text, in: session)
+                } else {
+                    await store.send(text, in: session)
+                }
+            case .steer:
+                await store.steer(text, in: session)
+            case .followUp:
+                await store.followUp(text, in: session)
+            }
+        }
+    }
+
+    /// 清空队列并把文本还原到输入框（pi 的 Esc 语义）。
+    private func clearQueue() {
+        Task {
+            let cleared = await store.clearQueue(in: session)
+            let restored = (cleared.steering + cleared.followUp).joined(separator: "\n")
+            if !restored.isEmpty { draft = restored }
+        }
     }
 }
 

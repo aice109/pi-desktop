@@ -243,6 +243,41 @@ final class SessionStoreTests: XCTestCase {
         await waitUntil { fixture.store.activity(for: fixture.session) == nil }
     }
 
+    func test_steer_forwardsOnlyWhileStreaming() async throws {
+        let fixture = try makeFixture()
+        // 空闲时忽略：由调用方（UI）退回普通发送。
+        await fixture.store.steer("stop", in: fixture.session)
+        XCTAssertTrue(fixture.transport.steeredMessages.isEmpty)
+
+        await fixture.store.send("hi", in: fixture.session)
+        await fixture.store.steer("stop", in: fixture.session)
+        XCTAssertEqual(fixture.transport.steeredMessages, ["stop"])
+    }
+
+    func test_followUp_forwardsWhileStreaming() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+
+        await fixture.store.followUp("then test", in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.followUpMessages, ["then test"])
+        XCTAssertTrue(fixture.transport.steeredMessages.isEmpty)
+    }
+
+    func test_clearQueue_returnsClearedTextAndEmptiesLocalQueue() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+        fixture.transport.emit(.queueUpdated(AgentQueue(steering: ["stop"], followUp: ["then"])))
+        await waitUntil { !fixture.store.queued(for: fixture.session).isEmpty }
+
+        fixture.transport.clearedQueueValue = AgentQueue(steering: ["stop"], followUp: ["then"])
+        let cleared = await fixture.store.clearQueue(in: fixture.session)
+
+        XCTAssertEqual(cleared.steering, ["stop"])
+        XCTAssertEqual(cleared.followUp, ["then"])
+        XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
+    }
+
     func test_queueUpdate_isExposed() async throws {
         let fixture = try makeFixture()
         await fixture.store.send("hi", in: fixture.session)

@@ -208,6 +208,15 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertNil(RPCProtocol.agentEvent(from: record))
     }
 
+    func test_clearQueueResponse_decodesQueues() {
+        let json = #"{"id":"r1","type":"response","command":"clear_queue","success":true,"data":{"steering":["stop"],"followUp":["then"]}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("clear_queue 响应应能解码")
+        }
+        XCTAssertEqual(record.data?.steering, ["stop"])
+        XCTAssertEqual(record.data?.followUp, ["then"])
+    }
+
     func test_malformedLine_returnsNil() {
         let json = #"{"type":"message_update","assistantMessageEvent":"#
         XCTAssertNil(event(json))
