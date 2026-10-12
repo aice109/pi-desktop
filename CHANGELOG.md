@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- A Chat menu "Retry Last Message" (⇧⌘R) re-sends the last user message after a process exit or error.
 - Fenced code blocks are syntax-colored by a small native tokenizer (comments, strings, numbers,
   keywords), with a per-code cache and no third-party dependency.
 - The Branch menu's "Show Tree…" renders the whole session tree (`get_tree`), including abandoned

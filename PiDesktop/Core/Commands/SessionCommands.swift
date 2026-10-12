@@ -22,9 +22,11 @@ struct SessionCommandHandlers {
     var cycleModel: @MainActor () -> Void
     var cycleThinkingLevel: @MainActor () -> Void
     var copyLastResponse: @MainActor () -> Void
+    var retryLast: @MainActor () -> Void
     var isStreaming: @MainActor () -> Bool
     var canExport: @MainActor () -> Bool
     var canChat: @MainActor () -> Bool
+    var canRetryLast: @MainActor () -> Bool
 }
 
 private struct SessionCommandsKey: FocusedValueKey {

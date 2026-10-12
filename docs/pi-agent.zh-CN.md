@@ -147,4 +147,5 @@ Chat 菜单可循环切换模型（`cycle_model`）与思考等级（`cycle_thin
 - [x] 用 `get_entries` 的 `since` 游标做增量历史同步
 - [x] 分支感知的历史（`leafId`/`parentId`）与 `fork` / `clone`
 - [x] 会话树总览（`get_tree`），可从节点 fork
+- [x] 手动「重试上一条」（⇧⌘R），用于进程退出或出错后
 - [ ] 进程退出后自动重试被打断的回合

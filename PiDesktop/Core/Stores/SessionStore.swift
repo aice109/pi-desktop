@@ -615,6 +615,17 @@ final class SessionStore {
         return cleared
     }
 
+    /// 重发最后一条用户消息（进程崩溃 / 出错后的手动重试）。
+    ///
+    /// 仅在用户明确触发时执行，且会新增一条用户消息（重试即再问一次）。
+    func retryLast(in session: Session) async {
+        guard !isStreaming(session),
+              let last = session.messages.last(where: { $0.role == .user })
+        else { return }
+        let images = last.images.map { AgentImage(mimeType: $0.mimeType, data: $0.data) }
+        await send(last.content, images: images, in: session)
+    }
+
     /// 中断该会话当前运行。
     func interrupt(_ session: Session) async {
         await transports[session.id]?.abort()

@@ -168,4 +168,5 @@ command; an interrupted turn is not retried automatically yet.
 - [x] Incremental history sync via `get_entries`'s `since` cursor
 - [x] Branch-aware history (`leafId`/`parentId`) and `fork` / `clone`
 - [x] Session-tree overview (`get_tree`) with fork-from-node
+- [x] Manual "Retry Last Message" (⇧⌘R) after a process exit or error
 - [ ] Automatic retry of an interrupted turn after a process exit

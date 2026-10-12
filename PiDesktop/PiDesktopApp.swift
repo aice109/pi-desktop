@@ -101,6 +101,9 @@ private struct PiDesktopCommands: Commands {
             Button("Copy Last Response") { commands?.copyLastResponse() }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(!(commands?.canChat() ?? false))
+            Button("Retry Last Message") { commands?.retryLast() }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(!(commands?.canRetryLast() ?? false))
         }
 
         CommandMenu("Session") {

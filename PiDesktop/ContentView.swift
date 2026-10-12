@@ -89,9 +89,15 @@ struct ContentView: View {
             cycleModel: { cycleModel() },
             cycleThinkingLevel: { cycleThinkingLevel() },
             copyLastResponse: { copyLastResponse() },
+            retryLast: { retryLast() },
             isStreaming: { opened.map { sessionStore.isStreaming($0) } ?? false },
             canExport: { opened != nil },
-            canChat: { opened != nil }
+            canChat: { opened != nil },
+            canRetryLast: {
+                guard let opened else { return false }
+                return !sessionStore.isStreaming(opened)
+                    && opened.messages.contains { $0.role == .user }
+            }
         )
     }
 
@@ -276,6 +282,12 @@ struct ContentView: View {
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
         }
+    }
+
+    /// 重发最后一条用户消息（手动重试；进程崩溃/出错后使用）。
+    private func retryLast() {
+        guard let opened else { return }
+        Task { await sessionStore.retryLast(in: opened) }
     }
 
     /// 导出当前会话为 HTML：用系统保存面板选路径，交给 pi 的 `export_html` 写入。

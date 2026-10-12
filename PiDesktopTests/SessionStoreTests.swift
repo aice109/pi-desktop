@@ -362,6 +362,26 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(finished, fixture.session.id)
     }
 
+    func test_retryLast_resendsTheLastUserMessage() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("first", in: fixture.session)
+        fixture.transport.emit(.settled(aborted: false))
+        await waitUntil { !fixture.store.isStreaming(fixture.session) }
+
+        await fixture.store.retryLast(in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.sentPrompts, ["first", "first"])
+    }
+
+    func test_retryLast_isIgnoredWhileStreaming() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("first", in: fixture.session)
+
+        await fixture.store.retryLast(in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.sentPrompts, ["first"])
+    }
+
     func test_sessionTree_forwardsToTransport() async throws {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)
