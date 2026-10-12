@@ -55,3 +55,4 @@ Upsides, downsides, costs, follow-ups.
 | [0005](0005-workspace-and-pi-sessions.md) | Workspace-scoped pi sessions | Accepted |
 | [0006](0006-tool-calls.md) | Persist tool calls and render them as cards | Accepted |
 | [0007](0007-reasoning.md) | Persist assistant reasoning | Accepted |
+| [0008](0008-app-settings.md) | Application preferences in UserDefaults | Accepted |
