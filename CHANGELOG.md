@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The Branch menu's "Show Tree…" renders the whole session tree (`get_tree`), including abandoned
+  branches, with the active leaf highlighted and a fork action on user nodes.
 - Turns that finish while the app is in the background post a system notification, and any session that
   finished off-screen gets an unread dot in the sidebar (cleared when opened, kept across launches).
 - The agent event model now covers pi's queue and session-state events: `queue_update`,

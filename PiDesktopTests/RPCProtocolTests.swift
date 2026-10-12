@@ -175,6 +175,21 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(history.toolCalls[0].timestamp, entries[2].timestamp.flatMap(PiDate.parse))
     }
 
+    func test_getTreeResponse_mapsToDomainTree() {
+        let json = #"{"id":"r1","type":"response","command":"get_tree","success":true,"data":{"tree":[{"entry":{"type":"message","id":"e1","parentId":null,"message":{"role":"user","content":[{"type":"text","text":"hi"}]}},"children":[{"entry":{"type":"message","id":"e2","parentId":"e1","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}},"children":[]}]}],"leafId":"e2"}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_tree 响应应能解码")
+        }
+        let roots = (record.data?.tree ?? []).map(\.domain)
+        XCTAssertEqual(roots.count, 1)
+        XCTAssertEqual(roots[0].id, "e1")
+        XCTAssertTrue(roots[0].isUserMessage)
+        XCTAssertEqual(roots[0].preview, "hi")
+        XCTAssertEqual(roots[0].children.count, 1)
+        XCTAssertEqual(roots[0].children[0].preview, "hello")
+        XCTAssertEqual(record.data?.leafId, "e2")
+    }
+
     func test_nullContent_decodesAsEmptyText() {
         // 真实报文：`get_entries` 里 `system` / `bashExecution` 消息的 content 为 null。
         let json = #"{"id":"r1","type":"response","command":"get_entries","success":true,"data":{"entries":[{"type":"message","id":"e1","message":{"role":"bashExecution","content":null,"command":"ls","output":""}},{"type":"message","id":"e2","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}],"leafId":"e2"}}"#

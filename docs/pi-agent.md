@@ -167,5 +167,5 @@ command; an interrupted turn is not retried automatically yet.
 - [x] Reconcile the mirror with pi history on open (ADR-0009)
 - [x] Incremental history sync via `get_entries`'s `since` cursor
 - [x] Branch-aware history (`leafId`/`parentId`) and `fork` / `clone`
-- [ ] Visual session-tree navigation (`get_tree`)
+- [x] Session-tree overview (`get_tree`) with fork-from-node
 - [ ] Automatic retry of an interrupted turn after a process exit

@@ -378,6 +378,11 @@ final class SessionStore {
         await transports[session.id]?.forkMessages() ?? []
     }
 
+    /// 会话树总览（`get_tree`）。
+    func sessionTree(for session: Session) async -> AgentSessionTree? {
+        await transports[session.id]?.sessionTree()
+    }
+
     /// 从指定用户消息创建分支（`fork`）；返回被 fork 的原始文本，供「编辑并重发」。
     @discardableResult
     func fork(_ session: Session, from entryId: String) async -> String? {

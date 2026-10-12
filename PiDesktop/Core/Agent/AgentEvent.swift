@@ -138,6 +138,26 @@ nonisolated struct AgentForkMessage: Sendable, Equatable, Identifiable {
     var id: String { entryId }
 }
 
+/// 会话树的一个节点（`get_tree`）；用于可视化分支结构。
+nonisolated struct AgentTreeNode: Sendable, Equatable, Identifiable {
+    var id: String
+    var parentId: String?
+    /// 条目类型（`message` / `bashExecution` / 其他）。
+    var kind: String
+    /// 展示用预览文本（正文 / 命令 / 输出）。
+    var preview: String
+    var role: String?
+    /// 是否为可 fork 的用户消息。
+    var isUserMessage: Bool
+    var children: [AgentTreeNode]
+}
+
+/// 会话树快照（`get_tree`）。`roots` 可能多于一个（孤儿条目）。
+nonisolated struct AgentSessionTree: Sendable, Equatable {
+    var roots: [AgentTreeNode]
+    var leafId: String?
+}
+
 /// `prompt` 被 pi 接受后的处置方式（对应响应的 `data.disposition`）。
 nonisolated enum PromptDisposition: String, Sendable, Equatable {
     /// 已开始一次运行，之后会收到事件流。
@@ -219,6 +239,8 @@ protocol AgentTransport: Sendable {
     /// 因此适合作为刷新本地镜像的权威来源。传入上次最后一条的 `since` 只取新增条目（增量同步）；
     /// 游标失效时返回 `nil`，调用方退回全量。
     func sessionEntries(since: String?) async -> SessionEntriesPage?
+    /// 会话树（`get_tree`）：含遗弃分支的完整结构，用于总览。
+    func sessionTree() async -> AgentSessionTree?
 }
 
 /// 无图片的便捷重载，保持调用点简洁。

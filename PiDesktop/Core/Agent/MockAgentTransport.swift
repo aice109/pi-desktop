@@ -29,6 +29,9 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let cloneCount = Mutex<Int>(0)
     /// `fork` 返回的原始文本。
     private let forkText = Mutex<String?>(nil)
+    /// `sessionTree()` 的返回值与调用次数。
+    private let sessionTreeResult = Mutex<AgentSessionTree?>(nil)
+    private let sessionTreeCount = Mutex<Int>(0)
     /// 已设置的自动压缩开关 / 压缩调用，供断言。
     private let autoCompaction = Mutex<Bool?>(nil)
     private let compactionInstructions = Mutex<[String?]>([])
@@ -106,6 +109,13 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         get { forkText.withLock { $0 } }
         set { forkText.withLock { $0 = newValue } }
     }
+
+    /// 注入 `sessionTree()` 的返回值 / 读取调用次数。
+    var sessionTreeValue: AgentSessionTree? {
+        get { sessionTreeResult.withLock { $0 } }
+        set { sessionTreeResult.withLock { $0 = newValue } }
+    }
+    var sessionTreeCountValue: Int { sessionTreeCount.withLock { $0 } }
 
     /// 最近一次设置的自动压缩开关。
     var autoCompactionValue: Bool? { autoCompaction.withLock { $0 } }
@@ -345,6 +355,11 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         // 模拟 pi：`since` 必须命中某条 id，否则视为失效游标（nil → 调用方退回全量）。
         guard let index = all.firstIndex(where: { $0.id == since }) else { return nil }
         return SessionEntriesPage(entries: Array(all[(index + 1)...]), leafId: nil)
+    }
+
+    func sessionTree() async -> AgentSessionTree? {
+        sessionTreeCount.withLock { $0 += 1 }
+        return sessionTreeValue
     }
 
     func shutdown() async {

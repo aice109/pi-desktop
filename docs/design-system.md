@@ -126,7 +126,9 @@ Ask with:
   `Toggle`. While a retry is in progress the status line shows an "Abort Retry" link.
 - The toolbar has a Branch menu (`arrow.triangle.branch`) offering "Clone Session" and "Fork from
   Message…"; the latter opens a sheet listing forkable user messages. Selecting one forks and puts the
-  original text back in the composer, so the same flow doubles as edit-and-resend.
+  original text back in the composer, so the same flow doubles as edit-and-resend. The menu also has
+  "Show Tree…", rendering the full session tree (`get_tree`) — abandoned branches included — with the
+  active leaf highlighted and a Fork action on user nodes.
 - A draft starting with `!` runs a direct shell command (nothing is sent to the model); a small
   "Running shell command…" row with an Abort link appears until it finishes.
 - Typing `/` in the composer shows an inline suggestion list of pi commands (extension / prompt /

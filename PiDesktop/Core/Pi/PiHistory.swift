@@ -183,6 +183,29 @@ extension SessionEntryDTO {
     }
 }
 
+/// 把 RPC `get_tree` 的节点映射为领域树（预览文本与可 fork 标记在此确定）。
+extension TreeNodeDTO {
+    var domain: AgentTreeNode {
+        let history = entry.historyEntry
+        let preview: String
+        if history.role == "bashExecution" {
+            preview = history.command.map { "! \($0)" } ?? (history.output ?? "")
+        } else {
+            preview = history.content.joinedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let role = entry.message?.role
+        return AgentTreeNode(
+            id: entry.id ?? UUID().uuidString,
+            parentId: entry.parentId,
+            kind: entry.type,
+            preview: preview,
+            role: role,
+            isUserMessage: role == "user",
+            children: (children ?? []).map(\.domain)
+        )
+    }
+}
+
 /// pi 的时间戳解析：可能带也可能不带小数秒。
 nonisolated enum PiDate {
     static func parse(_ string: String) -> Date? {

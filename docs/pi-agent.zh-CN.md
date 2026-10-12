@@ -146,5 +146,5 @@ Chat 菜单可循环切换模型（`cycle_model`）与思考等级（`cycle_thin
 - [x] 持久化助手思考内容（ADR-0007）
 - [x] 用 `get_entries` 的 `since` 游标做增量历史同步
 - [x] 分支感知的历史（`leafId`/`parentId`）与 `fork` / `clone`
-- [ ] 可视化的会话树导航（`get_tree`）
+- [x] 会话树总览（`get_tree`），可从节点 fork
 - [ ] 进程退出后自动重试被打断的回合

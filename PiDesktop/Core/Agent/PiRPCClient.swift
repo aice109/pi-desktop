@@ -250,6 +250,11 @@ actor PiRPCClient: AgentTransport {
         return SessionEntriesPage(entries: record.data?.entries ?? [], leafId: record.data?.leafId)
     }
 
+    func sessionTree() async -> AgentSessionTree? {
+        guard let record = await command(["type": "get_tree"]) else { return nil }
+        return AgentSessionTree(roots: (record.data?.tree ?? []).map(\.domain), leafId: record.data?.leafId)
+    }
+
     /// 发送一条命令并等待其响应；失败返回 nil。
     private func command(_ object: [String: Any]) async -> RPCRecord? {
         do {

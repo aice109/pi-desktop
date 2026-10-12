@@ -362,6 +362,29 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(finished, fixture.session.id)
     }
 
+    func test_sessionTree_forwardsToTransport() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+        fixture.transport.sessionTreeValue = AgentSessionTree(
+            roots: [AgentTreeNode(
+                id: "e1",
+                parentId: nil,
+                kind: "message",
+                preview: "hi",
+                role: "user",
+                isUserMessage: true,
+                children: []
+            )],
+            leafId: "e1"
+        )
+
+        let tree = await fixture.store.sessionTree(for: fixture.session)
+
+        XCTAssertEqual(tree?.roots.count, 1)
+        XCTAssertEqual(tree?.leafId, "e1")
+        XCTAssertEqual(fixture.transport.sessionTreeCountValue, 1)
+    }
+
     func test_cycleModel_forwards() async throws {
         let fixture = try makeFixture()
         fixture.transport.cycleModelValue = AgentModel(id: "m2", name: "M2", provider: "p", reasoning: false)

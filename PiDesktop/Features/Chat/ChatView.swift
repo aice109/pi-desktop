@@ -25,6 +25,9 @@ struct ChatView: View {
     /// fork 选择弹窗的数据与开关。
     @State private var forkMessages: [AgentForkMessage] = []
     @State private var isChoosingFork = false
+    /// 分支结构总览（`get_tree`）。
+    @State private var sessionTree: AgentSessionTree?
+    @State private var isShowingTree = false
     /// 手动压缩（可带自定义指令）的弹窗。
     @State private var isCompactionPromptPresented = false
     @State private var compactionInstructions = ""
@@ -66,6 +69,18 @@ struct ChatView: View {
             commands = await store.availableCommands(for: session)
         }
         .onAppear { isComposerFocused = true }
+        .sheet(isPresented: $isShowingTree) {
+            SessionTreeSheet(tree: sessionTree) { entryId in
+                Task {
+                    // 从树节点 fork，并把原文本回填输入框（编辑并重发）。
+                    if let text = await store.fork(session, from: entryId), !text.isEmpty {
+                        draft = text
+                        isComposerFocused = true
+                    }
+                    isShowingTree = false
+                }
+            }
+        }
         .sheet(isPresented: $isChoosingFork) {
             ForkMessageSheet(messages: forkMessages) { entryId in
                 Task {
@@ -233,6 +248,12 @@ struct ChatView: View {
                 Task {
                     forkMessages = await store.forkMessages(for: session)
                     isChoosingFork = true
+                }
+            }
+            Button("Show Tree…") {
+                Task {
+                    sessionTree = await store.sessionTree(for: session)
+                    isShowingTree = true
                 }
             }
         } label: {
@@ -1406,6 +1427,89 @@ private struct ForkMessageSheet: View {
         }
         .frame(width: 460, height: 360)
     }
+}
+
+/// 会话树总览：展示所有分支（含遗弃分支）与当前活动叶子，可从用户消息处 fork。
+private struct SessionTreeSheet: View {
+    let tree: AgentSessionTree?
+    let onFork: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Session Tree")
+                .font(.headline)
+                .padding([.horizontal, .top], 16)
+                .padding(.bottom, 8)
+            if let roots = tree?.roots, !roots.isEmpty {
+                List {
+                    OutlineGroup(roots, children: \.optionalChildren) { node in
+                        SessionTreeRow(node: node, isActive: node.id == tree?.leafId, onFork: onFork)
+                    }
+                }
+            } else {
+                Text("This session has no entries yet.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                Spacer()
+            }
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+        }
+        .frame(width: 520, height: 420)
+    }
+}
+
+/// 树中的一行：图标 + 预览 + 类型 + fork / 活动叶子标记。
+private struct SessionTreeRow: View {
+    let node: AgentTreeNode
+    let isActive: Bool
+    let onFork: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(node.preview.isEmpty ? node.kind : node.preview)
+                    .lineLimit(1)
+                Text(node.kind)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer(minLength: 0)
+            if node.isUserMessage {
+                Button("Fork") { onFork(node.id) }
+                    .buttonStyle(.link)
+                    .font(.caption)
+            }
+            if isActive {
+                Image(systemName: "smallcircle.filled.circle")
+                    .foregroundStyle(.tint)
+                    .help("Active branch tip")
+            }
+        }
+    }
+
+    private var icon: String {
+        switch node.role {
+        case "user": return "person.fill"
+        case "assistant": return "sparkle"
+        default: return node.kind == "bashExecution" ? "terminal" : "doc.text"
+        }
+    }
+}
+
+private extension AgentTreeNode {
+    /// `OutlineGroup` 用：叶子返回 nil 即不显示展开箭头。
+    var optionalChildren: [AgentTreeNode]? { children.isEmpty ? nil : children }
 }
 
 #Preview {

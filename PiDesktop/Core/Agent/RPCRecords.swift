@@ -75,6 +75,7 @@ nonisolated struct RPCDataDTO: Decodable {
     // get_entries
     var entries: [SessionEntryDTO]?
     var leafId: String?
+    var tree: [TreeNodeDTO]?
     // get_commands
     var commands: [CommandDTO]?
     // get_fork_messages
@@ -127,6 +128,19 @@ nonisolated struct CommandDTO: Decodable {
 nonisolated struct SessionEntriesPage {
     var entries: [SessionEntryDTO]
     var leafId: String?
+}
+
+/// `get_tree` 返回的会话树（可含多个根：导航 API 或断链的孤儿条目）。
+nonisolated struct SessionTreeDTO: Decodable {
+    var tree: [TreeNodeDTO]?
+    var leafId: String?
+}
+
+/// 会话树的一个节点；`children` 递归。
+nonisolated struct TreeNodeDTO: Decodable {
+    var entry: SessionEntryDTO
+    var children: [TreeNodeDTO]?
+    var label: String?
 }
 
 /// 模型定义（完整字段只取需要的部分）。
