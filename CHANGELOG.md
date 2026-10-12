@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tool-call visualization (ADR-0006): tool calls are captured from live events and persisted as
   `ToolCall` rows, then rendered as cards with name, arguments, status, duration, and collapsible
   output. Historical `toolResult` entries are imported too.
+- Per-session model and thinking-level selection, plus a usage footer (context %, total tokens, cost)
+  backed by `get_available_models`, `set_model`, `set_thinking_level`, and `get_session_stats`.
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow
@@ -45,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Template `Item` model.
+
+### Fixed
+- A response whose shape did not deserialize (for example `contextUsage.percent` arriving as a
+  decimal) silently hung the pending request forever. Undecodable `response` lines now release their
+  request, and the stats DTOs match pi's actual field types.
 
 ### Notes
 - Released under the MIT License.

@@ -104,6 +104,6 @@ Error retry and reasoning persistence are still pending.
 - [x] Streaming assistant text render
 - [x] List a workspace's pi sessions + resume them (ADR-0005)
 - [x] Persist tool calls and render them as cards (ADR-0006)
+- [x] Model / thinking-level selection, usage & cost display
 - [ ] Parse assistant `toolCall` blocks so history shows tool arguments
-- [ ] Model / thinking-level selection, usage & cost display
 - [ ] Delete/rename sessions, `get_messages` sync, error retry, reasoning persistence

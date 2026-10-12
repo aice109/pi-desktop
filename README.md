@@ -21,6 +21,7 @@ Working today:
 - 📁 **Workspace sessions** — pick a project folder and browse the pi sessions stored for it; open one to resume it.
 - 💬 **Streaming chat** — send prompts and render the assistant reply as it arrives, with Markdown.
 - 🛠 **Tool-call visualization** — cards showing tool name, arguments, live output, status, and duration.
+- 🎛 **Model & thinking control** — choose the model and reasoning level, and watch context usage and cost.
 - 🪟 **Native look** — built with Apple frameworks and macOS **Liquid Glass**.
 
 In progress:
