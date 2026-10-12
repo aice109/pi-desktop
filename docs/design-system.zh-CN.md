@@ -114,7 +114,9 @@ GlassEffectContainer(spacing: 16) {
 - 工具栏的放大镜会在会话上方打开搜索浮层；结果匹配消息正文与工具参数/输出，选中后消息列表滚动到该行。
 - 工具栏提供 Context 菜单（`arrow.down.right.and.arrow.up.left`）：「Compact Now」「Compact with
   Instructions…」（小弹窗）、绑定 `get_state` 的 Auto-compaction `Toggle`，以及 Auto-retry `Toggle`。
-  重试进行时状态行会显示「Abort Retry」链接。
+  只要会话有进行中的工作（流式 / 压缩 / 重试 / 导出 / 克隆 / 分叉），状态区就会显示
+  （`SessionStore.isBusy(_:)`），因此手动压缩也有与回合一致的 `ProgressView`；压缩进行中两个压缩入口
+  会自动禁用。重试进行时状态行会显示「Abort Retry」链接。
 - 工具栏提供 Branch 菜单（`arrow.triangle.branch`），包含「Clone Session」与「Fork from Message…」；
   后者打开列出可 fork 用户消息的弹窗。选中后会 fork 并把原文本回填输入框，同一流程即「编辑并重发」。
   菜单还含「Show Tree…」，渲染完整会话树（`get_tree`，包括被遗弃分支）并高亮活动叶子；用户节点上带
@@ -134,14 +136,17 @@ GlassEffectContainer(spacing: 16) {
   不会误停跟随。
 - 打开会话时先显示玻璃加载卡片（`ProgressView` + `.glassEffect`），直到镜像历史首次渲染；
   `activate` 期间由 `SessionStore.isLoading(_:)` 暴露加载状态。
+- 耗时的用户操作（压缩、导出、克隆、分叉、复制最后回复）通过窗口顶部的玻璃提示横幅反馈结果：
+  成功数秒后自动消失，失败保留到用户关闭。工作区错误（选择目录、移到废纸篓）改用系统 alert 呈现，
+  不再被静默吞掉。横幅是系统 `.glassEffect` 卡片，不是自绘材质。
 - 模型与思考等级工具栏菜单用绑定当前选中项的 `Toggle`，渲染系统原生勾选。模型按 `provider` +
   `id` 比较，因为 `get_state` 与 `get_available_models` 返回的元数据（`name`、`contextWindow`）可能不同。
 
 ## 6. 本地化
 
 - 本地化使用 String Catalog（`PiDesktop/Localizable.xcstrings`）。`Text` / `Label` / `Button` 的字面量
-  即键；目前只提供 `zh-Hans`，未翻译的键回退英文。新增语言只需在 Xcode 工程（`knownRegions`）里添加
-  并填充 catalog，无需改代码。
+  与非视图代码用 `String(localized:)` 产出的状态文案都是键；目前只提供 `zh-Hans`，未翻译的键回退英文。
+  新增语言只需在 Xcode 工程（`knownRegions`）里添加并填充 catalog，无需改代码。
 
 ## 7. 可访问性
 

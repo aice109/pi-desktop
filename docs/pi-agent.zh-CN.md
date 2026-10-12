@@ -114,7 +114,8 @@ Chat 菜单可循环切换模型（`cycle_model`）与思考等级（`cycle_thin
 会话可从 File 菜单导出为独立 HTML 文件（`export_html`）；应用用保存面板选路径并作为 `outputPath` 传入。
 
 上下文可手动压缩（`compact`，可带 `customInstructions`），自动压缩按会话开关（`set_auto_compaction`），
-二者都在工具栏的 Context 菜单里；自动重试也在此开关（`set_auto_retry`），进行中的重试可从状态行中止
+二者都在工具栏的 Context 菜单里。手动压缩会像其他活动一样在状态区显示进度，结束后重建镜像
+（活动分支已变化）并反馈结果。自动重试也在此开关（`set_auto_retry`），进行中的重试可从状态行中止
 （`abort_retry`）。pi 不在 `get_state` 里报告自动重试开关，故应用在本地跟踪（默认开启）。
 
 可发现的命令（扩展命令、prompt 模板、技能）用 `get_commands` 列出，通过 `prompt` 发送 `/name` 执行；

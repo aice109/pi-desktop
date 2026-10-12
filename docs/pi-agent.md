@@ -131,7 +131,9 @@ A session can be exported to a standalone HTML file from the File menu (`export_
 the destination with a save panel and passes it as `outputPath`.
 
 Context can be compacted on demand (`compact`, with optional `customInstructions`) and auto-compaction
-is toggled per session (`set_auto_compaction`), both from the toolbar's Context menu. Auto-retry is
+is toggled per session (`set_auto_compaction`), both from the toolbar's Context menu. A manual
+compaction shows in the status line like any other activity, and finishes by reconciling the mirror
+(the active branch changes) and reporting the outcome. Auto-retry is
 toggled there too (`set_auto_retry`), and an in-progress retry can be stopped from the status line
 (`abort_retry`). pi does not report the auto-retry flag in `get_state`, so the app tracks it locally
 (default on).

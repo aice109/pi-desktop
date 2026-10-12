@@ -126,7 +126,10 @@ Ask with:
   arguments/output, and selecting one scrolls the message list to that row.
 - The toolbar has a Context menu (`arrow.down.right.and.arrow.up.left`): "Compact Now", "Compact with
   Instructions…" (a small sheet), an Auto-compaction `Toggle` bound to `get_state`, and an Auto-retry
-  `Toggle`. While a retry is in progress the status line shows an "Abort Retry" link.
+  `Toggle`. The status area is shown whenever a session has any in-flight work — streaming, compacting,
+  retrying, exporting, cloning, or forking — via `SessionStore.isBusy(_:)`, so manual compaction gets
+  the same indeterminate `ProgressView` as a turn (the compact entries disable themselves while one is
+  running). While a retry is in progress the status line shows an "Abort Retry" link.
 - The toolbar has a Branch menu (`arrow.triangle.branch`) offering "Clone Session" and "Fork from
   Message…"; the latter opens a sheet listing forkable user messages. Selecting one forks and puts the
   original text back in the composer, so the same flow doubles as edit-and-resend. The menu also has
@@ -151,6 +154,11 @@ Ask with:
   follow just because the content got taller.
 - Opening a session shows a glass loading card (`ProgressView` + `.glassEffect`) until the mirrored
   history first renders; `SessionStore.isLoading(_:)` exposes the state for the duration of `activate`.
+- Slow user-triggered operations (compact, export, clone, fork, copy last response) report their
+  outcome through a glass notice banner pinned to the top of the window: success auto-dismisses after a
+  few seconds, failure stays until dismissed. Workspace failures (folder pick, move to Trash) surface as
+  a native alert instead of being swallowed. The banner is a system `.glassEffect` card, not a custom
+  material.
 - The model and thinking-level toolbar menus use `Toggle` items bound to the current selection, which
   renders native menu checkmarks. Models are compared by `provider` + `id`, since the metadata returned
   by `get_state` and `get_available_models` can differ (`name`, `contextWindow`).
@@ -158,8 +166,9 @@ Ask with:
 ## 6. Localization
 
 - Localization uses a String Catalog (`PiDesktop/Localizable.xcstrings`). `Text` / `Label` / `Button`
-  literals are the keys; only `zh-Hans` is translated so far, and untranslated keys fall back to
-  English. Add a language in the Xcode project (`knownRegions`) and fill the catalog — no code change.
+  literals and `String(localized:)` (used for status-line text produced by non-View code) are the keys;
+  only `zh-Hans` is translated so far, and untranslated keys fall back to English. Add a language in the
+  Xcode project (`knownRegions`) and fill the catalog — no code change.
 
 ## 7. Accessibility
 

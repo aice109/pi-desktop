@@ -146,6 +146,17 @@ transport per session, a single visible-session id for unread/notifications) are
 - Template `Item` model.
 
 ### Fixed
+- Manual compaction (and export / clone / fork) produced no on-screen feedback: the chat status area
+  was rendered only while streaming, so an in-flight `compact` — or any of these one-shot operations —
+  showed nothing at all. The status area now appears whenever a session has any in-flight work
+  (`SessionStore.isBusy`), with an indeterminate progress indicator and localized text; the compact
+  entries disable themselves while one runs, and a successful compaction reconciles the mirror.
+- One-shot operations returned success / failure that the UI ignored, and workspace errors were stored
+  but never shown. Results now surface through a glass notice banner at the top of the window (success
+  auto-dismisses, failure stays until dismissed), and workspace failures (folder pick, move to Trash)
+  show a native alert instead of being swallowed.
+- Status-line activity strings ("Compacting context…", "Retrying…", …) bypassed the String Catalog;
+  they are now localized through `String(localized:)`.
 - A prompt that pi handled immediately (an extension command or input handler) never emitted
   `agent_settled`, so the assistant placeholder spun forever. `prompt` now returns the response's
   `disposition`, and a `handled` prompt is finalized right away.
