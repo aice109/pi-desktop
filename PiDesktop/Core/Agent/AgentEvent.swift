@@ -18,10 +18,12 @@ nonisolated enum AgentEvent: Sendable, Equatable {
     case textDelta(String)
     /// 助手思考增量（用于折叠的 reasoning 区）。
     case thinkingDelta(String)
-    /// 工具调用开始。
-    case toolCallStarted(id: String, name: String)
-    /// 工具调用结束。
-    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?)
+    /// 工具调用开始。`arguments` 为参数的紧凑文本（如 `command: ls`）。
+    case toolCallStarted(id: String, name: String, arguments: String?)
+    /// 工具调用输出更新（`tool_execution_update` 的最新部分结果）。
+    case toolCallUpdated(id: String, output: String)
+    /// 工具调用结束。`output` 为最终输出（可能为空）。
+    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?, output: String?)
     /// 一条助手消息完成（`message_end` 的权威内容）。
     case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
     /// 自动工作全部结束（`agent_settled`）。

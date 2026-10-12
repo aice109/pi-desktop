@@ -26,7 +26,15 @@ nonisolated struct RPCRecord: Decodable {
     var toolName: String?
     var isError: Bool?
     var durationMs: Int?
+    var args: JSONValue?
+    var result: ToolResultDTO?
+    var partialResult: ToolResultDTO?
     var data: RPCDataDTO?
+}
+
+/// 工具执行结果（`result` / `partialResult`）；只取其中的文本内容。
+nonisolated struct ToolResultDTO: Decodable {
+    var content: MessageContentDTO?
 }
 
 /// 命令响应的 `data` 字段（目前只用到 `get_state`）。
@@ -111,7 +119,13 @@ nonisolated enum RPCProtocol {
 
         case "tool_execution_start":
             guard let id = record.toolCallId, let name = record.toolName else { return nil }
-            return .toolCallStarted(id: id, name: name)
+            return .toolCallStarted(id: id, name: name, arguments: record.args?.compactDescription)
+
+        case "tool_execution_update":
+            guard let id = record.toolCallId, let output = record.partialResult?.content?.joinedText else {
+                return nil
+            }
+            return .toolCallUpdated(id: id, output: output)
 
         case "tool_execution_end":
             guard let id = record.toolCallId, let name = record.toolName else { return nil }
@@ -119,7 +133,8 @@ nonisolated enum RPCProtocol {
                 id: id,
                 name: name,
                 isError: record.isError ?? false,
-                durationMs: record.durationMs
+                durationMs: record.durationMs,
+                output: record.result?.content?.joinedText
             )
 
         case "message_end":

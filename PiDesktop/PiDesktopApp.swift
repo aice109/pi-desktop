@@ -49,8 +49,8 @@ struct PiDesktopApp: App {
     /// 容器是应用的硬依赖，创建失败意味着 schema 或存储配置有误；带着半残状态启动
     /// 只会制造更难排查的问题，因此启动时明确崩溃（`coding-conventions.md` §7）。
     private static func makeModelContainer() -> ModelContainer {
-        // 领域模型见 ADR-0004；ToolCall / AppSettings 待后续 ADR 补充。
-        let schema = Schema([Session.self, Message.self])
+        // 领域模型见 ADR-0004 / ADR-0006；AppSettings 待后续 ADR 补充。
+        let schema = Schema([Session.self, Message.self, ToolCall.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [configuration])

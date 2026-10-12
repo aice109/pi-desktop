@@ -53,3 +53,4 @@ Upsides, downsides, costs, follow-ups.
 | [0003](0003-pi-transport-and-sandbox.md) | pi transport and app sandbox / entitlements | Accepted |
 | [0004](0004-domain-model.md) | SwiftData domain model (Session / Message) | Accepted |
 | [0005](0005-workspace-and-pi-sessions.md) | Workspace-scoped pi sessions | Accepted |
+| [0006](0006-tool-calls.md) | Persist tool calls and render them as cards | Accepted |

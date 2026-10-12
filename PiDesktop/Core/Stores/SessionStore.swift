@@ -33,9 +33,13 @@ final class SessionStore {
     private var streaming: [UUID: Streaming] = [:]
     /// 流式会话对应的领域对象，用于在落盘后发现 pi 会话路径。
     private var openSessions: [UUID: Session] = [:]
+    /// 正在执行的工具（toolCallID → 工具名），支持并行工具调用。
+    private var runningTools: [String: String] = [:]
+    /// 流式期间的工具调用索引：sessionID → toolCallID → ToolCall。
+    private var toolCalls: [UUID: [String: ToolCall]] = [:]
 
-    /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示；工具调用暂不持久化）。
-    private(set) var activeToolName: String?
+    /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示）。
+    var activeToolName: String? { runningTools.values.first }
 
     /// 流式助手消息的累积状态。
     private struct Streaming {
@@ -52,6 +56,12 @@ final class SessionStore {
     /// 该会话是否正在流式接收。
     func isStreaming(_ session: Session) -> Bool {
         streaming[session.id] != nil
+    }
+
+    /// 该会话当前累积的思考内容（仅流式期间有值）。
+    func reasoning(in session: Session) -> String? {
+        guard let text = streaming[session.id]?.thinking, !text.isEmpty else { return nil }
+        return text
     }
 
     /// 发送一条用户消息并开始接收助手回复。
@@ -90,7 +100,8 @@ final class SessionStore {
         subscriptions.removeAll()
         streaming.removeAll()
         openSessions.removeAll()
-        activeToolName = nil
+        runningTools.removeAll()
+        toolCalls.removeAll()
     }
 
     // MARK: - Transport wiring
@@ -132,11 +143,24 @@ final class SessionStore {
             state.thinking += delta
             streaming[sessionID] = state
 
-        case .toolCallStarted(_, let name):
-            activeToolName = name
+        case .toolCallStarted(let id, let name, let arguments):
+            runningTools[id] = name
+            recordToolCallStart(id: id, name: name, arguments: arguments, sessionID: sessionID)
 
-        case .toolCallFinished:
-            activeToolName = nil
+        case .toolCallUpdated(let id, let output):
+            toolCalls[sessionID]?[id]?.output = output
+
+        case .toolCallFinished(let id, let name, let isError, let durationMs, let output):
+            runningTools.removeValue(forKey: id)
+            // 未记录到开始事件（如中断后补发）时补建一条，避免丢失。
+            if toolCalls[sessionID]?[id] == nil {
+                recordToolCallStart(id: id, name: name, arguments: nil, sessionID: sessionID)
+            }
+            if let call = toolCalls[sessionID]?[id] {
+                if let output, !output.isEmpty { call.output = output }
+                call.isError = isError
+                call.durationMs = durationMs
+            }
 
         case .assistantMessageCompleted(let text, _, let errorMessage):
             guard var state = streaming[sessionID] else { return }
@@ -158,7 +182,8 @@ final class SessionStore {
 
     /// 结束流式状态；若助手消息仍为空则移除占位，避免空气泡。
     private func finish(sessionID: UUID, error: String? = nil) {
-        activeToolName = nil
+        runningTools.removeAll()
+        toolCalls.removeValue(forKey: sessionID)
         // 这一轮结束意味着 pi 已把会话写入磁盘，可发现其文件路径。
         discoverSessionPath(for: sessionID)
         guard let state = streaming.removeValue(forKey: sessionID) else { return }
@@ -172,6 +197,14 @@ final class SessionStore {
         } else if state.message.content.isEmpty {
             modelContext.delete(state.message)
         }
+    }
+
+    /// 记录一次工具调用的开始（写入 SwiftData 并建索引）。
+    private func recordToolCallStart(id: String, name: String, arguments: String?, sessionID: UUID) {
+        guard let session = openSessions[sessionID] else { return }
+        let call = ToolCall(toolCallID: id, name: name, arguments: arguments)
+        session.record(call)
+        toolCalls[sessionID, default: [:]][id] = call
     }
 
     /// 新会话首轮结束后，从 pi 取回会话文件路径并回写领域对象。

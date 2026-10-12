@@ -51,15 +51,26 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertNil(event(json))
     }
 
-    func test_toolExecution_mapsStartAndEnd() {
+    func test_toolExecution_mapsStartUpdateAndEnd() {
         let start = #"{"type":"tool_execution_start","toolCallId":"call_1","toolName":"bash","args":{"command":"ls"}}"#
-        XCTAssertEqual(event(start), .toolCallStarted(id: "call_1", name: "bash"))
+        XCTAssertEqual(
+            event(start),
+            .toolCallStarted(id: "call_1", name: "bash", arguments: "command: ls")
+        )
 
-        let end = #"{"type":"tool_execution_end","toolCallId":"call_1","toolName":"bash","result":{},"isError":false,"durationMs":42}"#
+        let update = #"{"type":"tool_execution_update","toolCallId":"call_1","toolName":"bash","args":{"command":"ls"},"partialResult":{"content":[{"type":"text","text":"partial output"}],"details":{}}}"#
+        XCTAssertEqual(event(update), .toolCallUpdated(id: "call_1", output: "partial output"))
+
+        let end = #"{"type":"tool_execution_end","toolCallId":"call_1","toolName":"bash","result":{"content":[{"type":"text","text":"done"}],"details":{}},"isError":false,"durationMs":42}"#
         XCTAssertEqual(
             event(end),
-            .toolCallFinished(id: "call_1", name: "bash", isError: false, durationMs: 42)
+            .toolCallFinished(id: "call_1", name: "bash", isError: false, durationMs: 42, output: "done")
         )
+    }
+
+    func test_toolStart_withoutArgsYieldsNilArguments() {
+        let start = #"{"type":"tool_execution_start","toolCallId":"c","toolName":"read"}"#
+        XCTAssertEqual(event(start), .toolCallStarted(id: "c", name: "read", arguments: nil))
     }
 
     func test_agentSettled_mapsAbortedFlag() {

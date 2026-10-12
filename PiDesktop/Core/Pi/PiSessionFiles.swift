@@ -111,7 +111,7 @@ nonisolated enum PiSessionFiles {
 
     // MARK: - 消息
 
-    /// 解析会话文件里的可展示消息（user / assistant / toolResult），保持文件顺序。
+    /// 解析会话文件里的可展示消息（user / assistant），保持文件顺序。
     static func messages(in fileURL: URL) -> [PiDisplayMessage] {
         guard let lines = readLines(fileURL) else { return [] }
         var result: [PiDisplayMessage] = []
@@ -126,6 +126,27 @@ nonisolated enum PiSessionFiles {
             result.append(PiDisplayMessage(
                 role: role,
                 text: text,
+                timestamp: entry.timestamp.flatMap(parseDate) ?? .now
+            ))
+        }
+        return result
+    }
+
+    /// 解析会话文件里的工具调用（`toolResult` 条目），保持文件顺序。
+    static func toolCalls(in fileURL: URL) -> [PiStoredToolCall] {
+        guard let lines = readLines(fileURL) else { return [] }
+        var result: [PiStoredToolCall] = []
+        for line in lines {
+            guard let entry = try? JSONDecoder().decode(Entry.self, from: Data(line.utf8)),
+                  entry.type == "message",
+                  let message = entry.message,
+                  message.role == "toolResult"
+            else { continue }
+            result.append(PiStoredToolCall(
+                toolCallID: message.toolCallId ?? UUID().uuidString,
+                name: message.toolName ?? "tool",
+                output: message.content?.joinedText ?? "",
+                isError: message.isError ?? false,
                 timestamp: entry.timestamp.flatMap(parseDate) ?? .now
             ))
         }
@@ -154,14 +175,16 @@ nonisolated enum PiSessionFiles {
         var role: String
         /// 内容可能是字符串（system）或内容块数组（user/assistant/toolResult），复用 RPC 的解码。
         var content: MessageContentDTO?
+        var toolCallId: String?
+        var toolName: String?
+        var isError: Bool?
     }
 
-    /// 会话文件里的角色 → 领域角色；不参与展示的角色（system / custom 等）返回 `nil`。
+    /// 会话文件里的角色 → 领域角色；工具结果单独解析为 `PiStoredToolCall`。
     private static func displayRole(for role: String) -> MessageRole? {
         switch role {
         case "user": return .user
         case "assistant": return .assistant
-        case "toolResult": return .tool
         default: return nil
         }
     }

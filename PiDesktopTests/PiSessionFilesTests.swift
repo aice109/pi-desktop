@@ -46,7 +46,8 @@ final class PiSessionFilesTests: XCTestCase {
         XCTAssertEqual(summary.sessionID, "session-1")
         XCTAssertEqual(summary.cwd, "/tmp/proj")
         XCTAssertEqual(summary.name, "Refactor auth")
-        XCTAssertEqual(summary.messageCount, 3)
+        // 工具结果不再计入消息数（它们属于 ToolCall）。
+        XCTAssertEqual(summary.messageCount, 2)
         XCTAssertEqual(summary.preview, "Hello there")
         XCTAssertEqual(summary.displayTitle, "Refactor auth")
     }
@@ -73,6 +74,23 @@ final class PiSessionFilesTests: XCTestCase {
         let messages = PiSessionFiles.messages(in: url)
         XCTAssertEqual(messages.map(\.role), [.user, .assistant])
         XCTAssertEqual(messages.map(\.text), ["Hello", "Hi there"])
+    }
+
+    func test_toolCalls_parsesToolResultEntries() throws {
+        let url = try writeSession(named: "tools", lines: [
+            #"{"type":"session","version":3,"id":"s4","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"list files"}}"#,
+            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","content":[{"type":"text","text":"README.md"}],"isError":false}}"#,
+        ])
+
+        let toolCalls = PiSessionFiles.toolCalls(in: url)
+        XCTAssertEqual(toolCalls.count, 1)
+        XCTAssertEqual(toolCalls.first?.toolCallID, "call_1")
+        XCTAssertEqual(toolCalls.first?.name, "bash")
+        XCTAssertEqual(toolCalls.first?.output, "README.md")
+        XCTAssertEqual(toolCalls.first?.isError, false)
+        // 工具结果不应再作为消息出现。
+        XCTAssertEqual(PiSessionFiles.messages(in: url).map(\.role), [.user])
     }
 
     func test_summaries_sortsByRecencyAndIgnoresInvalidFiles() throws {

@@ -45,3 +45,12 @@ nonisolated struct PiDisplayMessage: Sendable, Equatable {
     var text: String
     var timestamp: Date
 }
+
+/// 从会话文件解析出的一次工具调用（历史 `toolResult` 条目）。
+nonisolated struct PiStoredToolCall: Sendable, Equatable {
+    var toolCallID: String
+    var name: String
+    var output: String
+    var isError: Bool
+    var timestamp: Date
+}

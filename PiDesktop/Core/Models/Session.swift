@@ -28,6 +28,10 @@ final class Session {
     @Relationship(deleteRule: .cascade, inverse: \Message.session)
     var messages: [Message]
 
+    /// 会话中的工具调用；与消息一起组成时间线。
+    @Relationship(deleteRule: .cascade, inverse: \ToolCall.session)
+    var toolCalls: [ToolCall]
+
     init(
         title: String = "",
         workingDirectory: String? = nil,
@@ -43,6 +47,7 @@ final class Session {
         self.piSessionPath = piSessionPath
         self.status = status
         self.messages = []
+        self.toolCalls = []
     }
 
     /// 追加一条消息并刷新 `updatedAt`。
@@ -51,6 +56,12 @@ final class Session {
     func append(_ message: Message) {
         messages.append(message)
         updatedAt = message.createdAt
+    }
+
+    /// 记录一次工具调用并刷新 `updatedAt`。
+    func record(_ toolCall: ToolCall) {
+        toolCalls.append(toolCall)
+        updatedAt = toolCall.createdAt
     }
 }
 

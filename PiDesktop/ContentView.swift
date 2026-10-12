@@ -22,6 +22,9 @@ struct ContentView: View {
     /// 当前打开的领域会话。
     @State private var opened: Session?
     @State private var isPickingFolder = false
+    @State private var searchText = ""
+    /// 待确认删除的会话（移到废纸篓）。
+    @State private var pendingDeletion: PiSessionSummary?
 
     var body: some View {
         if workspaceStore.workspace == nil {
@@ -30,21 +33,38 @@ struct ContentView: View {
             NavigationSplitView {
                 sidebar
             } detail: {
-                if let opened {
-                    ChatView(session: opened)
-                } else {
-                    ContentUnavailableView(
-                        "No Session Selected",
-                        systemImage: "bubble.left.and.bubble.right",
-                        description: Text("Pick a session on the left, or create a new one.")
-                    )
-                }
+                detail
             }
             .fileImporter(
                 isPresented: $isPickingFolder,
                 allowedContentTypes: [.folder],
                 allowsMultipleSelection: false,
                 onCompletion: handleWorkspacePick
+            )
+            .confirmationDialog(
+                "Move this session to the Trash?",
+                isPresented: deletionDialogBinding,
+                presenting: pendingDeletion
+            ) { summary in
+                Button("Move to Trash", role: .destructive) { delete(summary) }
+                Button("Cancel", role: .cancel) {}
+            } message: { summary in
+                Text(summary.displayTitle)
+            }
+        }
+    }
+
+    // MARK: - Detail
+
+    @ViewBuilder
+    private var detail: some View {
+        if let opened {
+            ChatView(session: opened)
+        } else {
+            ContentUnavailableView(
+                "No Session Selected",
+                systemImage: "bubble.left.and.bubble.right",
+                description: Text("Pick a session on the left, or create a new one.")
             )
         }
     }
@@ -58,11 +78,19 @@ struct ContentView: View {
             sessionList
         }
         .navigationSplitViewColumnWidth(min: 240, ideal: 280)
+        .searchable(text: $searchText, placement: .sidebar, prompt: "Search sessions")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button(action: { workspaceStore.refresh() }) {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .keyboardShortcut("r", modifiers: .command)
+                .help("Refresh Sessions")
+
                 Button(action: startNewSession) {
                     Label("New Session", systemImage: "plus")
                 }
+                .keyboardShortcut("n", modifiers: .command)
                 .help("New Session")
             }
         }
@@ -98,18 +126,16 @@ struct ContentView: View {
 
     private var sessionList: some View {
         List(selection: $selection) {
-            if workspaceStore.sessions.isEmpty {
-                HStack(spacing: 6) {
-                    if workspaceStore.isLoading {
-                        ProgressView().controlSize(.small)
-                    }
-                    Text(workspaceStore.isLoading ? "Loading…" : "No pi sessions in this folder yet.")
-                        .foregroundStyle(.secondary)
-                }
+            if filteredSessions.isEmpty {
+                Text(emptyListMessage)
+                    .foregroundStyle(.secondary)
             } else {
-                ForEach(workspaceStore.sessions) { summary in
+                ForEach(filteredSessions) { summary in
                     PiSessionRow(summary: summary)
                         .tag(summary.fileURL)
+                        .contextMenu {
+                            Button("Move to Trash", role: .destructive) { pendingDeletion = summary }
+                        }
                 }
             }
         }
@@ -118,6 +144,23 @@ struct ContentView: View {
                   let summary = workspaceStore.sessions.first(where: { $0.fileURL == newValue })
             else { return }
             opened = openSession(for: summary)
+        }
+    }
+
+    private var emptyListMessage: String {
+        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "No matching sessions."
+        }
+        return workspaceStore.isLoading ? "Loading…" : "No pi sessions in this folder yet."
+    }
+
+    /// 侧栏展示项：按搜索词过滤标题与预览。
+    private var filteredSessions: [PiSessionSummary] {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return workspaceStore.sessions }
+        return workspaceStore.sessions.filter { summary in
+            summary.displayTitle.localizedCaseInsensitiveContains(query)
+                || (summary.preview?.localizedCaseInsensitiveContains(query) ?? false)
         }
     }
 
@@ -134,8 +177,7 @@ struct ContentView: View {
     /// 打开 pi 会话：优先复用本地已镜像的 `Session`，否则新建并把历史消息导入。
     private func openSession(for summary: PiSessionSummary) -> Session {
         let path = summary.fileURL.path
-        let existing = (try? modelContext.fetch(FetchDescriptor<Session>()))?
-            .first { $0.piSessionPath == path }
+        let existing = localSession(matchingPiPath: path)
         if let existing { return existing }
 
         let workingDirectory = summary.cwd.isEmpty ? workspaceStore.workspace?.path : summary.cwd
@@ -144,7 +186,36 @@ struct ContentView: View {
         for message in PiSessionFiles.messages(in: summary.fileURL) {
             session.append(Message(role: message.role, content: message.text, createdAt: message.timestamp))
         }
+        for toolCall in PiSessionFiles.toolCalls(in: summary.fileURL) {
+            session.record(ToolCall(
+                toolCallID: toolCall.toolCallID,
+                name: toolCall.name,
+                output: toolCall.output,
+                isError: toolCall.isError,
+                createdAt: toolCall.timestamp
+            ))
+        }
         return session
+    }
+
+    /// 把会话文件移到废纸篓（可恢复），并清理本地镜像。
+    private func delete(_ summary: PiSessionSummary) {
+        do {
+            try FileManager.default.trashItem(at: summary.fileURL, resultingItemURL: nil)
+        } catch {
+            workspaceStore.report(error)
+            return
+        }
+        if let local = localSession(matchingPiPath: summary.fileURL.path) {
+            if opened == local { opened = nil }
+            modelContext.delete(local)
+        }
+        if selection == summary.fileURL { selection = nil }
+        workspaceStore.refresh()
+    }
+
+    private func localSession(matchingPiPath path: String) -> Session? {
+        (try? modelContext.fetch(FetchDescriptor<Session>()))?.first { $0.piSessionPath == path }
     }
 
     private func handleWorkspacePick(_ result: Result<[URL], Error>) {
@@ -155,10 +226,18 @@ struct ContentView: View {
             // 切换目录后清空当前选择，避免指向旧工作区的会话。
             selection = nil
             opened = nil
+            searchText = ""
             workspaceStore.setWorkspace(url)
         case .failure(let error):
             workspaceStore.report(error)
         }
+    }
+
+    private var deletionDialogBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeletion != nil },
+            set: { if !$0 { pendingDeletion = nil } }
+        )
     }
 }
 
@@ -189,7 +268,7 @@ private struct PiSessionRow: View {
     let container: ModelContainer
     do {
         container = try ModelContainer(
-            for: Session.self, Message.self,
+            for: Session.self, Message.self, ToolCall.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     } catch {

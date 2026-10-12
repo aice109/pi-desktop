@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import AppKit
 
 /// 会话详情：消息流 + 输入框，经 `SessionStore` 与 pi 通信（ADR-0003）。
 struct ChatView: View {
@@ -17,7 +18,7 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             messageList
-            if store.isStreaming(session) { statusBar }
+            if store.isStreaming(session) { statusArea }
             Divider()
             composer
         }
@@ -30,49 +31,105 @@ struct ChatView: View {
                     } label: {
                         Label("Stop", systemImage: "stop.circle")
                     }
+                    .help("Stop")
                 }
             }
         }
     }
+
+    // MARK: - Message list
 
     private var messageList: some View {
         ScrollViewReader { proxy in
             List {
-                ForEach(sortedMessages) { message in
-                    MessageRow(message: message, isStreaming: isStreaming(message))
-                        .id(message.id)
+                ForEach(timeline) { item in
+                    timelineRow(item).id(item.id)
                 }
             }
             .listStyle(.inset)
-            .onChange(of: sortedMessages.count) { _, _ in
-                guard let last = sortedMessages.last else { return }
-                withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-            }
+            .onChange(of: timeline.count) { _, _ in scrollToBottom(proxy) }
+            // 流式追加不会改变条数，需额外监听末条内容变化。
+            .onChange(of: sortedMessages.last?.content) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: session.toolCalls.last?.output) { _, _ in scrollToBottom(proxy) }
+            .onAppear { scrollToBottom(proxy) }
         }
     }
 
-    private var statusBar: some View {
-        HStack(spacing: 6) {
-            ProgressView().controlSize(.small)
-            Text(store.activeToolName.map { "Running \($0)…" } ?? "Thinking…")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 6)
+    /// 消息与工具调用按时间合并成正序时间线。
+    private var timeline: [TimelineItem] {
+        let messages = session.messages.map(TimelineItem.message)
+        let toolCalls = session.toolCalls.map(TimelineItem.toolCall)
+        return (messages + toolCalls).sorted { $0.date < $1.date }
     }
+
+    @ViewBuilder
+    private func timelineRow(_ item: TimelineItem) -> some View {
+        switch item {
+        case .message(let message):
+            MessageRow(message: message, isStreaming: isStreaming(message))
+        case .toolCall(let toolCall):
+            ToolCallCard(toolCall: toolCall)
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let last = timeline.last else { return }
+        withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(last.id, anchor: .bottom) }
+    }
+
+    // MARK: - Status
+
+    /// 运行状态：实时思考（可折叠）+ 工具/思考指示。
+    @ViewBuilder
+    private var statusArea: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let reasoning = store.reasoning(in: session) {
+                DisclosureGroup("Reasoning") {
+                    Text(reasoning)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                }
+                .padding(.horizontal)
+                .padding(.top, 6)
+            }
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text(store.activeToolName.map { "Running \($0)…" } ?? "Thinking…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+    }
+
+    // MARK: - Composer
 
     private var composer: some View {
         HStack(spacing: 8) {
-            TextField("Message…", text: $draft)
-                .textFieldStyle(.roundedBorder)
+            TextField("Message…", text: $draft, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...6)
+                .padding(8)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 .onSubmit(send)
-            Button("Send", action: send)
-                .disabled(trimmedDraft.isEmpty || store.isStreaming(session))
+            Button(action: send) {
+                Label("Send", systemImage: "arrow.up.circle.fill")
+                    .labelStyle(.iconOnly)
+                    .font(.title2)
+            }
+            .buttonStyle(.borderless)
+            .disabled(trimmedDraft.isEmpty || store.isStreaming(session))
+            .help("Send")
         }
         .padding()
     }
+
+    // MARK: - Helpers
 
     /// 消息按时间正序展示（最早的在上）。
     private var sortedMessages: [Message] {
@@ -97,21 +154,165 @@ struct ChatView: View {
     }
 }
 
-/// 单条消息：角色标签 + 内容。
+// MARK: - Timeline
+
+/// 会话时间线的一项：消息或工具调用。
+private enum TimelineItem: Identifiable {
+    case message(Message)
+    case toolCall(ToolCall)
+
+    var id: UUID {
+        switch self {
+        case .message(let message): return message.id
+        case .toolCall(let toolCall): return toolCall.id
+        }
+    }
+
+    var date: Date {
+        switch self {
+        case .message(let message): return message.createdAt
+        case .toolCall(let toolCall): return toolCall.createdAt
+        }
+    }
+}
+
+// MARK: - Message row
+
+/// 单条消息：角色 + 时间 + 内容（助手/用户按 Markdown，工具结果用等宽卡片）。
 private struct MessageRow: View {
     let message: Message
     let isStreaming: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(message.role.displayName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(message.role.tint)
-            Text(message.content.isEmpty && isStreaming ? "…" : message.content)
-                .textSelection(.enabled)
+            header
+            content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .contextMenu {
+            Button("Copy") {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(message.content, forType: .string)
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: message.role.symbolName)
+                .font(.caption)
+            Text(message.role.displayName)
+                .font(.caption.weight(.semibold))
+            Spacer()
+            Text(message.createdAt, format: .dateTime.hour().minute())
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .foregroundStyle(message.role.tint)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if message.content.isEmpty && isStreaming {
+            Text("…").foregroundStyle(.secondary)
+        } else if message.role == .tool {
+            Text(message.content)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        } else {
+            MarkdownText(text: message.content)
+                .textSelection(.enabled)
+        }
+    }
+}
+
+/// 工具调用卡片：名称 + 参数 + 状态 + 可折叠输出。
+private struct ToolCallCard: View {
+    let toolCall: ToolCall
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "wrench.and.screwdriver.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Text(toolCall.name)
+                    .font(.caption.weight(.semibold))
+                if let arguments = toolCall.arguments, !arguments.isEmpty {
+                    Text(arguments)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                status
+            }
+            if let output = toolCall.output, !output.isEmpty {
+                DisclosureGroup("Output") {
+                    Text(output)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .contextMenu {
+            if let output = toolCall.output, !output.isEmpty {
+                Button("Copy Output") {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(output, forType: .string)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        HStack(spacing: 4) {
+            if toolCall.isError {
+                Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
+            } else if let durationMs = toolCall.durationMs {
+                Text("\(durationMs) ms")
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            } else {
+                ProgressView().controlSize(.mini)
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+}
+
+/// 用原生 Markdown 解析渲染文本；解析失败则回退为纯文本。
+///
+/// 采用 inline-only：保留换行与粗体/行内代码等行内格式，但不解释块级结构
+/// （SwiftUI `Text` 不渲染列表/标题的块级 presentation intent）。
+private struct MarkdownText: View {
+    let text: String
+
+    var body: some View {
+        if let attributed = try? AttributedString(
+            markdown: text,
+            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            Text(attributed)
+        } else {
+            Text(text)
+        }
     }
 }
 
@@ -121,6 +322,14 @@ private extension MessageRole {
         case .user: return "You"
         case .assistant: return "Assistant"
         case .tool: return "Tool"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .user: return "person.fill"
+        case .assistant: return "sparkles"
+        case .tool: return "wrench.and.screwdriver.fill"
         }
     }
 
@@ -138,7 +347,7 @@ private extension MessageRole {
     let container: ModelContainer
     do {
         container = try ModelContainer(
-            for: Session.self, Message.self,
+            for: Session.self, Message.self, ToolCall.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     } catch {
@@ -148,7 +357,17 @@ private extension MessageRole {
     let session = Session(title: "Preview")
     container.mainContext.insert(session)
     session.append(Message(role: .user, content: "What does this project do?"))
-    session.append(Message(role: .assistant, content: "PiDesktop is a native macOS GUI for the pi coding agent."))
+    session.record(ToolCall(
+        toolCallID: "call_1",
+        name: "bash",
+        arguments: "command: ls",
+        output: "AGENTS.md  README.md  PiDesktop",
+        durationMs: 12
+    ))
+    session.append(Message(
+        role: .assistant,
+        content: "PiDesktop is a **native macOS GUI** for the `pi` coding agent.\n\n- Sessions\n- Streaming chat"
+    ))
 
     let store = SessionStore(container: container, makeTransport: { _, _ in MockAgentTransport() })
     return NavigationStack { ChatView(session: session) }

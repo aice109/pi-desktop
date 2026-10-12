@@ -26,7 +26,7 @@ final class SessionStoreTests: XCTestCase {
     /// 持有 container：`ModelContext` 不持有其容器，容器被释放会导致崩溃。
     private func makeFixture() throws -> Fixture {
         let container = try ModelContainer(
-            for: Session.self, Message.self,
+            for: Session.self, Message.self, ToolCall.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let transport = MockAgentTransport()
@@ -90,6 +90,46 @@ final class SessionStoreTests: XCTestCase {
         await waitUntil { !fixture.store.isStreaming(fixture.session) }
 
         XCTAssertEqual(fixture.assistantMessage?.content, "boom")
+    }
+
+    func test_streamingReasoning_isExposedWhileStreaming() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+
+        XCTAssertNil(fixture.store.reasoning(in: fixture.session))
+        fixture.transport.emit(.thinkingDelta("Let me "))
+        fixture.transport.emit(.thinkingDelta("think."))
+        await waitUntil { fixture.store.reasoning(in: fixture.session) == "Let me think." }
+
+        XCTAssertEqual(fixture.store.reasoning(in: fixture.session), "Let me think.")
+
+        fixture.transport.emit(.settled(aborted: false))
+        await waitUntil { !fixture.store.isStreaming(fixture.session) }
+        XCTAssertNil(fixture.store.reasoning(in: fixture.session))
+    }
+
+    func test_toolCalls_arePersistedWithOutputAndDuration() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(.toolCallStarted(id: "call_1", name: "bash", arguments: "command: ls"))
+        await waitUntil { fixture.session.toolCalls.count == 1 }
+        XCTAssertEqual(fixture.store.activeToolName, "bash")
+        XCTAssertEqual(fixture.session.toolCalls.first?.arguments, "command: ls")
+        XCTAssertNil(fixture.session.toolCalls.first?.durationMs)
+
+        fixture.transport.emit(.toolCallUpdated(id: "call_1", output: "partial"))
+        await waitUntil { fixture.session.toolCalls.first?.output == "partial" }
+
+        fixture.transport.emit(.toolCallFinished(
+            id: "call_1", name: "bash", isError: false, durationMs: 12, output: "done"
+        ))
+        await waitUntil { fixture.session.toolCalls.first?.durationMs == 12 }
+        XCTAssertEqual(fixture.session.toolCalls.first?.output, "done")
+        XCTAssertNil(fixture.store.activeToolName)
+
+        fixture.transport.emit(.settled(aborted: false))
+        await waitUntil { !fixture.store.isStreaming(fixture.session) }
     }
 
     func test_settled_discoversPiSessionPathAndNotifies() async throws {
