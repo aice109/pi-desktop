@@ -47,6 +47,7 @@ struct PiDesktopApp: App {
                 .preferredColorScheme(appSettings.appearance.colorScheme)
         }
         .modelContainer(modelContainer)
+        .commands { PiDesktopCommands() }
 
         // 偏好设置窗口（⌘,）。外观需同样应用，否则设置窗不会跟随。
         Settings {
@@ -56,7 +57,37 @@ struct PiDesktopApp: App {
         }
     }
 
-    /// 创建全局 SwiftData 容器。
+    /// 应用菜单：文件 / 会话命令。
+///
+/// 从聚焦窗口读取处理器（`FocusedValue`）；没有匹配窗口时菜单项自动禁用。
+private struct PiDesktopCommands: Commands {
+    @FocusedValue(\.sessionCommands) private var commands
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Session") { commands?.newSession() }
+                .keyboardShortcut("n", modifiers: .command)
+                .disabled(commands == nil)
+            Button("Open Workspace…") { commands?.chooseWorkspace() }
+                .keyboardShortcut("o", modifiers: .command)
+                .disabled(commands == nil)
+        }
+
+        CommandMenu("Session") {
+            Button("Refresh Sessions") { commands?.refresh() }
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(commands == nil)
+            Button("Stop") { commands?.stop() }
+                .keyboardShortcut(".", modifiers: .command)
+                .disabled(!(commands?.isStreaming() ?? false))
+            Divider()
+            Button("Close Workspace") { commands?.closeWorkspace() }
+                .disabled(commands == nil)
+        }
+    }
+}
+
+/// 创建全局 SwiftData 容器。
     ///
     /// 容器是应用的硬依赖，创建失败意味着 schema 或存储配置有误；带着半残状态启动
     /// 只会制造更难排查的问题，因此启动时明确崩溃（`coding-conventions.md` §7）。
