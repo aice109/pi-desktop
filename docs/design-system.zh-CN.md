@@ -112,6 +112,8 @@ GlassEffectContainer(spacing: 16) {
   重试进行时状态行会显示「Abort Retry」链接。
 - 工具栏提供 Branch 菜单（`arrow.triangle.branch`），包含「Clone Session」与「Fork from Message…」；
   后者打开列出可 fork 用户消息的弹窗。
+- 以 `!` 开头的草稿会直接执行 shell 命令（不发送给模型）；执行期间显示「Running shell command…」
+  与 Abort 链接。
 - 在输入框键入 `/` 会显示 pi 命令（扩展 / prompt / 技能）的内联建议列表，带描述与来源标签；
   选中后填入 `/name `（不直接发送）。工具栏的命令菜单提供同一列表，便于发现。
 - 图片可通过剪贴板、拖拽到输入框，或回形针的文件选择器添加。待发送图片显示为 56pt 可移除缩略图；

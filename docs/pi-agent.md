@@ -119,6 +119,9 @@ fails the whole response and silently yields empty history.
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
+A command prefixed with `!` in the composer runs pi's direct `bash` command; its output becomes a tool
+message in the timeline (and in the model context), and a running command can be aborted (`abort_bash`).
+
 A session can be exported to a standalone HTML file from the File menu (`export_html`); the app picks
 the destination with a save panel and passes it as `outputPath`.
 

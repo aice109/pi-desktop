@@ -143,7 +143,9 @@ nonisolated enum PiSessionFiles {
                 toolName: message.toolName,
                 isError: message.isError,
                 id: entry.id,
-                parentId: entry.parentId
+                parentId: entry.parentId,
+                command: message.command,
+                output: message.output
             )
         }
         return PiHistory.make(from: entries)
@@ -176,6 +178,9 @@ nonisolated enum PiSessionFiles {
         var toolCallId: String?
         var toolName: String?
         var isError: Bool?
+        // 直接 shell（bashExecution）
+        var command: String?
+        var output: String?
     }
 
     /// 会话文件里的角色 → 领域角色；工具结果单独解析为 `PiStoredToolCall`。

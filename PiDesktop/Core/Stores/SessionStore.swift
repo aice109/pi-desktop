@@ -47,6 +47,8 @@ final class SessionStore {
     private var queues: [UUID: AgentQueue] = [:]
     /// 每个会话的自动重试开关。pi 不在 `get_state` 里暴露该值，故本地跟踪（默认开启）。
     private var autoRetryEnabled: [UUID: Bool] = [:]
+    /// 正在执行直接 shell 命令的会话。
+    private var runningBash: Set<UUID> = []
     /// 每个会话已应用的历史指纹，用于跳过无变化的重建。
     private var historyFingerprints: [UUID: PiHistoryFingerprint] = [:]
     /// 每个会话的增量同步游标（已见最后一条条目 id）。
@@ -399,6 +401,36 @@ final class SessionStore {
         _ = await transports[session.id]?.abortRetry()
     }
 
+    /// 该会话是否有直接 shell 命令正在执行。
+    func isRunningBash(_ session: Session) -> Bool { runningBash.contains(session.id) }
+
+    /// 直接执行一条 shell 命令（`!command`），输出进入模型上下文。
+    ///
+    /// 命令与输出先以本地工具消息展示；下次历史同步会由 pi 的 `bashExecution` 条目校准（同一文本）。
+    func runBash(_ command: String, in session: Session) async {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !runningBash.contains(session.id),
+              let transport = transports[session.id]
+        else { return }
+        runningBash.insert(session.id)
+        defer { runningBash.remove(session.id) }
+
+        let result = await transport.runBash(command: trimmed)
+        let output = result?.output ?? ""
+        let text = bashText(command: trimmed, output: output)
+        session.append(Message(role: .tool, content: text))
+    }
+
+    /// 中止正在执行的直接 shell 命令。
+    func abortBash(in session: Session) async {
+        _ = await transports[session.id]?.abortBash()
+    }
+
+    private func bashText(command: String, output: String) -> String {
+        output.isEmpty ? "! \(command)" : "! \(command)\n\(output)"
+    }
+
     /// 导出会话为 HTML；返回 pi 写入的路径，失败为 nil。
     ///
     /// 若会话尚未激活（无传输），先拉起进程再导出，避免菜单项对未打开的会话失效。
@@ -535,6 +567,7 @@ final class SessionStore {
         activities.removeAll()
         queues.removeAll()
         autoRetryEnabled.removeAll()
+        runningBash.removeAll()
         historyFingerprints.removeAll()
         historyCursors.removeAll()
         historyLeafs.removeAll()

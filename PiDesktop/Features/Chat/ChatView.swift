@@ -523,6 +523,7 @@ struct ChatView: View {
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !attachments.isEmpty { attachmentStrip }
+            if store.isRunningBash(session) { runningBashRow }
             if !commandSuggestions.isEmpty { commandSuggestionList }
             composerField
         }
@@ -569,6 +570,22 @@ struct ChatView: View {
                 }
                 .onSubmit { submit() }
             sendControl
+        }
+    }
+
+    /// 直接 shell 正在执行时的提示与中止入口。
+    private var runningBashRow: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text("Running shell command…")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Abort") {
+                Task { await store.abortBash(in: session) }
+            }
+            .buttonStyle(.link)
+            .font(.caption)
         }
     }
 
@@ -723,6 +740,14 @@ struct ChatView: View {
         let text = trimmedDraft
         let images = attachments
         guard !text.isEmpty || !images.isEmpty else { return }
+        // `!命令` 直接执行 shell（pi 的 `bash`），不当作普通 prompt。
+        if kind == .prompt, text.hasPrefix("!") {
+            let command = String(text.dropFirst()).trimmingCharacters(in: .whitespaces)
+            guard !command.isEmpty else { return }
+            draft = ""
+            Task { await store.runBash(command, in: session) }
+            return
+        }
         draft = ""
         attachments = []
         Task {

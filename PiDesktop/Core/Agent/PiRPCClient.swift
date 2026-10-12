@@ -187,6 +187,21 @@ actor PiRPCClient: AgentTransport {
         return await command(payload)?.data?.path
     }
 
+    func runBash(command shellCommand: String) async -> AgentBashResult? {
+        guard let data = await command(["type": "bash", "command": shellCommand])?.data else { return nil }
+        return AgentBashResult(
+            output: data.output ?? "",
+            exitCode: data.exitCode ?? 0,
+            cancelled: data.cancelled ?? false,
+            truncated: data.truncated ?? false,
+            fullOutputPath: data.fullOutputPath
+        )
+    }
+
+    func abortBash() async -> Bool {
+        await command(["type": "abort_bash"]) != nil
+    }
+
     func sessionStats() async -> AgentUsage? {
         guard let record = await command(["type": "get_session_stats"]), let data = record.data else {
             return nil

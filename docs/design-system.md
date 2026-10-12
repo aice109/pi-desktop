@@ -121,6 +121,8 @@ Ask with:
   `Toggle`. While a retry is in progress the status line shows an "Abort Retry" link.
 - The toolbar has a Branch menu (`arrow.triangle.branch`) offering "Clone Session" and "Fork from
   Message…"; the latter opens a sheet listing forkable user messages.
+- A draft starting with `!` runs a direct shell command (nothing is sent to the model); a small
+  "Running shell command…" row with an Abort link appears until it finishes.
 - Typing `/` in the composer shows an inline suggestion list of pi commands (extension / prompt /
   skill) with description and source chips; selecting one fills `/name ` without sending. A toolbar
   command menu offers the same list for discoverability.

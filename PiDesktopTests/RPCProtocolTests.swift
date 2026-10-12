@@ -185,7 +185,8 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(entries.count, 2)
 
         let history = PiHistory.make(from: entries.map(\.historyEntry))
-        XCTAssertEqual(history.messages.map(\.text), ["hi"])
+        // bashExecution 现在映射为工具消息（`!命令` + 输出）。
+        XCTAssertEqual(history.messages.map(\.text), ["! ls", "hi"])
     }
 
     func test_missingContentKey_decodesAsEmpty() {

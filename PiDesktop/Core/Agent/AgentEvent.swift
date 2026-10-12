@@ -120,6 +120,16 @@ nonisolated struct AgentCommand: Sendable, Equatable, Identifiable {
     var id: String { name }
 }
 
+/// 一次直接 shell 执行的结果（`bash`）。
+nonisolated struct AgentBashResult: Sendable, Equatable {
+    var output: String
+    var exitCode: Int
+    var cancelled: Bool
+    var truncated: Bool
+    /// 输出被截断时的完整日志路径。
+    var fullOutputPath: String?
+}
+
 /// 一条可 fork 的用户消息（`get_fork_messages`）。
 nonisolated struct AgentForkMessage: Sendable, Equatable, Identifiable {
     var entryId: String
@@ -183,6 +193,10 @@ protocol AgentTransport: Sendable {
     func abortRetry() async -> Bool
     /// 导出会话为 HTML（`export_html`）；返回写入的路径，失败为 nil。
     func exportHTML(outputPath: String?) async -> String?
+    /// 直接执行一条 shell 命令（`bash`），输出会进入模型上下文。
+    func runBash(command: String) async -> AgentBashResult?
+    /// 中止正在执行的直接 shell 命令（`abort_bash`）。
+    func abortBash() async -> Bool
     /// 会话用量与上下文占用（`get_session_stats`）。
     func sessionStats() async -> AgentUsage?
     /// 可发现的命令列表（`get_commands`）。

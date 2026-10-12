@@ -36,6 +36,10 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// `exportHTML` 的入参与返回值。
     private let exportPaths = Mutex<[String?]>([])
     private let exportResult = Mutex<String?>(nil)
+    /// 直接 shell 的调用记录 / 返回值 / 中止次数。
+    private let bashCommands = Mutex<[String]>([])
+    private let bashResult = Mutex<AgentBashResult?>(nil)
+    private let abortBashCount = Mutex<Int>(0)
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
@@ -109,6 +113,18 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         get { exportResult.withLock { $0 } }
         set { exportResult.withLock { $0 = newValue } }
     }
+
+    /// 每次 `runBash` 传入的命令。
+    var bashCommandsValue: [String] { bashCommands.withLock { $0 } }
+
+    /// 注入 `runBash` 的返回值。
+    var bashResultValue: AgentBashResult? {
+        get { bashResult.withLock { $0 } }
+        set { bashResult.withLock { $0 = newValue } }
+    }
+
+    /// `abortBash` 被调用的次数。
+    var abortBashCountValue: Int { abortBashCount.withLock { $0 } }
 
     /// 注入 `sessionStats()` 的返回值。
     var sessionStatsValue: AgentUsage? {
@@ -259,6 +275,16 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     func exportHTML(outputPath: String?) async -> String? {
         exportPaths.withLock { $0.append(outputPath) }
         return exportResultValue
+    }
+
+    func runBash(command: String) async -> AgentBashResult? {
+        bashCommands.withLock { $0.append(command) }
+        return bashResultValue
+    }
+
+    func abortBash() async -> Bool {
+        abortBashCount.withLock { $0 += 1 }
+        return true
     }
 
     func sessionStats() async -> AgentUsage? {

@@ -127,6 +127,27 @@ final class PiHistoryTests: XCTestCase {
         XCTAssertEqual(history.toolCalls[0].name, "tool")
     }
 
+    func test_make_mapsBashExecutionToToolMessage() {
+        let history = PiHistory.make(from: [
+            PiHistoryEntry(
+                role: "bashExecution",
+                content: .text(""),
+                timestamp: nil,
+                toolCallId: nil,
+                toolName: nil,
+                isError: nil,
+                id: "b1",
+                parentId: nil,
+                command: "ls",
+                output: "file.txt"
+            ),
+        ])
+
+        XCTAssertEqual(history.messages.count, 1)
+        XCTAssertEqual(history.messages[0].role, .tool)
+        XCTAssertEqual(history.messages[0].text, "! ls\nfile.txt")
+    }
+
     func test_make_filtersToActiveBranch() {
         // 追加式树：root → 两个分支，leafID 指向分支 B。
         let entries = [

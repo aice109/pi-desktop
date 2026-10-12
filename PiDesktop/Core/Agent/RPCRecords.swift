@@ -79,6 +79,12 @@ nonisolated struct RPCDataDTO: Decodable {
     var messages: [ForkMessageDTO]?
     // export_html
     var path: String?
+    // bash
+    var output: String?
+    var exitCode: Int?
+    var cancelled: Bool?
+    var truncated: Bool?
+    var fullOutputPath: String?
     // clear_queue
     var steering: [String]?
     var followUp: [String]?
@@ -175,6 +181,9 @@ nonisolated struct MessageDTO: Decodable {
     var toolCallId: String?
     var toolName: String?
     var isError: Bool?
+    // 直接 shell（bashExecution）专属字段
+    var command: String?
+    var output: String?
 }
 
 /// 消息内容可能是字符串（system）或内容块数组（user/assistant）。

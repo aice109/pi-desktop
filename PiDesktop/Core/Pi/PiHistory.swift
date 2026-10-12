@@ -22,6 +22,10 @@ nonisolated struct PiHistoryEntry: Sendable, Equatable {
     var id: String?
     /// 父条目 id；用于回溯活动分支。
     var parentId: String?
+    /// 直接 shell 执行的命令（`bashExecution`）。
+    var command: String?
+    /// 直接 shell 执行的输出。
+    var output: String?
 }
 
 /// 一次历史解析的结果：可展示消息 + 工具调用。
@@ -71,6 +75,17 @@ nonisolated struct PiHistory: Sendable, Equatable {
                     timestamp: entry.timestamp ?? now
                 ))
 
+            case "bashExecution":
+                // 直接执行的 shell（`!command`）：以工具消息展示，随历史保留。
+                let command = entry.command ?? ""
+                let output = entry.output ?? entry.content.joinedText
+                guard !command.isEmpty || !output.isEmpty else { continue }
+                history.messages.append(PiDisplayMessage(
+                    role: .tool,
+                    text: bashText(command: command, output: output),
+                    timestamp: entry.timestamp ?? now
+                ))
+
             case "toolResult":
                 let id = entry.toolCallId ?? UUID().uuidString
                 let block = byID[id]
@@ -110,6 +125,13 @@ nonisolated struct PiHistory: Sendable, Equatable {
             current = entry.parentId
         }
         return chain.reversed()
+    }
+
+    /// 直接 shell 的展示文本：`!命令` 加输出。
+    private static func bashText(command: String, output: String) -> String {
+        let header = command.isEmpty ? "" : "! \(command)"
+        if output.isEmpty { return header }
+        return header.isEmpty ? output : "\(header)\n\(output)"
     }
 
     /// 条目角色 → 领域角色；工具结果（`toolResult`）单独处理。
@@ -154,7 +176,9 @@ extension SessionEntryDTO {
             toolName: message?.toolName,
             isError: message?.isError,
             id: id,
-            parentId: parentId
+            parentId: parentId,
+            command: message?.command,
+            output: message?.output
         )
     }
 }

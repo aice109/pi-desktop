@@ -300,6 +300,34 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
     }
 
+    func test_runBash_appendsToolMessage() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+        fixture.transport.bashResultValue = AgentBashResult(
+            output: "out",
+            exitCode: 0,
+            cancelled: false,
+            truncated: false,
+            fullOutputPath: nil
+        )
+
+        await fixture.store.runBash("ls", in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.bashCommandsValue, ["ls"])
+        XCTAssertEqual(fixture.session.messages.last?.role, .tool)
+        XCTAssertEqual(fixture.session.messages.last?.content, "! ls\nout")
+        XCTAssertFalse(fixture.store.isRunningBash(fixture.session))
+    }
+
+    func test_abortBash_forwards() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.abortBash(in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.abortBashCountValue, 1)
+    }
+
     func test_exportHTML_forwardsPathAndReturnsResult() async throws {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)
