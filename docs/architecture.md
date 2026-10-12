@@ -108,6 +108,8 @@ for tens of seconds on a long history.
   the `piSessionPath` of its file on disk ([ADR-0005](decisions/0005-workspace-and-pi-sessions.md)).
 - `Message` — role (user/assistant/tool), content, optional assistant reasoning, timestamp, owning session.
 - `ToolCall` — tool name, arguments, output, status, duration, owning session.
+- `MessageImage` — raw image bytes (`.externalStorage`) + mimeType for an image attached to a user
+  message ([ADR-0010](decisions/0010-image-attachments.md)).
 
 > Model changes are significant → require an ADR (see [decisions/](decisions/README.md)).
 

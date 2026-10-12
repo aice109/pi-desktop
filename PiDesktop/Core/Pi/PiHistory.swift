@@ -51,12 +51,14 @@ nonisolated struct PiHistory: Sendable, Equatable {
                 guard let role = displayRole(for: entry.role) else { continue }
                 let text = entry.content.joinedText
                 let thinking = entry.content.joinedThinking
-                // 允许仅含思考的助手消息。
-                guard !text.isEmpty || !thinking.isEmpty else { continue }
+                let images = entry.content.images
+                // 允许仅含思考的助手消息，以及仅含图片的用户消息（ADR-0010）。
+                guard !text.isEmpty || !thinking.isEmpty || !images.isEmpty else { continue }
                 history.messages.append(PiDisplayMessage(
                     role: role,
                     text: text,
                     thinking: thinking.isEmpty ? nil : thinking,
+                    images: images,
                     timestamp: entry.timestamp ?? now
                 ))
 

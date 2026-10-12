@@ -114,8 +114,11 @@ fails the whole response and silently yields empty history.
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
-Currently live: streaming assistant text (Markdown), a reasoning section (live and persisted), and
-tool-call cards. If the pi process exits, the transport releases its handles and relaunches on the next
+`prompt` / `steer` / `follow_up` accept `images` (`ImageContent`: base64 + mimeType); user messages
+render their images and history imports `image` blocks ([ADR-0010](decisions/0010-image-attachments.md)).
+
+Currently live: streaming assistant text (Markdown), a reasoning section (live and persisted),
+tool-call cards, and image attachments. If the pi process exits, the transport releases its handles and relaunches on the next
 command; an interrupted turn is not retried automatically yet.
 
 ## 6. Security & privacy

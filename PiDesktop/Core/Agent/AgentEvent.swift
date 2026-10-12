@@ -83,6 +83,31 @@ nonisolated enum AgentActivity: Sendable, Equatable {
 ///
 /// 用协议隔离真实子进程，便于测试与未来更换传输方式（`coding-conventions.md` §8）。
 /// 约定：`events()` 只需调用一次，且必须在 `prompt(_:)` 之前调用，避免丢失早期事件。
+/// 传给 pi 的一张图片（`ImageContent`，ADR-0010）。
+///
+/// 传输层保留原始 `data`，仅在写线缆时 base64 编码（[pi `docs/message-types.md`]）。
+///
+/// [pi `docs/message-types.md`]: https://github.com/earendil-works/pi/blob/main/docs/message-types.md
+nonisolated struct AgentImage: Sendable, Equatable, Identifiable {
+    var id: UUID
+    /// 媒体类型，如 `image/png`。
+    var mimeType: String
+    /// 原始图片字节。
+    var data: Data
+
+    init(id: UUID = UUID(), mimeType: String, data: Data) {
+        self.id = id
+        self.mimeType = mimeType
+        self.data = data
+    }
+
+    /// 从 pi 的 base64 字符串构造；非法 base64 返回 nil。
+    init?(id: UUID = UUID(), mimeType: String, base64: String) {
+        guard let data = Data(base64Encoded: base64) else { return nil }
+        self.init(id: id, mimeType: mimeType, data: data)
+    }
+}
+
 /// `prompt` 被 pi 接受后的处置方式（对应响应的 `data.disposition`）。
 nonisolated enum PromptDisposition: String, Sendable, Equatable {
     /// 已开始一次运行，之后会收到事件流。
@@ -105,13 +130,13 @@ protocol AgentTransport: Sendable {
     ///
     /// 返回值区分「启动运行」「排队」「被立即处理」：`handled` 不会再有事件，调用方需据此收尾。
     @discardableResult
-    func prompt(_ message: String) async throws -> PromptDisposition
+    func prompt(_ message: String, images: [AgentImage]) async throws -> PromptDisposition
     /// 在运行中排队一条 steering 消息；在当前回合的工具调用完成后投递。
     @discardableResult
-    func steer(_ message: String) async throws -> PromptDisposition
+    func steer(_ message: String, images: [AgentImage]) async throws -> PromptDisposition
     /// 在运行中排队一条 follow-up 消息；仅在 agent 完全停下后才投递。
     @discardableResult
-    func followUp(_ message: String) async throws -> PromptDisposition
+    func followUp(_ message: String, images: [AgentImage]) async throws -> PromptDisposition
     /// 清空待处理的 steering / follow-up 队列，并返回被清空的文本（供客户端还原到输入框）。
     func clearQueue() async -> AgentQueue
     /// 中断当前运行。
@@ -135,6 +160,24 @@ protocol AgentTransport: Sendable {
     /// 与只含当前上下文的 `get_messages` 不同，它包含压缩前历史与遗弃分支，
     /// 因此适合作为刷新本地镜像的权威来源；条目带稳定 id，将来可用 `since` 增量同步。
     func sessionEntries() async -> [SessionEntryDTO]
+}
+
+/// 无图片的便捷重载，保持调用点简洁。
+extension AgentTransport {
+    @discardableResult
+    func prompt(_ message: String) async throws -> PromptDisposition {
+        try await prompt(message, images: [])
+    }
+
+    @discardableResult
+    func steer(_ message: String) async throws -> PromptDisposition {
+        try await steer(message, images: [])
+    }
+
+    @discardableResult
+    func followUp(_ message: String) async throws -> PromptDisposition {
+        try await followUp(message, images: [])
+    }
 }
 
 /// 传输层错误。

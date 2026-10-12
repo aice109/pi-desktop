@@ -24,12 +24,17 @@ final class Message {
     /// 反向关系；`Session.messages` 持有数组并负责级联删除。
     var session: Session?
 
+    /// 附带的图片（ADR-0010）；仅为用户消息。
+    @Relationship(deleteRule: .cascade, inverse: \MessageImage.message)
+    var images: [MessageImage]
+
     init(role: MessageRole, content: String, thinking: String? = nil, createdAt: Date = .now) {
         self.id = UUID()
         self.role = role
         self.content = content
         self.thinking = thinking
         self.createdAt = createdAt
+        self.images = []
     }
 }
 

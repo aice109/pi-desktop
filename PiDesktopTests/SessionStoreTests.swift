@@ -26,7 +26,7 @@ final class SessionStoreTests: XCTestCase {
     /// 持有 container：`ModelContext` 不持有其容器，容器被释放会导致崩溃。
     private func makeFixture() throws -> Fixture {
         let container = try ModelContainer(
-            for: Session.self, Message.self, ToolCall.self,
+            for: Session.self, Message.self, ToolCall.self, MessageImage.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let transport = MockAgentTransport()
@@ -45,6 +45,28 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.session.messages.filter { $0.role == .user }.count, 1)
         XCTAssertEqual(fixture.session.messages.first { $0.role == .user }?.content, "hello")
         XCTAssertTrue(fixture.store.isStreaming(fixture.session))
+    }
+
+    func test_send_persistsImagesAndForwardsThem() async throws {
+        let fixture = try makeFixture()
+        let image = AgentImage(mimeType: "image/png", data: Data([1, 2, 3]))
+
+        await fixture.store.send("look", images: [image], in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.sentImageBatches.last?.count, 1)
+        let user = fixture.session.messages.first { $0.role == .user }
+        XCTAssertEqual(user?.images.count, 1)
+        XCTAssertEqual(user?.images.first?.mimeType, "image/png")
+        XCTAssertEqual(user?.images.first?.data, Data([1, 2, 3]))
+    }
+
+    func test_send_allowsImageOnlyMessages() async throws {
+        let fixture = try makeFixture()
+
+        await fixture.store.send("", images: [AgentImage(mimeType: "image/png", data: Data([9]))], in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.sentPrompts, [""])
+        XCTAssertEqual(fixture.session.messages.filter { $0.role == .user }.count, 1)
     }
 
     func test_streamingText_updatesAssistantMessage() async throws {

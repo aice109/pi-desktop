@@ -455,7 +455,7 @@ private struct RenameSessionSheet: View {
     let container: ModelContainer
     do {
         container = try ModelContainer(
-            for: Session.self, Message.self, ToolCall.self,
+            for: Session.self, Message.self, ToolCall.self, MessageImage.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     } catch {

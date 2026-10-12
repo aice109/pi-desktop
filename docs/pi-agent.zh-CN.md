@@ -100,7 +100,10 @@ enum AgentEvent: Sendable, Equatable {
 `sessionInfoChanged` / `thinkingLevelChanged`（外部改动同步）、`summarizationRetry*`（摘要重试）、
 `entryAppended`（会话树被外部追加，空闲时重新校准镜像）。
 
-当前实时可用：流式助手文本（Markdown）、思考区（实时 + 持久化）、工具调用卡片。pi 进程退出时，
+`prompt` / `steer` / `follow_up` 接受 `images`（`ImageContent`：base64 + mimeType）；用户消息会渲染其
+图片，历史也会导入 `image` 块（[ADR-0010](decisions/0010-image-attachments.zh-CN.md)）。
+
+当前实时可用：流式助手文本（Markdown）、思考区（实时 + 持久化）、工具调用卡片、图片附件。pi 进程退出时，
 传输层会释放句柄并在下一条命令时重新拉起；被打断的回合仍不会自动重试。
 
 ## 6. 安全与隐私

@@ -167,13 +167,21 @@ final class SessionStore {
         for message in messages { modelContext.delete(message) }
         for toolCall in toolCalls { modelContext.delete(toolCall) }
 
-        let newMessages = history.messages.map { message in
-            Message(
-                role: message.role,
-                content: message.text,
-                thinking: message.thinking,
-                createdAt: message.timestamp
+        var newMessages: [Message] = []
+        for entry in history.messages {
+            let message = Message(
+                role: entry.role,
+                content: entry.text,
+                thinking: entry.thinking,
+                createdAt: entry.timestamp
             )
+            if !entry.images.isEmpty {
+                // 先注册图片对象，再建立关系，避免未注册对象触发 SwiftData 的 O(n²) 关系解析。
+                let images = entry.images.map { MessageImage(mimeType: $0.mimeType, data: $0.data) }
+                for image in images { modelContext.insert(image) }
+                message.images = images
+            }
+            newMessages.append(message)
         }
         let newToolCalls = history.toolCalls.map { toolCall in
             ToolCall(
@@ -249,20 +257,21 @@ final class SessionStore {
     }
 
     /// 发送一条用户消息并开始接收助手回复。
-    func send(_ rawText: String, in session: Session) async {
+    func send(_ rawText: String, images: [AgentImage] = [], in session: Session) async {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isStreaming(session) else { return }
+        // 允许「仅图片」的消息：pi 同样接受空文本 + images。
+        guard !text.isEmpty || !images.isEmpty, !isStreaming(session) else { return }
 
         let transport = await ensureTransport(for: session)
 
-        session.append(Message(role: .user, content: text))
+        session.append(makeUserMessage(text: text, images: images))
         // 先插入占位的助手消息，流式增量就地更新它。
         let assistant = Message(role: .assistant, content: "")
         session.append(assistant)
         streaming[session.id] = Streaming(message: assistant, text: "", thinking: "")
 
         do {
-            let disposition = try await transport.prompt(text)
+            let disposition = try await transport.prompt(text, images: images)
             // 扩展命令/输入处理器会立即消费 prompt（`handled`），不会启动运行、也不会有
             // `agent_settled`；必须主动收尾，否则占位助手气泡会一直转圈。
             if disposition == .handled {
@@ -274,16 +283,16 @@ final class SessionStore {
     }
 
     /// 流式期间排队一条 steering 消息：在当前回合的工具调用执行完后投递。
-    func steer(_ rawText: String, in session: Session) async {
-        await enqueue(rawText, in: session) { transport, text in
-            try await transport.steer(text)
+    func steer(_ rawText: String, images: [AgentImage] = [], in session: Session) async {
+        await enqueue(rawText, images: images, in: session) { transport, text, images in
+            try await transport.steer(text, images: images)
         }
     }
 
     /// 流式期间排队一条 follow-up 消息：仅在 agent 完全停下后投递。
-    func followUp(_ rawText: String, in session: Session) async {
-        await enqueue(rawText, in: session) { transport, text in
-            try await transport.followUp(text)
+    func followUp(_ rawText: String, images: [AgentImage] = [], in session: Session) async {
+        await enqueue(rawText, images: images, in: session) { transport, text, images in
+            try await transport.followUp(text, images: images)
         }
     }
 
@@ -293,16 +302,30 @@ final class SessionStore {
     /// 投递后的历史则由 `syncHistory` 统一校准，避免与 pi 的真实顺序不一致。
     private func enqueue(
         _ rawText: String,
+        images: [AgentImage],
         in session: Session,
-        using enqueue: (any AgentTransport, String) async throws -> PromptDisposition
+        using enqueue: (any AgentTransport, String, [AgentImage]) async throws -> PromptDisposition
     ) async {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, isStreaming(session), let transport = transports[session.id] else { return }
+        guard !text.isEmpty || !images.isEmpty,
+              isStreaming(session),
+              let transport = transports[session.id]
+        else { return }
         do {
-            _ = try await enqueue(transport, text)
+            _ = try await enqueue(transport, text, images)
         } catch {
             // 排队失败不终止当前运行：真正的连接问题会经由事件流触发 `.failed`。
         }
+    }
+
+    /// 构造带图片的用户消息；图片先注册进 context，再一次性建立关系。
+    private func makeUserMessage(text: String, images: [AgentImage]) -> Message {
+        let message = Message(role: .user, content: text)
+        guard !images.isEmpty else { return message }
+        let models = images.map { MessageImage(mimeType: $0.mimeType, data: $0.data) }
+        for model in models { modelContext.insert(model) }
+        message.images = models
+        return message
     }
 
     /// 清空待处理队列，并返回被清空的文本（供输入框还原，pi 的 Esc 语义）。

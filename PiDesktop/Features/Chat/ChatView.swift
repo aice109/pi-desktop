@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import AppKit
+import UniformTypeIdentifiers
 
 /// 会话详情：消息流 + 输入框，经 `SessionStore` 与 pi 通信（ADR-0003）。
 struct ChatView: View {
@@ -15,6 +16,9 @@ struct ChatView: View {
     @Environment(SessionStore.self) private var store
     @Environment(AppSettingsStore.self) private var appSettings
     @State private var draft = ""
+    /// 待发送的图片附件（ADR-0010）。
+    @State private var attachments: [AgentImage] = []
+    @State private var isPickingImages = false
     @State private var models: [AgentModel] = []
     /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
     @State private var isAtBottom = true
@@ -413,7 +417,40 @@ struct ChatView: View {
     // MARK: - Composer
 
     private var composer: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !attachments.isEmpty { attachmentStrip }
+            composerField
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        // 三种附件入口都走同一套加载：剪贴板、Finder 拖拽、文件选择器。
+        .onPasteCommand(of: [.image]) { providers in loadImages(from: providers) }
+        .dropDestination(for: URL.self) { urls, _ in
+            loadImages(fromURLs: urls)
+            return true
+        }
+        .fileImporter(
+            isPresented: $isPickingImages,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: true,
+            onCompletion: handleImagePick
+        )
+    }
+
+    /// 输入行：附件按钮 + 文本框 + 发送控件。
+    private var composerField: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            Button {
+                isPickingImages = true
+            } label: {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .help("Attach images")
+            .accessibilityLabel("Attach images")
+
             TextField("Message…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...10)
@@ -428,8 +465,47 @@ struct ChatView: View {
                 .onSubmit { submit() }
             sendControl
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+    }
+
+    /// 待发送图片的缩略图行，每张可单独移除。
+    private var attachmentStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(attachments) { image in
+                    attachmentThumbnail(image)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func attachmentThumbnail(_ image: AgentImage) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Group {
+                if let nsImage = NSImage(data: image.data) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "photo")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 56, height: 56)
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+
+            Button {
+                attachments.removeAll { $0.id == image.id }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .black.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .offset(x: 4, y: -4)
+            .accessibilityLabel("Remove image")
+        }
     }
 
     /// 发送控件：空闲时普通发送；运行中可排队（点击 = steer，菜单可选 follow-up）。
@@ -446,14 +522,14 @@ struct ChatView: View {
             }
             .menuIndicator(.hidden)
             .fixedSize()
-            .disabled(trimmedDraft.isEmpty)
+            .disabled(canSubmit)
             .keyboardShortcut(.return, modifiers: .command)
             .help("Queue for this run (⌘↩ steers)")
         } else {
             Button(action: { submit(as: .prompt) }) { sendLabel }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.circle)
-                .disabled(trimmedDraft.isEmpty)
+                .disabled(!canSubmit)
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send (⌘↩)")
         }
@@ -482,21 +558,58 @@ struct ChatView: View {
     /// 提交输入框内容：空闲时普通发送，运行中按指定方式排队（默认 steer）。
     private func submit(as kind: Submission = .prompt) {
         let text = trimmedDraft
-        guard !text.isEmpty else { return }
+        let images = attachments
+        guard !text.isEmpty || !images.isEmpty else { return }
         draft = ""
+        attachments = []
         Task {
             switch kind {
             case .prompt:
                 // 若提交瞬间回合已结束，`steer` 会落空——此时退回普通发送。
                 if store.isStreaming(session) {
-                    await store.steer(text, in: session)
+                    await store.steer(text, images: images, in: session)
                 } else {
-                    await store.send(text, in: session)
+                    await store.send(text, images: images, in: session)
                 }
             case .steer:
-                await store.steer(text, in: session)
+                await store.steer(text, images: images, in: session)
             case .followUp:
-                await store.followUp(text, in: session)
+                await store.followUp(text, images: images, in: session)
+            }
+        }
+    }
+
+    /// 文本或图片任一存在即可提交。
+    private var canSubmit: Bool {
+        !trimmedDraft.isEmpty || !attachments.isEmpty
+    }
+
+    private func handleImagePick(_ result: Result<[URL], Error>) {
+        if case .success(let urls) = result { loadImages(fromURLs: urls) }
+    }
+
+    /// 从 Finder 拖拽 / 文件选择器加载图片文件。
+    private func loadImages(fromURLs urls: [URL]) {
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "image/png"
+            attachments.append(AgentImage(mimeType: mimeType, data: data))
+        }
+    }
+
+    /// 从剪贴板 / 拖拽的 `NSItemProvider` 加载图片。
+    private func loadImages(from providers: [NSItemProvider]) {
+        for provider in providers {
+            _ = provider.loadDataRepresentation(for: .image) { data, _ in
+                guard let data else { return }
+                let mimeType = provider.registeredTypeIdentifiers
+                    .compactMap { UTType($0)?.preferredMIMEType }
+                    .first ?? "image/png"
+                Task { @MainActor in
+                    attachments.append(AgentImage(mimeType: mimeType, data: data))
+                }
             }
         }
     }
@@ -566,6 +679,7 @@ private struct MessageRow: View {
                 if let thinking = message.thinking, !thinking.isEmpty {
                     ReasoningDisclosure(text: thinking)
                 }
+                if !message.images.isEmpty { imageAttachments }
                 content
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -587,6 +701,23 @@ private struct MessageRow: View {
             .foregroundStyle(message.role.tint)
             .frame(width: 22, height: 22)
             .background(message.role.tint.opacity(0.14), in: Circle())
+    }
+
+    /// 用户消息附带的图片缩略图（ADR-0010）。
+    @ViewBuilder
+    private var imageAttachments: some View {
+        HStack(spacing: 6) {
+            ForEach(message.images) { image in
+                if let nsImage = NSImage(data: image.data) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 200, maxHeight: 200)
+                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+                        .accessibilityLabel("Attached image")
+                }
+            }
+        }
     }
 
     private var header: some View {
@@ -915,7 +1046,7 @@ private struct SessionLoadingView: View {
     let container: ModelContainer
     do {
         container = try ModelContainer(
-            for: Session.self, Message.self, ToolCall.self,
+            for: Session.self, Message.self, ToolCall.self, MessageImage.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     } catch {

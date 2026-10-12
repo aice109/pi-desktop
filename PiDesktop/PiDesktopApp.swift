@@ -93,7 +93,7 @@ private struct PiDesktopCommands: Commands {
     /// 只会制造更难排查的问题，因此启动时明确崩溃（`coding-conventions.md` §7）。
     private static func makeModelContainer() -> ModelContainer {
         // 领域模型见 ADR-0004 / ADR-0006；偏好存于 `UserDefaults`（ADR-0008），不入 schema。
-        let schema = Schema([Session.self, Message.self, ToolCall.self])
+        let schema = Schema([Session.self, Message.self, ToolCall.self, MessageImage.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [configuration])

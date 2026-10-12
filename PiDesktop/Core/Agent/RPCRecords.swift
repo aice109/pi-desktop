@@ -178,6 +178,17 @@ nonisolated enum MessageContentDTO: Decodable, Equatable {
         guard case .blocks(let blocks) = self else { return "" }
         return blocks.compactMap { $0.type == "thinking" ? $0.thinking : nil }.joined()
     }
+
+    /// 解析 `image` 块（用户消息可能附带图片，ADR-0010）。
+    var images: [AgentImage] {
+        guard case .blocks(let blocks) = self else { return [] }
+        return blocks.compactMap { block in
+            guard block.type == "image", let base64 = block.data, let mimeType = block.mimeType else {
+                return nil
+            }
+            return AgentImage(mimeType: mimeType, base64: base64)
+        }
+    }
 }
 
 /// 内容块。
@@ -189,6 +200,9 @@ nonisolated struct ContentBlockDTO: Decodable, Equatable {
     var id: String?
     var name: String?
     var arguments: JSONValue?
+    // image 块
+    var data: String?
+    var mimeType: String?
 }
 
 /// 线上报文 → 领域事件的映射（纯函数，便于单测）。

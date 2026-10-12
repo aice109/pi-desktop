@@ -105,6 +105,8 @@ pi agent 进程 (pi --mode rpc)
   `piSessionPath`（[ADR-0005](decisions/0005-workspace-and-pi-sessions.zh-CN.md)）。
 - `Message`：角色（user/assistant/tool）、内容、可选的助手思考、时间、所属会话。
 - `ToolCall`：工具名、参数、输出、状态、耗时、所属会话。
+- `MessageImage`：用户消息附带图片的原始字节（`.externalStorage`）与 mimeType
+  （[ADR-0010](decisions/0010-image-attachments.zh-CN.md)）。
 
 > 模型变更属于重大改动 → 需新增 ADR（见 [decisions/](decisions/README.zh-CN.md)）。
 

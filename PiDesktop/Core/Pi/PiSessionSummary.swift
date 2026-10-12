@@ -45,6 +45,8 @@ nonisolated struct PiDisplayMessage: Sendable, Equatable {
     var text: String
     /// 助手的思考过程；无则为 nil。
     var thinking: String?
+    /// 用户消息附带的图片（ADR-0010）。
+    var images: [AgentImage] = []
     var timestamp: Date
 }
 

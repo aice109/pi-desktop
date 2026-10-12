@@ -107,6 +107,8 @@ GlassEffectContainer(spacing: 16) {
 - 运行中输入框保持可用：回车排队一条 **steering** 消息（发送控件变为 `Menu`，点击即 steer，
   菜单里可选「Send as Follow-up」）。已排队消息显示在状态行下方，「Clear Queued」会将其文本
   还原到输入框（pi 的 Esc 语义）。
+- 图片可通过剪贴板、拖拽到输入框，或回形针的文件选择器添加。待发送图片显示为 56pt 可移除缩略图；
+  已发送图片在用户气泡中以最大 200pt 渲染（[ADR-0010](decisions/0010-image-attachments.zh-CN.md)）。
 - 工具调用折叠成一行摘要（SF Symbol、工具名、参数胶囊、状态），展开后显示 `Arguments` / `Output`；
   失败时保留红色描边。
 - 用量用 `Gauge`（`.accessoryLinearCapacity`）加 `.monospacedDigit()` 文本，更新时数字不抖动。

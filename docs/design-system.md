@@ -116,6 +116,9 @@ Ask with:
 - While the agent runs the composer stays enabled: Enter queues a **steering** message (the send
   control becomes a `Menu` whose primary action steers, offering "Send as Follow-up"). Queued messages
   appear under the status line with a "Clear Queued" link that restores their text to the composer.
+- Images attach from the pasteboard, a drag-and-drop onto the composer, or the paperclip's file
+  importer. Pending images show as removable 56 pt thumbnails above the field; sent images render at
+  up to 200 pt in the user bubble ([ADR-0010](decisions/0010-image-attachments.md)).
 - Tool calls collapse to a single summary line (SF Symbol, tool name, argument chip, status) and expand
   to `Arguments` / `Output`; failures keep the red outline.
 - Usage is a `Gauge` (`.accessoryLinearCapacity`) plus `.monospacedDigit()` labels, so the numbers do

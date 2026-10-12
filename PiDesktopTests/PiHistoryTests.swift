@@ -29,6 +29,19 @@ final class PiHistoryTests: XCTestCase {
         )
     }
 
+    private func imageBlock(base64: String, mimeType: String = "image/png") -> ContentBlockDTO {
+        ContentBlockDTO(
+            type: "image",
+            text: nil,
+            thinking: nil,
+            id: nil,
+            name: nil,
+            arguments: nil,
+            data: base64,
+            mimeType: mimeType
+        )
+    }
+
     private func entry(
         _ role: String,
         _ content: MessageContentDTO,
@@ -108,6 +121,34 @@ final class PiHistoryTests: XCTestCase {
             entry("toolResult", .blocks([textBlock("x")]), toolCallId: "call_1", toolName: nil),
         ])
         XCTAssertEqual(history.toolCalls[0].name, "tool")
+    }
+
+    func test_make_parsesImageBlocks() {
+        let raw = Data("hello".utf8).base64EncodedString()
+        let history = PiHistory.make(from: [
+            entry("user", .blocks([textBlock("look"), imageBlock(base64: raw)])),
+        ])
+
+        XCTAssertEqual(history.messages.count, 1)
+        XCTAssertEqual(history.messages[0].images.count, 1)
+        XCTAssertEqual(history.messages[0].images[0].mimeType, "image/png")
+        XCTAssertEqual(history.messages[0].images[0].data, Data("hello".utf8))
+    }
+
+    func test_make_keepsImageOnlyUserMessage() {
+        let raw = Data([0x01, 0x02]).base64EncodedString()
+        let history = PiHistory.make(from: [entry("user", .blocks([imageBlock(base64: raw)]))])
+
+        XCTAssertEqual(history.messages.count, 1)
+        XCTAssertEqual(history.messages[0].text, "")
+        XCTAssertEqual(history.messages[0].images.count, 1)
+    }
+
+    func test_make_skipsInvalidBase64Image() {
+        let history = PiHistory.make(from: [
+            entry("user", .blocks([textBlock("hi"), imageBlock(base64: "!!!not-base64")])),
+        ])
+        XCTAssertEqual(history.messages[0].images.count, 0)
     }
 
     func test_fingerprint_changesWithContent() {

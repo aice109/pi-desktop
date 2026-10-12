@@ -61,9 +61,25 @@ actor PiRPCClient: AgentTransport {
     }
 
     @discardableResult
-    func prompt(_ message: String) async throws -> PromptDisposition {
+    func prompt(_ message: String, images: [AgentImage]) async throws -> PromptDisposition {
+        try await sendPrompt(type: "prompt", message: message, images: images)
+    }
+
+    /// `prompt` / `steer` / `follow_up` 共用：三者都接受 `message` + 可选 `images`。
+    private func sendPrompt(
+        type: String,
+        message: String,
+        images: [AgentImage]
+    ) async throws -> PromptDisposition {
         try startProcessIfNeeded()
-        let response = await send(["type": "prompt", "message": message])
+        var payload: [String: Any] = ["type": type, "message": message]
+        if !images.isEmpty {
+            // pi 的 `ImageContent` 要求 base64 + mimeType；store 里存的是原始字节。
+            payload["images"] = images.map { image in
+                ["type": "image", "data": image.data.base64EncodedString(), "mimeType": image.mimeType]
+            }
+        }
+        let response = await send(payload)
         if response?.success == false {
             throw AgentTransportError.commandFailed(response?.error ?? "unknown")
         }
@@ -71,22 +87,13 @@ actor PiRPCClient: AgentTransport {
     }
 
     @discardableResult
-    func steer(_ message: String) async throws -> PromptDisposition {
-        try await queueCommand("steer", message: message)
+    func steer(_ message: String, images: [AgentImage]) async throws -> PromptDisposition {
+        try await sendPrompt(type: "steer", message: message, images: images)
     }
 
     @discardableResult
-    func followUp(_ message: String) async throws -> PromptDisposition {
-        try await queueCommand("follow_up", message: message)
-    }
-
-    private func queueCommand(_ type: String, message: String) async throws -> PromptDisposition {
-        try startProcessIfNeeded()
-        let response = await send(["type": type, "message": message])
-        if response?.success == false {
-            throw AgentTransportError.commandFailed(response?.error ?? "unknown")
-        }
-        return PromptDisposition(raw: response?.data?.disposition)
+    func followUp(_ message: String, images: [AgentImage]) async throws -> PromptDisposition {
+        try await sendPrompt(type: "follow_up", message: message, images: images)
     }
 
     func clearQueue() async -> AgentQueue {

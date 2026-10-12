@@ -29,6 +29,8 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已发送的 steering / follow-up 文本，供断言。
     private let steered = Mutex<[String]>([])
     private let followUps = Mutex<[String]>([])
+    /// 每次 `prompt` 附带的图片批次，供断言。
+    private let sentImages = Mutex<[[AgentImage]]>([])
     /// `clearQueue()` 的返回值。
     private let clearedQueue = Mutex<AgentQueue>(AgentQueue())
 
@@ -75,6 +77,9 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已发送的 follow-up 文本。
     var followUpMessages: [String] { followUps.withLock { $0 } }
 
+    /// 每次 `prompt` 附带的图片批次。
+    var sentImageBatches: [[AgentImage]] { sentImages.withLock { $0 } }
+
     /// 注入 `clearQueue()` 的返回值。
     var clearedQueueValue: AgentQueue {
         get { clearedQueue.withLock { $0 } }
@@ -86,19 +91,20 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     }
 
     @discardableResult
-    func prompt(_ message: String) async throws -> PromptDisposition {
+    func prompt(_ message: String, images: [AgentImage]) async throws -> PromptDisposition {
         sent.withLock { $0.append(message) }
+        sentImages.withLock { $0.append(images) }
         return promptDispositionValue
     }
 
     @discardableResult
-    func steer(_ message: String) async throws -> PromptDisposition {
+    func steer(_ message: String, images: [AgentImage]) async throws -> PromptDisposition {
         steered.withLock { $0.append(message) }
         return .queued
     }
 
     @discardableResult
-    func followUp(_ message: String) async throws -> PromptDisposition {
+    func followUp(_ message: String, images: [AgentImage]) async throws -> PromptDisposition {
         followUps.withLock { $0.append(message) }
         return .queued
     }
