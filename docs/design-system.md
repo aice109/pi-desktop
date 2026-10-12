@@ -116,6 +116,8 @@ Ask with:
 - While the agent runs the composer stays enabled: Enter queues a **steering** message (the send
   control becomes a `Menu` whose primary action steers, offering "Send as Follow-up"). Queued messages
   appear under the status line with a "Clear Queued" link that restores their text to the composer.
+- A toolbar magnifier opens a search popover over the conversation; results match message text and tool
+  arguments/output, and selecting one scrolls the message list to that row.
 - The toolbar has a Context menu (`arrow.down.right.and.arrow.up.left`): "Compact Now", "Compact with
   Instructions…" (a small sheet), an Auto-compaction `Toggle` bound to `get_state`, and an Auto-retry
   `Toggle`. While a retry is in progress the status line shows an "Abort Retry" link.

@@ -107,6 +107,7 @@ GlassEffectContainer(spacing: 16) {
 - 运行中输入框保持可用：回车排队一条 **steering** 消息（发送控件变为 `Menu`，点击即 steer，
   菜单里可选「Send as Follow-up」）。已排队消息显示在状态行下方，「Clear Queued」会将其文本
   还原到输入框（pi 的 Esc 语义）。
+- 工具栏的放大镜会在会话上方打开搜索浮层；结果匹配消息正文与工具参数/输出，选中后消息列表滚动到该行。
 - 工具栏提供 Context 菜单（`arrow.down.right.and.arrow.up.left`）：「Compact Now」「Compact with
   Instructions…」（小弹窗）、绑定 `get_state` 的 Auto-compaction `Toggle`，以及 Auto-retry `Toggle`。
   重试进行时状态行会显示「Abort Retry」链接。

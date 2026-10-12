@@ -28,6 +28,10 @@ struct ChatView: View {
     /// 手动压缩（可带自定义指令）的弹窗。
     @State private var isCompactionPromptPresented = false
     @State private var compactionInstructions = ""
+    /// 会话内搜索。
+    @State private var isSearching = false
+    @State private var searchQuery = ""
+    @State private var scrollTarget: UUID?
     /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
     @State private var isAtBottom = true
     /// 是否跟随底部：内容增长时自动滚动；用户主动上滑后暂停。
@@ -79,6 +83,7 @@ struct ChatView: View {
             }
         }
         .toolbar {
+            ToolbarItem { findButton }
             ToolbarItem { contextMenu }
             ToolbarItem { branchMenu }
             if !commands.isEmpty { ToolbarItem { commandMenu } }
@@ -136,6 +141,86 @@ struct ChatView: View {
                 Task { await store.setAutoRetry(newValue, in: session) }
             }
         )
+    }
+
+    /// 会话内搜索入口（工具栏放大镜）。
+    private var findButton: some View {
+        Button { isSearching = true } label: {
+            Label("Find", systemImage: "magnifyingglass")
+        }
+        .help("Find in Conversation")
+        .popover(isPresented: $isSearching, arrowEdge: .bottom) { conversationSearch }
+    }
+
+    private var conversationSearch: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TextField("Find in conversation", text: $searchQuery)
+                .textFieldStyle(.roundedBorder)
+                .padding(12)
+            Divider()
+            let results = searchResults
+            if results.isEmpty {
+                Text(searchQuery.isEmpty ? "Type to search." : "No matches.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                List(results) { result in
+                    Button {
+                        scrollTarget = result.id
+                        isSearching = false
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(result.title)
+                                .font(.caption.weight(.semibold))
+                            Text(result.snippet)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+            }
+        }
+        .frame(width: 360, height: 320)
+    }
+
+    /// 匹配的消息与工具调用；片段截在关键词周围。
+    private var searchResults: [ConversationSearchResult] {
+        let query = searchQuery.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return [] }
+        var results: [ConversationSearchResult] = []
+        for message in sortedMessages where message.content.localizedCaseInsensitiveContains(query) {
+            results.append(ConversationSearchResult(
+                id: message.id,
+                title: message.role.displayName,
+                snippet: snippet(message.content, matching: query)
+            ))
+        }
+        for call in session.toolCalls {
+            let combined = [call.arguments, call.output].compactMap { $0 }.joined(separator: "\n")
+            guard combined.localizedCaseInsensitiveContains(query) else { continue }
+            results.append(ConversationSearchResult(
+                id: call.id,
+                title: call.name,
+                snippet: snippet(combined, matching: query)
+            ))
+        }
+        return Array(results.prefix(50))
+    }
+
+    private func snippet(_ text: String, matching query: String) -> String {
+        guard let range = text.range(of: query, options: .caseInsensitive) else {
+            return String(text.prefix(120)).replacingOccurrences(of: "\n", with: " ")
+        }
+        let start = text.index(range.lowerBound, offsetBy: -40, limitedBy: text.startIndex) ?? text.startIndex
+        let end = text.index(range.upperBound, offsetBy: 80, limitedBy: text.endIndex) ?? text.endIndex
+        return String(text[start..<end]).replacingOccurrences(of: "\n", with: " ")
     }
 
     /// 分支菜单：clone 当前分支，或从某条用户消息 fork。
@@ -323,6 +408,11 @@ struct ChatView: View {
                 if scrollPhase != phase { scrollPhase = phase }
                 // 手势结束后以最终位置为准；程序滚动（animating）不改变跟随意图。
                 if phase == .idle, isAtBottom, !isFollowingBottom { isFollowingBottom = true }
+            }
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(target, anchor: .center) }
+                scrollTarget = nil
             }
             .onChange(of: items.count) { _, _ in autoScroll(proxy, items: items) }
             // 流式追加不会改变条数，需额外监听末条内容变化。
@@ -1266,6 +1356,13 @@ private struct CompactionSheet: View {
         }
         .padding(20)
     }
+}
+
+/// 会话内搜索的一条结果。
+private struct ConversationSearchResult: Identifiable {
+    let id: UUID
+    let title: String
+    let snippet: String
 }
 
 /// fork 选择弹窗：列出可 fork 的用户消息，选中即从该处创建分支。
