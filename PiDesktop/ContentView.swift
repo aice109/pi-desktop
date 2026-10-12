@@ -120,13 +120,22 @@ struct ContentView: View {
                     .truncationMode(.middle)
             }
             Spacer()
-            Button {
-                isPickingFolder = true
+            Menu {
+                Button("Choose Folder…") { isPickingFolder = true }
+                if !workspaceStore.recentWorkspaces.isEmpty {
+                    Divider()
+                    ForEach(workspaceStore.recentWorkspaces, id: \.self) { url in
+                        Button(url.path) { selectWorkspace(url) }
+                    }
+                }
+                Divider()
+                Button("Close Workspace") { closeWorkspace() }
             } label: {
-                Image(systemName: "arrow.triangle.2.circlepath")
+                Image(systemName: "ellipsis.circle")
             }
-            .buttonStyle(.borderless)
-            .help("Change Folder")
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Workspace")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -266,15 +275,30 @@ struct ContentView: View {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            _ = url.startAccessingSecurityScopedResource()
-            // 切换目录后清空当前选择，避免指向旧工作区的会话。
-            selection = nil
-            opened = nil
-            searchText = ""
-            workspaceStore.setWorkspace(url)
+            selectWorkspace(url)
         case .failure(let error):
             workspaceStore.report(error)
         }
+    }
+
+    /// 切换工作区：清空当前选择，避免指向旧工作区的会话。
+    private func selectWorkspace(_ url: URL) {
+        // 沙盒已关闭（ADR-0003），此处通常返回 false；保留调用以便将来开启沙盒时仍正确。
+        _ = url.startAccessingSecurityScopedResource()
+        if let opened { sessionStore.deactivate(opened) }
+        selection = nil
+        opened = nil
+        searchText = ""
+        workspaceStore.setWorkspace(url)
+    }
+
+    /// 关闭当前工作区，回到引导页。
+    private func closeWorkspace() {
+        if let opened { sessionStore.deactivate(opened) }
+        selection = nil
+        opened = nil
+        searchText = ""
+        workspaceStore.clearWorkspace()
     }
 
     private var deletionDialogBinding: Binding<Bool> {

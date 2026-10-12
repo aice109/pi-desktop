@@ -42,6 +42,7 @@ struct ChatView: View {
                     } label: {
                         Label("Stop", systemImage: "stop.circle")
                     }
+                    .keyboardShortcut(".", modifiers: .command)
                     .help("Stop")
                 }
             }

@@ -17,6 +17,9 @@ import Observation
 final class WorkspaceStore {
     /// `UserDefaults` 键：所选目录的绝对路径。
     static let workspacePathKey = "workspacePath"
+    /// `UserDefaults` 键：最近使用的目录列表。
+    static let recentWorkspacesKey = "recentWorkspaces"
+    private static let maxRecent = 6
 
     private let defaults: UserDefaults
     private let root: URL
@@ -28,10 +31,14 @@ final class WorkspaceStore {
     private(set) var sessions: [PiSessionSummary] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
+    /// 最近使用的工作区（最新的在前）。
+    private(set) var recentWorkspaces: [URL] = []
 
     init(defaults: UserDefaults = .standard, root: URL? = nil) {
         self.defaults = defaults
         self.root = root ?? PiSessionFiles.defaultRoot()
+        recentWorkspaces = (defaults.stringArray(forKey: Self.recentWorkspacesKey) ?? [])
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
         if let path = defaults.string(forKey: Self.workspacePathKey), !path.isEmpty {
             workspace = URL(fileURLWithPath: path, isDirectory: true)
         }
@@ -44,6 +51,7 @@ final class WorkspaceStore {
         let standardized = url.standardizedFileURL
         workspace = standardized
         defaults.set(standardized.path, forKey: Self.workspacePathKey)
+        remember(standardized)
         refresh()
     }
 
@@ -60,6 +68,16 @@ final class WorkspaceStore {
     /// 记录一次选择目录失败，供 UI 提示。
     func report(_ error: Error) {
         errorMessage = error.localizedDescription
+    }
+
+    /// 把目录记入最近列表（去重、限长、最新在前）。
+    private func remember(_ url: URL) {
+        var paths = recentWorkspaces.map(\.path)
+        paths.removeAll { $0 == url.path }
+        paths.insert(url.path, at: 0)
+        if paths.count > Self.maxRecent { paths = Array(paths.prefix(Self.maxRecent)) }
+        recentWorkspaces = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        defaults.set(paths, forKey: Self.recentWorkspacesKey)
     }
 
     /// 重新扫描该工作区的会话目录（新会话落盘、切换目录后调用）。
