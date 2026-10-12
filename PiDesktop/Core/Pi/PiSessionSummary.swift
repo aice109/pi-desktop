@@ -43,6 +43,8 @@ nonisolated struct PiSessionSummary: Identifiable, Sendable, Equatable, Hashable
 nonisolated struct PiDisplayMessage: Sendable, Equatable {
     var role: MessageRole
     var text: String
+    /// 助手的思考过程；无则为 nil。
+    var thinking: String?
     var timestamp: Date
 }
 

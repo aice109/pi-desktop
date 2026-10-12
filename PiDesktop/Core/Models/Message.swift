@@ -18,14 +18,17 @@ final class Message {
     @Attribute(.unique) var id: UUID
     var role: MessageRole
     var content: String
+    /// 助手的思考过程（reasoning）；非助手消息或未暴露时为 nil。
+    var thinking: String?
     var createdAt: Date
     /// 反向关系；`Session.messages` 持有数组并负责级联删除。
     var session: Session?
 
-    init(role: MessageRole, content: String, createdAt: Date = .now) {
+    init(role: MessageRole, content: String, thinking: String? = nil, createdAt: Date = .now) {
         self.id = UUID()
         self.role = role
         self.content = content
+        self.thinking = thinking
         self.createdAt = createdAt
     }
 }

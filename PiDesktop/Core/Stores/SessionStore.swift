@@ -239,6 +239,8 @@ final class SessionStore {
             } else {
                 state.message.content = state.text
             }
+            // 把累积的思考一并持久化，便于事后回看（ADR-0007）。
+            if !state.thinking.isEmpty { state.message.thinking = state.thinking }
             streaming[sessionID] = state
 
         case .settled:
@@ -267,7 +269,8 @@ final class SessionStore {
             } else {
                 state.message.content += "\n\n\(error)"
             }
-        } else if state.message.content.isEmpty {
+        } else if state.message.content.isEmpty, state.message.thinking?.isEmpty ?? true {
+            // 仅当既无正文也无思考时才移除占位，避免空气泡。
             modelContext.delete(state.message)
         }
     }

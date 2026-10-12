@@ -175,6 +175,18 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.transport.sessionStateValue?.sessionName, "New Name")
     }
 
+    func test_reasoning_isPersistedIntoAssistantMessage() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(.thinkingDelta("step 1 "))
+        fixture.transport.emit(.thinkingDelta("step 2"))
+        fixture.transport.emit(.assistantMessageCompleted(text: "Done", stopReason: "stop", errorMessage: nil))
+        await waitUntil { fixture.assistantMessage?.content == "Done" }
+
+        XCTAssertEqual(fixture.assistantMessage?.thinking, "step 1 step 2")
+    }
+
     func test_settled_discoversPiSessionPathAndNotifies() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionStateValue = AgentSessionState(

@@ -122,10 +122,13 @@ nonisolated enum PiSessionFiles {
                   let role = displayRole(for: message.role)
             else { continue }
             let text = message.content?.joinedText ?? ""
-            guard !text.isEmpty else { continue }
+            let thinking = message.content?.joinedThinking ?? ""
+            // 允许仅含思考的助手消息。
+            guard !text.isEmpty || !thinking.isEmpty else { continue }
             result.append(PiDisplayMessage(
                 role: role,
                 text: text,
+                thinking: thinking.isEmpty ? nil : thinking,
                 timestamp: entry.timestamp.flatMap(parseDate) ?? .now
             ))
         }

@@ -203,7 +203,12 @@ struct ContentView: View {
 
         let session = mirror(for: summary)
         for message in PiSessionFiles.messages(in: summary.fileURL) {
-            session.append(Message(role: message.role, content: message.text, createdAt: message.timestamp))
+            session.append(Message(
+                role: message.role,
+                content: message.text,
+                thinking: message.thinking,
+                createdAt: message.timestamp
+            ))
         }
         for toolCall in PiSessionFiles.toolCalls(in: summary.fileURL) {
             session.record(ToolCall(

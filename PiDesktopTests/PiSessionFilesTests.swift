@@ -76,6 +76,20 @@ final class PiSessionFilesTests: XCTestCase {
         XCTAssertEqual(messages.map(\.text), ["Hello", "Hi there"])
     }
 
+    func test_messages_parsesAssistantThinking() throws {
+        let url = try writeSession(named: "thinking", lines: [
+            #"{"type":"session","version":3,"id":"s5","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
+            #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"why?"}}"#,
+            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me think."},{"type":"text","text":"Answer"}]}}"#,
+        ])
+
+        let messages = PiSessionFiles.messages(in: url)
+        XCTAssertEqual(messages.count, 2)
+        XCTAssertEqual(messages[1].text, "Answer")
+        XCTAssertEqual(messages[1].thinking, "Let me think.")
+        XCTAssertNil(messages[0].thinking)
+    }
+
     func test_toolCalls_parsesToolResultEntries() throws {
         let url = try writeSession(named: "tools", lines: [
             #"{"type":"session","version":3,"id":"s4","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,

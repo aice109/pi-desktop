@@ -160,16 +160,9 @@ struct ChatView: View {
     private var statusArea: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let reasoning = store.reasoning(in: session) {
-                DisclosureGroup("Reasoning") {
-                    Text(reasoning)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
-                }
-                .padding(.horizontal)
-                .padding(.top, 6)
+                ReasoningDisclosure(text: reasoning)
+                    .padding(.horizontal)
+                    .padding(.top, 6)
             }
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
@@ -262,6 +255,9 @@ private struct MessageRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             header
+            if let thinking = message.thinking, !thinking.isEmpty {
+                ReasoningDisclosure(text: thinking)
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -305,6 +301,24 @@ private struct MessageRow: View {
             MarkdownText(text: message.content)
                 .textSelection(.enabled)
         }
+    }
+}
+
+/// 可折叠的思考内容（实时与历史共用）。
+private struct ReasoningDisclosure: View {
+    let text: String
+
+    var body: some View {
+        DisclosureGroup("Reasoning") {
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 
@@ -442,7 +456,8 @@ private extension MessageRole {
     ))
     session.append(Message(
         role: .assistant,
-        content: "PiDesktop is a **native macOS GUI** for the `pi` coding agent.\n\n- Sessions\n- Streaming chat"
+        content: "PiDesktop is a **native macOS GUI** for the `pi` coding agent.\n\n- Sessions\n- Streaming chat",
+        thinking: "The user asks what the project does, so summarize the README."
     ))
 
     let store = SessionStore(container: container, makeTransport: { _, _ in MockAgentTransport() })

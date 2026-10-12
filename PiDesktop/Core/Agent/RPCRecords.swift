@@ -128,6 +128,12 @@ nonisolated enum MessageContentDTO: Decodable {
             return blocks.compactMap { $0.type == "text" ? $0.text : nil }.joined()
         }
     }
+
+    /// 拼接所有 `thinking` 块（助手的思考过程）。
+    var joinedThinking: String {
+        guard case .blocks(let blocks) = self else { return "" }
+        return blocks.compactMap { $0.type == "thinking" ? $0.thinking : nil }.joined()
+    }
 }
 
 /// 内容块。

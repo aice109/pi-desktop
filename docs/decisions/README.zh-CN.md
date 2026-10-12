@@ -53,3 +53,4 @@
 | [0004](0004-domain-model.md) | SwiftData 领域模型（Session / Message） | Accepted |
 | [0005](0005-workspace-and-pi-sessions.zh-CN.md) | 按工作目录组织 pi 会话 | Accepted |
 | [0006](0006-tool-calls.zh-CN.md) | 持久化工具调用并渲染为卡片 | Accepted |
+| [0007](0007-reasoning.zh-CN.md) | 持久化助手思考内容 | Accepted |
