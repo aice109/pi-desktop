@@ -47,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   text; each message shows a role icon and timestamp.
 - The session sidebar gained search, a refresh action (⌘R), a new-session shortcut (⌘N), and a
   "move to Trash" action that also cleans up the local mirror.
+- The workspace bar is now a menu with recent folders and "Close Workspace"; Stop also has a ⌘.
+  shortcut.
 - App version aligned to `0.1.0` (`MARKETING_VERSION`) to match the README badge;
   nothing has been released yet, so the changelog stays under `[Unreleased]`.
 
