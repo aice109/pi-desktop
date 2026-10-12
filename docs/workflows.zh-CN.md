@@ -79,6 +79,13 @@ CI **已暂不启用**：`.github/workflows/ci.yml.disabled`（GitHub 只运行 
 保留作为构建配方。原因是部署目标为 macOS 27.0，GitHub 托管 runner 可能尚无匹配的 Xcode/SDK。
 待有合适 runner（托管或自托管）时，重命名为 `ci.yml` 即可恢复。
 
+工作流与本地共用 [`scripts/ci.sh`](../scripts/ci.sh)：它构建并测试，并在 `xcodebuild` 找不到 Xcode 时
+自动选择 `DEVELOPER_DIR`。可直接运行：
+
+```bash
+./scripts/ci.sh
+```
+
 ## 6. 提交规范
 
 采用 [Conventional Commits](https://www.conventionalcommits.org/)：

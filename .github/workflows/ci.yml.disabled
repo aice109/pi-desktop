@@ -32,11 +32,6 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Build
-        run: |
-          xcodebuild \
-            -project PiDesktop.xcodeproj \
-            -scheme PiDesktop \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            build
+      # Builds and tests; selects DEVELOPER_DIR if `xcodebuild` cannot find Xcode.
+      - name: Build and test
+        run: ./scripts/ci.sh

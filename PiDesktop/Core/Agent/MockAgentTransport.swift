@@ -339,7 +339,7 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func sessionEntries(since: String?) async -> SessionEntriesPage? {
         // 仅增量路径使用注入页；全量路径（since == nil）仍从 `sessionEntriesValue` 构造。
-        if let since, let page = sessionEntriesPageValue { return page }
+        if since != nil, let page = sessionEntriesPageValue { return page }
         let all = entries.withLock { $0 }
         guard let since else { return SessionEntriesPage(entries: all, leafId: nil) }
         // 模拟 pi：`since` 必须命中某条 id，否则视为失效游标（nil → 调用方退回全量）。

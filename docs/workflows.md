@@ -81,6 +81,13 @@ inert). It is kept as the build recipe; the deployment target is macOS 27.0 and 
 may not yet ship a matching Xcode/SDK. Re-enable by renaming it to `ci.yml` once a suitable runner
 (hosted or self-hosted) exists.
 
+The workflow (and local runs) share [`scripts/ci.sh`](../scripts/ci.sh), which builds and tests and
+selects `DEVELOPER_DIR` when `xcodebuild` cannot find Xcode. Run it directly:
+
+```bash
+./scripts/ci.sh
+```
+
 ## 6. Commit conventions
 
 [Conventional Commits](https://www.conventionalcommits.org/):
