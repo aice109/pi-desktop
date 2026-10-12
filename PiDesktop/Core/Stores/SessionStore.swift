@@ -190,8 +190,10 @@ final class SessionStore {
             if let page = await transport.sessionEntries(since: nil), !page.entries.isEmpty {
                 // 归一化与历史构造可能涉及上千条记录，放后台，避免阻塞主 actor。
                 let snapshots = page.entries.map(\.historyEntry)
+                let leafID = page.leafId
                 let history = await Task.detached(priority: .userInitiated) {
-                    PiHistory.make(from: snapshots)
+                    // `get_entries` 是追加式树：按叶子回溯活动分支，避免混入被遗弃分支。
+                    PiHistory.make(from: snapshots, leafID: leafID)
                 }.value
                 return LoadedHistory(
                     history: history,
@@ -320,6 +322,37 @@ final class SessionStore {
     /// 可发现的命令（扩展 / prompt 模板 / 技能），用于斜杠命令面板。
     func availableCommands(for session: Session) async -> [AgentCommand] {
         await transports[session.id]?.availableCommands() ?? []
+    }
+
+    /// 可 fork 的用户消息（从某条消息处创建新分支）。
+    func forkMessages(for session: Session) async -> [AgentForkMessage] {
+        await transports[session.id]?.forkMessages() ?? []
+    }
+
+    /// 从指定用户消息创建分支（`fork`）。
+    func fork(_ session: Session, from entryId: String) async {
+        guard let transport = transports[session.id], await transport.fork(entryId: entryId) else { return }
+        await resyncAfterBranchChange(session)
+    }
+
+    /// 把当前分支复制为新会话（`clone`）。
+    func clone(_ session: Session) async {
+        guard let transport = transports[session.id], await transport.clone() else { return }
+        await resyncAfterBranchChange(session)
+    }
+
+    /// fork / clone 后 pi 会切到新的会话文件：重读状态、丢弃游标并全量重建，
+    /// 让侧栏与新会话文件重新对应。
+    private func resyncAfterBranchChange(_ session: Session) async {
+        historyCursors[session.id] = nil
+        historyFingerprints[session.id] = nil
+        if let transport = transports[session.id], let state = await transport.sessionState() {
+            states[session.id] = state
+            if let path = state.sessionFile, !path.isEmpty { session.piSessionPath = path }
+            if let name = state.sessionName, !name.isEmpty { session.title = name }
+        }
+        await fullSyncHistory(for: session)
+        onSessionPersisted?()
     }
 
     /// 切换模型并刷新状态。

@@ -73,6 +73,8 @@ nonisolated struct RPCDataDTO: Decodable {
     var leafId: String?
     // get_commands
     var commands: [CommandDTO]?
+    // get_fork_messages
+    var messages: [ForkMessageDTO]?
     // clear_queue
     var steering: [String]?
     var followUp: [String]?
@@ -84,11 +86,19 @@ nonisolated struct RPCDataDTO: Decodable {
 nonisolated struct SessionEntryDTO: Decodable {
     var type: String
     var id: String?
+    /// 父条目 id；根为 null。用于从叶子回溯活动分支（ADR 会话树）。
+    var parentId: String?
     var timestamp: String?
     var message: MessageDTO?
 }
 
 /// `get_commands` 返回的一个可发现命令（扩展命令 / prompt 模板 / 技能）。
+/// `get_fork_messages` 返回的一条可 fork 的用户消息。
+nonisolated struct ForkMessageDTO: Decodable {
+    var entryId: String
+    var text: String
+}
+
 nonisolated struct CommandDTO: Decodable {
     var name: String
     var description: String?

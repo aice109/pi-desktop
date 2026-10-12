@@ -141,7 +141,9 @@ nonisolated enum PiSessionFiles {
                 timestamp: entry.timestamp.flatMap(PiDate.parse),
                 toolCallId: message.toolCallId,
                 toolName: message.toolName,
-                isError: message.isError
+                isError: message.isError,
+                id: entry.id,
+                parentId: entry.parentId
             )
         }
         return PiHistory.make(from: entries)
@@ -160,6 +162,8 @@ nonisolated enum PiSessionFiles {
     /// 树中的一条 entry；只解出列表/展示需要的字段，其余忽略。
     private struct Entry: Decodable {
         var type: String
+        var id: String?
+        var parentId: String?
         var timestamp: String?
         var name: String?
         var message: EntryMessage?

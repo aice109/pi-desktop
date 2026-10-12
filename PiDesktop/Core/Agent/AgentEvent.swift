@@ -120,6 +120,14 @@ nonisolated struct AgentCommand: Sendable, Equatable, Identifiable {
     var id: String { name }
 }
 
+/// 一条可 fork 的用户消息（`get_fork_messages`）。
+nonisolated struct AgentForkMessage: Sendable, Equatable, Identifiable {
+    var entryId: String
+    var text: String
+
+    var id: String { entryId }
+}
+
 /// `prompt` 被 pi 接受后的处置方式（对应响应的 `data.disposition`）。
 nonisolated enum PromptDisposition: String, Sendable, Equatable {
     /// 已开始一次运行，之后会收到事件流。
@@ -169,6 +177,12 @@ protocol AgentTransport: Sendable {
     func sessionStats() async -> AgentUsage?
     /// 可发现的命令列表（`get_commands`）。
     func availableCommands() async -> [AgentCommand]
+    /// 可 fork 的用户消息（`get_fork_messages`）。
+    func forkMessages() async -> [AgentForkMessage]
+    /// 从某条用户消息创建分支（`fork`）；返回是否成功。
+    func fork(entryId: String) async -> Bool
+    /// 复制当前分支为新会话（`clone`）；返回是否成功。
+    func clone() async -> Bool
     /// 会话历史条目（`get_entries`）。
     ///
     /// 与只含当前上下文的 `get_messages` 不同，它包含压缩前历史与遗弃分支，

@@ -48,7 +48,9 @@ final class PiHistoryTests: XCTestCase {
         timestamp: Date? = nil,
         toolCallId: String? = nil,
         toolName: String? = nil,
-        isError: Bool? = nil
+        isError: Bool? = nil,
+        id: String? = nil,
+        parentId: String? = nil
     ) -> PiHistoryEntry {
         PiHistoryEntry(
             role: role,
@@ -56,7 +58,9 @@ final class PiHistoryTests: XCTestCase {
             timestamp: timestamp,
             toolCallId: toolCallId,
             toolName: toolName,
-            isError: isError
+            isError: isError,
+            id: id,
+            parentId: parentId
         )
     }
 
@@ -121,6 +125,31 @@ final class PiHistoryTests: XCTestCase {
             entry("toolResult", .blocks([textBlock("x")]), toolCallId: "call_1", toolName: nil),
         ])
         XCTAssertEqual(history.toolCalls[0].name, "tool")
+    }
+
+    func test_make_filtersToActiveBranch() {
+        // 追加式树：root → 两个分支，leafID 指向分支 B。
+        let entries = [
+            entry("user", .blocks([textBlock("root")]), id: "u", parentId: nil),
+            entry("assistant", .blocks([textBlock("branch A")]), id: "a", parentId: "u"),
+            entry("assistant", .blocks([textBlock("branch B")]), id: "b", parentId: "u"),
+        ]
+
+        let history = PiHistory.make(from: entries, leafID: "b")
+
+        XCTAssertEqual(history.messages.map(\.text), ["root", "branch B"])
+    }
+
+    func test_make_withoutLeafKeepsAppendOrder() {
+        let entries = [
+            entry("user", .blocks([textBlock("root")]), id: "u", parentId: nil),
+            entry("assistant", .blocks([textBlock("branch A")]), id: "a", parentId: "u"),
+            entry("assistant", .blocks([textBlock("branch B")]), id: "b", parentId: "u"),
+        ]
+
+        let history = PiHistory.make(from: entries)
+
+        XCTAssertEqual(history.messages.map(\.text), ["root", "branch A", "branch B"])
     }
 
     func test_make_parsesImageBlocks() {

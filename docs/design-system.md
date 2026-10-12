@@ -116,6 +116,8 @@ Ask with:
 - While the agent runs the composer stays enabled: Enter queues a **steering** message (the send
   control becomes a `Menu` whose primary action steers, offering "Send as Follow-up"). Queued messages
   appear under the status line with a "Clear Queued" link that restores their text to the composer.
+- The toolbar has a Branch menu (`arrow.triangle.branch`) offering "Clone Session" and "Fork from
+  Message…"; the latter opens a sheet listing forkable user messages.
 - Typing `/` in the composer shows an inline suggestion list of pi commands (extension / prompt /
   skill) with description and source chips; selecting one fills `/name ` without sending. A toolbar
   command menu offers the same list for discoverability.

@@ -22,6 +22,11 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let models = Mutex<[AgentModel]>([])
     /// `availableCommands()` 的返回值。
     private let commands = Mutex<[AgentCommand]>([])
+    /// `forkMessages()` 的返回值。
+    private let forks = Mutex<[AgentForkMessage]>([])
+    /// 已 fork 的 entryId / 已 clone 次数，供断言。
+    private let forkedEntryIDs = Mutex<[String]>([])
+    private let cloneCount = Mutex<Int>(0)
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
@@ -62,6 +67,18 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         get { commands.withLock { $0 } }
         set { commands.withLock { $0 = newValue } }
     }
+
+    /// 注入 `forkMessages()` 的返回值。
+    var forkMessagesValue: [AgentForkMessage] {
+        get { forks.withLock { $0 } }
+        set { forks.withLock { $0 = newValue } }
+    }
+
+    /// 已 fork 的 entryId。
+    var forkedEntryIDsValue: [String] { forkedEntryIDs.withLock { $0 } }
+
+    /// 已 clone 的次数。
+    var cloneCountValue: Int { cloneCount.withLock { $0 } }
 
     /// 注入 `sessionStats()` 的返回值。
     var sessionStatsValue: AgentUsage? {
@@ -141,6 +158,20 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func availableCommands() async -> [AgentCommand] {
         commands.withLock { $0 }
+    }
+
+    func forkMessages() async -> [AgentForkMessage] {
+        forks.withLock { $0 }
+    }
+
+    func fork(entryId: String) async -> Bool {
+        forkedEntryIDs.withLock { $0.append(entryId) }
+        return true
+    }
+
+    func clone() async -> Bool {
+        cloneCount.withLock { $0 += 1 }
+        return true
     }
 
     func setModel(_ model: AgentModel) async -> Bool {

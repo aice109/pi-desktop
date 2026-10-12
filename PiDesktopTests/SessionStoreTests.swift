@@ -300,6 +300,35 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
     }
 
+    func test_forkMessages_areExposed() async throws {
+        let fixture = try makeFixture()
+        let message = AgentForkMessage(entryId: "e1", text: "hello")
+        fixture.transport.forkMessagesValue = [message]
+        await fixture.store.activate(fixture.session)
+
+        let messages = await fixture.store.forkMessages(for: fixture.session)
+
+        XCTAssertEqual(messages, [message])
+    }
+
+    func test_fork_forwardsEntryAndResyncs() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.fork(fixture.session, from: "entry-1")
+
+        XCTAssertEqual(fixture.transport.forkedEntryIDsValue, ["entry-1"])
+    }
+
+    func test_clone_forwardsToTransport() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.clone(fixture.session)
+
+        XCTAssertEqual(fixture.transport.cloneCountValue, 1)
+    }
+
     func test_queueUpdate_isExposed() async throws {
         let fixture = try makeFixture()
         await fixture.store.send("hi", in: fixture.session)

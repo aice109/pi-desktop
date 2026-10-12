@@ -219,6 +219,15 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(commands.last?.source, "skill")
     }
 
+    func test_getForkMessagesResponse_decodes() {
+        let json = #"{"id":"r1","type":"response","command":"get_fork_messages","success":true,"data":{"messages":[{"entryId":"e1","text":"First"},{"entryId":"e2","text":"Second"}]}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_fork_messages 响应应能解码")
+        }
+        XCTAssertEqual(record.data?.messages?.map(\.entryId), ["e1", "e2"])
+        XCTAssertEqual(record.data?.messages?.first?.text, "First")
+    }
+
     func test_clearQueueResponse_decodesQueues() {
         let json = #"{"id":"r1","type":"response","command":"clear_queue","success":true,"data":{"steering":["stop"],"followUp":["then"]}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {

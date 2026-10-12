@@ -77,6 +77,10 @@ enum AgentEvent: Sendable, Equatable {
 被扩展命令或输入处理器立即消费——不会启动运行，也就不会再有 `agent_settled`，客户端必须自行收尾
 （`AgentTransport.prompt` 因此返回 `PromptDisposition`）。
 
+`get_entries` 返回的是**追加式树**；历史会从响应的 `leafId` 沿 `parentId` 回溯活动分支，因此不会把被
+遗弃的分支混成一条线。工具栏 Branch 菜单提供 `fork` / `clone`，二者完成后都会重读 `get_state` 取新会话
+文件并全量校准。
+
 打开时会与 pi 校准本地镜像（`get_entries`；无进程运行时回退到会话文件），因此应用外产生的回合也会
 出现（[ADR-0009](decisions/0009-history-sync.zh-CN.md)）。解码必须容忍 pi 消息**缺少** `content` 或为
 `null`：把这类字段当必填会让整条响应失败、静默得到空历史。
@@ -128,4 +132,6 @@ enum AgentEvent: Sendable, Equatable {
 - [x] 重命名会话（删除即移至废纸篓）
 - [x] 持久化助手思考内容（ADR-0007）
 - [x] 用 `get_entries` 的 `since` 游标做增量历史同步
+- [x] 分支感知的历史（`leafId`/`parentId`）与 `fork` / `clone`
+- [ ] 可视化的会话树导航（`get_tree`）
 - [ ] 进程退出后自动重试被打断的回合

@@ -132,6 +132,21 @@ actor PiRPCClient: AgentTransport {
         return (record.data?.commands ?? []).map(\.domain)
     }
 
+    func forkMessages() async -> [AgentForkMessage] {
+        guard let record = await command(["type": "get_fork_messages"]) else { return [] }
+        return (record.data?.messages ?? []).map {
+            AgentForkMessage(entryId: $0.entryId, text: $0.text)
+        }
+    }
+
+    func fork(entryId: String) async -> Bool {
+        await command(["type": "fork", "entryId": entryId]) != nil
+    }
+
+    func clone() async -> Bool {
+        await command(["type": "clone"]) != nil
+    }
+
     func setModel(_ model: AgentModel) async -> Bool {
         await command(["type": "set_model", "provider": model.provider, "modelId": model.id]) != nil
     }

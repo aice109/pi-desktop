@@ -91,6 +91,11 @@ and `handled` means an extension command or input handler consumed it — no run
 `agent_settled` follows and the client must finalize the turn itself (`AgentTransport.prompt` returns
 `PromptDisposition` for this reason).
 
+`get_entries` returns an append-only **tree**; history follows the active branch by walking `parentId`
+back from the response's `leafId`, so abandoned branches are not mixed into one line. `fork` and
+`clone` are exposed from the Branch menu, and after either one the app re-reads `get_state` for the new
+session file and fully reconciles.
+
 On open, the local mirror is reconciled with pi (`get_entries`, falling back to the session file when no
 process is running) so turns made outside the app show up ([ADR-0009](decisions/0009-history-sync.md)).
 Decoding must tolerate pi messages without `content` (or with `content: null`): a required field there
@@ -144,4 +149,6 @@ command; an interrupted turn is not retried automatically yet.
 - [x] Persist assistant reasoning (ADR-0007)
 - [x] Reconcile the mirror with pi history on open (ADR-0009)
 - [x] Incremental history sync via `get_entries`'s `since` cursor
+- [x] Branch-aware history (`leafId`/`parentId`) and `fork` / `clone`
+- [ ] Visual session-tree navigation (`get_tree`)
 - [ ] Automatic retry of an interrupted turn after a process exit

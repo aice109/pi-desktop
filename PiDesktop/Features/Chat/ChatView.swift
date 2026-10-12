@@ -22,6 +22,9 @@ struct ChatView: View {
     @State private var models: [AgentModel] = []
     /// 可发现的 pi 命令（`get_commands`），用于斜杠建议。
     @State private var commands: [AgentCommand] = []
+    /// fork 选择弹窗的数据与开关。
+    @State private var forkMessages: [AgentForkMessage] = []
+    @State private var isChoosingFork = false
     /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
     @State private var isAtBottom = true
     /// 是否跟随底部：内容增长时自动滚动；用户主动上滑后暂停。
@@ -56,7 +59,13 @@ struct ChatView: View {
             commands = await store.availableCommands(for: session)
         }
         .onAppear { isComposerFocused = true }
+        .sheet(isPresented: $isChoosingFork) {
+            ForkMessageSheet(messages: forkMessages) { entryId in
+                Task { await store.fork(session, from: entryId) }
+            }
+        }
         .toolbar {
+            ToolbarItem { branchMenu }
             if !commands.isEmpty { ToolbarItem { commandMenu } }
             ToolbarItem { modelMenu }
             if let levels = currentState?.availableThinkingLevels, levels.count > 1 {
@@ -76,6 +85,24 @@ struct ChatView: View {
     }
 
     private var currentState: AgentSessionState? { store.state(for: session) }
+
+    /// 分支菜单：clone 当前分支，或从某条用户消息 fork。
+    private var branchMenu: some View {
+        Menu {
+            Button("Clone Session") {
+                Task { await store.clone(session) }
+            }
+            Button("Fork from Message…") {
+                Task {
+                    forkMessages = await store.forkMessages(for: session)
+                    isChoosingFork = true
+                }
+            }
+        } label: {
+            Label("Branch", systemImage: "arrow.triangle.branch")
+        }
+        .help("Branch")
+    }
 
     /// 工具栏命令菜单：不输入 `/` 也能发现并插入命令。
     private var commandMenu: some View {
@@ -1121,6 +1148,49 @@ private struct SessionLoadingView: View {
         }
         .padding(24)
         .glassEffect(.regular, in: .rect(cornerRadius: DesignTokens.Radius.card))
+    }
+}
+
+/// fork 选择弹窗：列出可 fork 的用户消息，选中即从该处创建分支。
+private struct ForkMessageSheet: View {
+    let messages: [AgentForkMessage]
+    let onSelect: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Fork from a Message")
+                .font(.headline)
+                .padding([.horizontal, .top], 16)
+                .padding(.bottom, 8)
+            if messages.isEmpty {
+                Text("No user messages available.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                Spacer()
+            } else {
+                List(messages) { message in
+                    Button {
+                        onSelect(message.entryId)
+                        dismiss()
+                    } label: {
+                        Text(message.text)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(16)
+        }
+        .frame(width: 460, height: 360)
     }
 }
 
