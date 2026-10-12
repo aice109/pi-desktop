@@ -16,23 +16,30 @@ import SwiftData
 struct PiDesktopApp: App {
     private let modelContainer: ModelContainer
     @State private var sessionStore: SessionStore
+    @State private var workspaceStore: WorkspaceStore
 
     init() {
         let container = Self.makeModelContainer()
         modelContainer = container
-        // 生产环境用真实 pi 子进程；会话/消息由本 App 持久化（`--no-session`）。
-        _sessionStore = State(initialValue: SessionStore(
+        let workspace = WorkspaceStore()
+        // 生产环境用真实 pi 子进程；会话由 pi 持久化到工作目录对应的会话目录。
+        let sessions = SessionStore(
             container: container,
-            makeTransport: { workingDirectory in
-                PiRPCClient(workingDirectory: workingDirectory)
+            makeTransport: { workingDirectory, sessionPath in
+                PiRPCClient(workingDirectory: workingDirectory, sessionPath: sessionPath)
             }
-        ))
+        )
+        // 新会话落盘后刷新侧栏列表，使其立即出现。
+        sessions.onSessionPersisted = { workspace.refresh() }
+        _workspaceStore = State(initialValue: workspace)
+        _sessionStore = State(initialValue: sessions)
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(sessionStore)
+                .environment(workspaceStore)
         }
         .modelContainer(modelContainer)
     }

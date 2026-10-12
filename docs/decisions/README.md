@@ -52,3 +52,4 @@ Upsides, downsides, costs, follow-ups.
 | [0002](0002-native-first-and-liquid-glass.md) | Native-first, Liquid Glass, ask before third-party/custom | Accepted |
 | [0003](0003-pi-transport-and-sandbox.md) | pi transport and app sandbox / entitlements | Accepted |
 | [0004](0004-domain-model.md) | SwiftData domain model (Session / Message) | Accepted |
+| [0005](0005-workspace-and-pi-sessions.md) | Workspace-scoped pi sessions | Accepted |

@@ -43,6 +43,16 @@ protocol AgentTransport: Sendable {
     func abort() async
     /// 关闭底层进程/连接。
     func shutdown() async
+    /// 查询当前会话信息（`get_state`）；新会话由 pi 落盘后才有 `sessionFile`。
+    func sessionInfo() async -> AgentSessionInfo?
+}
+
+/// pi 会话的运行时信息。
+nonisolated struct AgentSessionInfo: Sendable, Equatable {
+    /// 会话文件路径（pi 持久化时存在）。
+    var sessionFile: String?
+    var sessionId: String?
+    var sessionName: String?
 }
 
 /// 传输层错误。

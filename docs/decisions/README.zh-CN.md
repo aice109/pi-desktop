@@ -51,3 +51,4 @@
 | [0002](0002-native-first-and-liquid-glass.md) | 原生组件优先、采用液态玻璃、第三方/自定义需先确认 | Accepted |
 | [0003](0003-pi-transport-and-sandbox.md) | pi 通信方式与应用沙盒 / entitlements | Accepted |
 | [0004](0004-domain-model.md) | SwiftData 领域模型（Session / Message） | Accepted |
+| [0005](0005-workspace-and-pi-sessions.zh-CN.md) | 按工作目录组织 pi 会话 | Accepted |

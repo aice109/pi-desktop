@@ -30,15 +30,21 @@ actor PiRPCClient: AgentTransport {
     /// - Parameters:
     ///   - executable: 覆盖 pi 路径；nil 时按 `PiExecutable` 自动定位。
     ///   - workingDirectory: pi 的工作目录（会话绑定的项目目录）。
-    ///   - additionalArguments: 追加的 CLI 参数，默认 `--no-session`（会话由本 App 持久化）。
+    ///   - sessionPath: 续聊已有会话时传入其文件路径；nil 时由 pi 新建并持久化一个会话。
+    ///   - additionalArguments: 追加的 CLI 参数（如 `--no-session` 用于临时会话）。
     init(
         executable: URL? = nil,
         workingDirectory: URL?,
-        additionalArguments: [String] = ["--no-session"]
+        sessionPath: String? = nil,
+        additionalArguments: [String] = []
     ) {
         self.executableOverride = executable
         self.workingDirectory = workingDirectory
-        self.additionalArguments = additionalArguments
+        if let sessionPath {
+            self.additionalArguments = ["--session", sessionPath] + additionalArguments
+        } else {
+            self.additionalArguments = additionalArguments
+        }
     }
 
     // MARK: - AgentTransport
@@ -64,6 +70,20 @@ actor PiRPCClient: AgentTransport {
 
     func abort() async {
         _ = await send(["type": "abort"])
+    }
+
+    func sessionInfo() async -> AgentSessionInfo? {
+        do {
+            try startProcessIfNeeded()
+        } catch {
+            return nil
+        }
+        guard let response = await send(["type": "get_state"]), response.success != false else { return nil }
+        return AgentSessionInfo(
+            sessionFile: response.data?.sessionFile,
+            sessionId: response.data?.sessionId,
+            sessionName: response.data?.sessionName
+        )
     }
 
     func shutdown() async {

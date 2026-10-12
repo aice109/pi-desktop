@@ -15,8 +15,12 @@ import SwiftData
 @Observable
 final class SessionStore {
     /// 为会话创建传输实例。测试/预览注入 mock，生产注入 `PiRPCClient`。
+    /// 参数为工作目录与会话文件路径（nil 表示新建会话）。
     /// 标注 `@MainActor`：工厂仅在主 actor 上调用，且 `PiRPCClient` 的初始化器受主 actor 隔离。
-    typealias TransportFactory = @MainActor (_ workingDirectory: URL?) -> any AgentTransport
+    typealias TransportFactory = @MainActor (_ workingDirectory: URL?, _ sessionPath: String?) -> any AgentTransport
+
+    /// 新会话被 pi 落盘（获得会话文件路径）后回调，用于刷新工作区列表。
+    var onSessionPersisted: (@MainActor () -> Void)?
 
     /// 持有容器（而非仅 `ModelContext`）：`ModelContext` 不持有其容器，
     /// 容器被释放后再使用 context 会崩溃，因此这里必须强引用。
@@ -27,6 +31,8 @@ final class SessionStore {
     private var transports: [UUID: any AgentTransport] = [:]
     private var subscriptions: [UUID: Task<Void, Never>] = [:]
     private var streaming: [UUID: Streaming] = [:]
+    /// 流式会话对应的领域对象，用于在落盘后发现 pi 会话路径。
+    private var openSessions: [UUID: Session] = [:]
 
     /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示；工具调用暂不持久化）。
     private(set) var activeToolName: String?
@@ -81,7 +87,9 @@ final class SessionStore {
             Task { await transport.shutdown() }
         }
         transports.removeAll()
+        subscriptions.removeAll()
         streaming.removeAll()
+        openSessions.removeAll()
         activeToolName = nil
     }
 
@@ -91,8 +99,9 @@ final class SessionStore {
         if let existing = transports[session.id] { return existing }
 
         let workingDirectory = session.workingDirectory.map { URL(fileURLWithPath: $0) }
-        let transport = makeTransport(workingDirectory)
+        let transport = makeTransport(workingDirectory, session.piSessionPath)
         transports[session.id] = transport
+        openSessions[session.id] = session
 
         // 先建立订阅、再返回，确保 prompt 之前事件流已就绪。
         let stream = await transport.events()
@@ -150,6 +159,8 @@ final class SessionStore {
     /// 结束流式状态；若助手消息仍为空则移除占位，避免空气泡。
     private func finish(sessionID: UUID, error: String? = nil) {
         activeToolName = nil
+        // 这一轮结束意味着 pi 已把会话写入磁盘，可发现其文件路径。
+        discoverSessionPath(for: sessionID)
         guard let state = streaming.removeValue(forKey: sessionID) else { return }
 
         if let error {
@@ -160,6 +171,24 @@ final class SessionStore {
             }
         } else if state.message.content.isEmpty {
             modelContext.delete(state.message)
+        }
+    }
+
+    /// 新会话首轮结束后，从 pi 取回会话文件路径并回写领域对象。
+    private func discoverSessionPath(for sessionID: UUID) {
+        guard let session = openSessions[sessionID], session.piSessionPath == nil,
+              let transport = transports[sessionID] else { return }
+        Task {
+            guard let info = await transport.sessionInfo() else { return }
+            if let path = info.sessionFile, !path.isEmpty {
+                session.piSessionPath = path
+            }
+            if session.title.isEmpty, let name = info.sessionName, !name.isEmpty {
+                session.title = name
+            }
+            if session.piSessionPath != nil {
+                onSessionPersisted?()
+            }
         }
     }
 }

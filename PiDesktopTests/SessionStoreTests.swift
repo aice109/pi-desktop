@@ -30,7 +30,7 @@ final class SessionStoreTests: XCTestCase {
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let transport = MockAgentTransport()
-        let store = SessionStore(container: container, makeTransport: { _ in transport })
+        let store = SessionStore(container: container, makeTransport: { _, _ in transport })
         let session = Session(title: "Test")
         container.mainContext.insert(session)
         return Fixture(store: store, container: container, transport: transport, session: session)
@@ -90,6 +90,27 @@ final class SessionStoreTests: XCTestCase {
         await waitUntil { !fixture.store.isStreaming(fixture.session) }
 
         XCTAssertEqual(fixture.assistantMessage?.content, "boom")
+    }
+
+    func test_settled_discoversPiSessionPathAndNotifies() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionInfoValue = AgentSessionInfo(
+            sessionFile: "/tmp/sessions/abc.jsonl",
+            sessionId: "abc",
+            sessionName: "My Session"
+        )
+        var refreshed = false
+        fixture.store.onSessionPersisted = { refreshed = true }
+
+        // 空标题时才采用 pi 的会话名。
+        fixture.session.title = ""
+        await fixture.store.send("hi", in: fixture.session)
+        fixture.transport.emit(.settled(aborted: false))
+        await waitUntil { fixture.session.piSessionPath != nil }
+
+        XCTAssertEqual(fixture.session.piSessionPath, "/tmp/sessions/abc.jsonl")
+        XCTAssertEqual(fixture.session.title, "My Session")
+        XCTAssertTrue(refreshed)
     }
 
     // MARK: - Helpers

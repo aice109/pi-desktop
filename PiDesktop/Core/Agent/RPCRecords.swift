@@ -26,6 +26,15 @@ nonisolated struct RPCRecord: Decodable {
     var toolName: String?
     var isError: Bool?
     var durationMs: Int?
+    var data: RPCDataDTO?
+}
+
+/// 命令响应的 `data` 字段（目前只用到 `get_state`）。
+nonisolated struct RPCDataDTO: Decodable {
+    var sessionFile: String?
+    var sessionId: String?
+    var sessionName: String?
+    var messageCount: Int?
 }
 
 /// `message_update.assistantMessageEvent`。

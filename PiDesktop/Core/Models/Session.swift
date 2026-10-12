@@ -21,6 +21,8 @@ final class Session {
     var updatedAt: Date
     /// 工作目录；nil 表示尚未绑定项目。
     var workingDirectory: String?
+    /// 对应的 pi 会话文件路径；nil 表示尚未落盘（新会话或未启用持久化）。
+    var piSessionPath: String?
     var status: SessionStatus
 
     @Relationship(deleteRule: .cascade, inverse: \Message.session)
@@ -29,6 +31,7 @@ final class Session {
     init(
         title: String = "",
         workingDirectory: String? = nil,
+        piSessionPath: String? = nil,
         createdAt: Date = .now,
         status: SessionStatus = .active
     ) {
@@ -37,6 +40,7 @@ final class Session {
         self.createdAt = createdAt
         self.updatedAt = createdAt
         self.workingDirectory = workingDirectory
+        self.piSessionPath = piSessionPath
         self.status = status
         self.messages = []
     }

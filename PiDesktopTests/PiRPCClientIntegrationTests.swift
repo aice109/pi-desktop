@@ -24,7 +24,7 @@ final class PiRPCClientIntegrationTests: XCTestCase {
             throw XCTSkip("未找到可执行的 pi")
         }
 
-        let client = PiRPCClient(executable: executable, workingDirectory: nil)
+        let client = PiRPCClient(executable: executable, workingDirectory: nil, additionalArguments: ["--no-session"])
         let stream = await client.events()
 
         let settled = expectation(description: "agent_settled")

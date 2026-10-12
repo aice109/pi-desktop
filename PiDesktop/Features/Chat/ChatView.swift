@@ -150,7 +150,7 @@ private extension MessageRole {
     session.append(Message(role: .user, content: "What does this project do?"))
     session.append(Message(role: .assistant, content: "PiDesktop is a native macOS GUI for the pi coding agent."))
 
-    let store = SessionStore(container: container, makeTransport: { _ in MockAgentTransport() })
+    let store = SessionStore(container: container, makeTransport: { _, _ in MockAgentTransport() })
     return NavigationStack { ChatView(session: session) }
         .environment(store)
         .modelContainer(container)
