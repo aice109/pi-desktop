@@ -94,6 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
+- `scripts/ci.sh` builds and tests with a working Xcode toolchain (selecting `DEVELOPER_DIR` when
+  `xcodebuild` cannot find Xcode). The disabled CI workflow now calls the same script, so re-enabling
+  it is a rename.
 - Session summaries are cached by file path + modification time, so refreshing a workspace no longer
   re-scans every line of every unchanged session file. Modification time is read through
   `FileManager` (not `URL.resourceValues`, which caches per URL) so the cache invalidates correctly.
