@@ -33,7 +33,7 @@ PiDesktop/
 ├── Core/
 │   ├── Agent/                  # AgentEvent、AgentTransport、PiRPCClient、RPCProtocol
 │   ├── Pi/                     # PiSessionFiles、PiSessionSummary（只读解析 pi 会话文件）
-│   ├── Models/                 # Session、Message（ADR-0004）
+│   ├── Models/                 # Session、Message、ToolCall（ADR-0004 / ADR-0006）
 │   └── Stores/                 # SessionStore、WorkspaceStore（@Observable，@MainActor）
 └── Assets.xcassets/            # 资源目录
 ```
@@ -90,14 +90,15 @@ pi agent 进程 (pi --mode rpc)
 
 ## 数据模型
 
-**已实现**（[ADR-0004](decisions/0004-domain-model.zh-CN.md)）：
+**已实现**（[ADR-0004](decisions/0004-domain-model.zh-CN.md)、[ADR-0006](decisions/0006-tool-calls.zh-CN.md)）：
 
-- `Session`：一次会话，含 id、标题、创建/更新时间、工作目录、状态。
+- `Session`：一次会话，含 id、标题、创建/更新时间、工作目录、状态，以及磁盘会话文件路径
+  `piSessionPath`（[ADR-0005](decisions/0005-workspace-and-pi-sessions.zh-CN.md)）。
 - `Message`：角色（user/assistant/tool）、内容、时间、所属会话。
+- `ToolCall`：工具名、参数、输出、状态、耗时、所属会话。
 
 **规划中：**
 
-- `ToolCall`：工具名、参数、状态、结果、耗时。
 - `AppSettings`：模型、主题、偏好。
 
 > 模型变更属于重大改动 → 需新增 ADR（见 [decisions/](decisions/README.zh-CN.md)）。

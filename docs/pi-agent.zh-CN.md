@@ -41,8 +41,9 @@ enum AgentEvent: Sendable, Equatable {
     case agentStarted
     case textDelta(String)               // 流式助手文本
     case thinkingDelta(String)           // 思考过程（如暴露）
-    case toolCallStarted(id: String, name: String)
-    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?)
+    case toolCallStarted(id: String, name: String, arguments: String?)
+    case toolCallUpdated(id: String, output: String)
+    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?, output: String?)
     case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
     case settled(aborted: Bool)          // agent_settled：不再有自动工作
     case failed(String)                  // 传输失败
@@ -70,17 +71,17 @@ enum AgentEvent: Sendable, Equatable {
 
 | 领域事件 | UI 呈现 |
 | --- | --- |
-| `messageDelta` | 流式气泡/文本追加 |
-| `reasoningDelta` | 可折叠的思考区 |
-| `toolCallStarted` | 工具调用卡片（进行中） |
-| `toolCallOutput` | 卡片内实时输出 |
+| `textDelta` / `assistantMessageCompleted` | 流式文本追加 + Markdown 渲染 |
+| `thinkingDelta` | 可折叠的思考区（实时） |
+| `toolCallStarted` | 工具调用卡片（运行中） |
+| `toolCallUpdated` | 卡片内实时输出 |
 | `toolCallFinished` | 卡片标记成功/失败 + 耗时 |
-| `error` | 内联错误提示，可重试 |
+| `failed` | 内联错误提示 |
 
-呈现遵循 [design-system.zh-CN.md](design-system.zh-CN.md)（原生组件 + 玻璃）。
+呈现遵循 [design-system.zh-CN.md](design-system.zh-CN.md)（原生组件 + 玻璃）。工具调用会持久化并渲染为
+卡片（见 [ADR-0006](decisions/0006-tool-calls.zh-CN.md)）。
 
-当前已实现：流式助手文本（`textDelta` / `assistantMessageCompleted`）与瞬时的「工具运行中」提示。
-思考区、工具卡片、错误重试待实现。
+当前实时可用：流式助手文本（Markdown）、实时思考区、工具调用卡片。错误重试与思考持久化待实现。
 
 ## 6. 安全与隐私
 
@@ -95,6 +96,7 @@ enum AgentEvent: Sendable, Equatable {
 - [x] 会话/消息 SwiftData 模型（ADR-0004）
 - [x] 流式助手文本渲染
 - [x] 按工作区列出 pi 会话并续聊（ADR-0005）
-- [ ] 持久化工具调用（`ToolCall` 模型 + 卡片）—— 需新增 ADR
+- [x] 持久化工具调用并渲染为卡片（ADR-0006）
+- [ ] 解析助手 `toolCall` 块，让历史也显示工具参数
 - [ ] 模型 / 思考等级选择、用量与费用展示
-- [ ] 删除/重命名会话、`get_messages` 同步、错误重试、思考区
+- [ ] 删除/重命名会话、`get_messages` 同步、错误重试、思考持久化

@@ -27,12 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workspace-scoped session browsing (ADR-0005): pick a project folder, list that folder's pi sessions
   (`Core/Pi`), and resume one via `pi --session`. New sessions are persisted by pi, and a
   `WorkspaceStore` remembers the chosen folder. Opening a session mirrors its history locally.
+- Tool-call visualization (ADR-0006): tool calls are captured from live events and persisted as
+  `ToolCall` rows, then rendered as cards with name, arguments, status, duration, and collapsible
+  output. Historical `toolResult` entries are imported too.
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow
   the subprocess transport (ADR-0003); the app runs unsandboxed with hardened runtime.
 - Session list sorted by most-recent activity instead of relying on undefined
   insertion order.
+- Assistant and user messages render with native Markdown (bold, inline code, links) instead of raw
+  text; each message shows a role icon and timestamp.
+- The session sidebar gained search, a refresh action (⌘R), a new-session shortcut (⌘N), and a
+  "move to Trash" action that also cleans up the local mirror.
 - App version aligned to `0.1.0` (`MARKETING_VERSION`) to match the README badge;
   nothing has been released yet, so the changelog stays under `[Unreleased]`.
 

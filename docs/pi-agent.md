@@ -47,8 +47,9 @@ enum AgentEvent: Sendable, Equatable {
     case agentStarted
     case textDelta(String)               // streaming assistant text
     case thinkingDelta(String)           // reasoning, if exposed
-    case toolCallStarted(id: String, name: String)
-    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?)
+    case toolCallStarted(id: String, name: String, arguments: String?)
+    case toolCallUpdated(id: String, output: String)
+    case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?, output: String?)
     case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
     case settled(aborted: Bool)          // agent_settled: no automatic work remains
     case failed(String)                  // transport failure
@@ -76,17 +77,18 @@ Must handle: startup failure, connection loss, user interruption, timeouts, conc
 
 | Domain event | UI |
 | --- | --- |
-| `messageDelta` | Streaming bubble/text append |
-| `reasoningDelta` | Collapsible reasoning section |
-| `toolCallStarted` | Tool-call card (in progress) |
-| `toolCallOutput` | Live output inside the card |
+| `textDelta` / `assistantMessageCompleted` | Streaming text append + Markdown render |
+| `thinkingDelta` | Collapsible reasoning section (live) |
+| `toolCallStarted` | Tool-call card (running) |
+| `toolCallUpdated` | Live output inside the card |
 | `toolCallFinished` | Card marked success/failure + duration |
-| `error` | Inline error with retry |
+| `failed` | Inline error |
 
-Rendering follows [design-system.md](design-system.md) (native components + glass).
+Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are
+persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
-Currently implemented: streaming assistant text (`textDelta` / `assistantMessageCompleted`) and a
-transient "running tool" indicator. Reasoning, tool cards, and error retry are still pending.
+Currently live: streaming assistant text (Markdown), a live reasoning section, and tool-call cards.
+Error retry and reasoning persistence are still pending.
 
 ## 6. Security & privacy
 
@@ -101,6 +103,7 @@ transient "running tool" indicator. Reasoning, tool cards, and error retry are s
 - [x] SwiftData models for sessions/messages (ADR-0004)
 - [x] Streaming assistant text render
 - [x] List a workspace's pi sessions + resume them (ADR-0005)
-- [ ] Persist tool calls (`ToolCall` model + cards) — needs an ADR
+- [x] Persist tool calls and render them as cards (ADR-0006)
+- [ ] Parse assistant `toolCall` blocks so history shows tool arguments
 - [ ] Model / thinking-level selection, usage & cost display
-- [ ] Delete/rename sessions, `get_messages` sync, error retry, reasoning view
+- [ ] Delete/rename sessions, `get_messages` sync, error retry, reasoning persistence
