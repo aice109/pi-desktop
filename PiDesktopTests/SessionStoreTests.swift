@@ -30,7 +30,11 @@ final class SessionStoreTests: XCTestCase {
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let transport = MockAgentTransport()
-        let store = SessionStore(container: container, makeTransport: { _, _ in transport })
+        let store = SessionStore(
+            container: container,
+            makeTransport: { _, _ in transport },
+            defaults: UserDefaults(suiteName: "SessionStoreTests-\(UUID().uuidString)") ?? .standard
+        )
         let session = Session(title: "Test")
         container.mainContext.insert(session)
         return Fixture(store: store, container: container, transport: transport, session: session)
@@ -298,6 +302,64 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(cleared.steering, ["stop"])
         XCTAssertEqual(cleared.followUp, ["then"])
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
+    }
+
+    func test_settled_marksSessionUnreadWhenNotVisible() async throws {
+        let fixture = try makeFixture()
+        fixture.session.piSessionPath = "/tmp/sessions/a.jsonl"
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(.settled(aborted: false))
+
+        await waitUntil { fixture.store.isUnread(path: "/tmp/sessions/a.jsonl") }
+    }
+
+    func test_settled_doesNotMarkUnreadWhenVisible() async throws {
+        let fixture = try makeFixture()
+        fixture.session.piSessionPath = "/tmp/sessions/b.jsonl"
+        await fixture.store.send("hi", in: fixture.session)
+        fixture.store.visibleSessionID = fixture.session.id
+
+        fixture.transport.emit(.settled(aborted: false))
+        // 给事件处理一个机会；若会误标，这里应当已发生。
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertFalse(fixture.store.isUnread(path: "/tmp/sessions/b.jsonl"))
+    }
+
+    func test_markRead_clearsUnread() async throws {
+        let fixture = try makeFixture()
+        fixture.session.piSessionPath = "/tmp/sessions/c.jsonl"
+        await fixture.store.send("hi", in: fixture.session)
+        fixture.transport.emit(.settled(aborted: false))
+        await waitUntil { fixture.store.isUnread(path: "/tmp/sessions/c.jsonl") }
+
+        fixture.store.markRead(path: "/tmp/sessions/c.jsonl")
+
+        XCTAssertFalse(fixture.store.isUnread(path: "/tmp/sessions/c.jsonl"))
+    }
+
+    func test_settled_beforePersist_marksDiscoveredPathUnread() async throws {
+        let fixture = try makeFixture()
+        // 新会话尚无会话文件：先按内存 id 暂存，落盘后转为路径未读。
+        fixture.transport.sessionStateValue = AgentSessionState(sessionFile: "/tmp/sessions/new.jsonl")
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(.settled(aborted: false))
+
+        await waitUntil { fixture.store.isUnread(path: "/tmp/sessions/new.jsonl") }
+    }
+
+    func test_turnFinished_firesWithSession() async throws {
+        let fixture = try makeFixture()
+        var finished: UUID?
+        fixture.store.onTurnFinished = { session, _ in finished = session.id }
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(.settled(aborted: false))
+
+        await waitUntil { finished != nil }
+        XCTAssertEqual(finished, fixture.session.id)
     }
 
     func test_cycleModel_forwards() async throws {

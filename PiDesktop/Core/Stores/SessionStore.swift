@@ -22,10 +22,24 @@ final class SessionStore {
     /// 新会话被 pi 落盘（获得会话文件路径）后回调，用于刷新工作区列表。
     var onSessionPersisted: (@MainActor () -> Void)?
 
+    /// 回合结束时回调（成功或失败），供系统通知等副作用。
+    var onTurnFinished: (@MainActor (Session, String?) -> Void)?
+
+    /// 当前可见（正被查看）的会话 id；根视图在切换会话时更新。
+    /// 回合结束时该会话在前台则不标未读。
+    var visibleSessionID: UUID?
+
     /// 持有容器（而非仅 `ModelContext`）：`ModelContext` 不持有其容器，
     /// 容器被释放后再使用 context 会崩溃，因此这里必须强引用。
     private let container: ModelContainer
     private let makeTransport: TransportFactory
+    private let defaults: UserDefaults
+
+    /// 未读会话的 pi 会话文件路径（侧栏红点）；跨启动保留。
+    private(set) var unreadPaths: Set<String>
+    /// 尚未落盘（无会话文件路径）时暂以内存 id 记录的未读会话，落盘后转为路径。
+    private var pendingUnread: Set<UUID> = []
+    private static let unreadPathsKey = "unreadSessionPaths"
 
     private var modelContext: ModelContext { container.mainContext }
     private var transports: [UUID: any AgentTransport] = [:]
@@ -68,9 +82,40 @@ final class SessionStore {
         var thinking: String
     }
 
-    init(container: ModelContainer, makeTransport: @escaping TransportFactory) {
+    init(
+        container: ModelContainer,
+        makeTransport: @escaping TransportFactory,
+        defaults: UserDefaults = .standard
+    ) {
         self.container = container
         self.makeTransport = makeTransport
+        self.defaults = defaults
+        self.unreadPaths = Set(defaults.stringArray(forKey: Self.unreadPathsKey) ?? [])
+    }
+
+    // MARK: - Unread
+
+    /// 某会话文件是否有未读内容（侧栏红点）。
+    func isUnread(path: String) -> Bool { unreadPaths.contains(path) }
+
+    /// 标记会话为已读（打开会话时调用）。
+    func markRead(path: String) {
+        guard unreadPaths.remove(path) != nil else { return }
+        persistUnread()
+    }
+
+    /// 标记会话为未读：有会话文件时按路径，否则先按内存 id 暂存。
+    private func markUnread(_ session: Session) {
+        if let path = session.piSessionPath {
+            unreadPaths.insert(path)
+        } else {
+            pendingUnread.insert(session.id)
+        }
+        persistUnread()
+    }
+
+    private func persistUnread() {
+        defaults.set(Array(unreadPaths), forKey: Self.unreadPathsKey)
     }
 
     /// 该会话是否正在流式接收。
@@ -721,6 +766,11 @@ final class SessionStore {
         if let session = openSessions[sessionID] {
             Task { await refreshState(for: session) }
         }
+        if streaming[sessionID] != nil, let session = openSessions[sessionID] {
+            // 回合结束时该会话不在前台 → 标未读并通知（通知器自行判断前后台）。
+            if visibleSessionID != sessionID { markUnread(session) }
+            onTurnFinished?(session, error)
+        }
         guard let state = streaming.removeValue(forKey: sessionID) else { return }
 
         if let error {
@@ -751,6 +801,11 @@ final class SessionStore {
             guard let state = await transport.sessionState() else { return }
             if let path = state.sessionFile, !path.isEmpty {
                 session.piSessionPath = path
+                // 回合结束前标记的未读此时才能落到路径上。
+                if pendingUnread.remove(session.id) != nil {
+                    unreadPaths.insert(path)
+                    persistUnread()
+                }
             }
             if session.title.isEmpty, let name = state.sessionName, !name.isEmpty {
                 session.title = name

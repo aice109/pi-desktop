@@ -88,6 +88,8 @@ GlassEffectContainer(spacing: 16) {
 - 顶部工作区栏 = 淡色文件夹徽标 + 目录名/路径 + 工作区菜单；去掉原先的生硬分隔线，改由分组表头分隔列表。
 - 会话放在 `.sidebar` 的 `List` 中，归到带计数的「Sessions」分组表头下。行内为图标 + 标题 + 次要信息
   （相对时间 · 消息数），并带少量垂直留白，使每行都是独立的点击目标。
+- 回合结束时若该会话不是当前可见会话，行尾显示淡色未读圆点；打开会话即清除。同一事件在应用处于
+  后台时会发出系统通知（`UserNotifications`），见 `Core/Notifications/TurnNotifier.swift`。
 
 ### 聊天界面约定
 

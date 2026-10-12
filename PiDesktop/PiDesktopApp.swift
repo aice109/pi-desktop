@@ -33,6 +33,16 @@ struct PiDesktopApp: App {
         )
         // 新会话落盘后刷新侧栏列表，使其立即出现。
         sessions.onSessionPersisted = { workspace.refresh() }
+        // 回合结束时（后台/他页）发系统通知；未读标记由 store 自行维护。
+        let notifier = TurnNotifier()
+        notifier.requestAuthorization()
+        sessions.onTurnFinished = { [weak sessions] session, error in
+            notifier.handle(
+                session: session,
+                error: error,
+                visible: sessions?.visibleSessionID == session.id
+            )
+        }
         _workspaceStore = State(initialValue: workspace)
         _sessionStore = State(initialValue: sessions)
         _appSettings = State(initialValue: settings)

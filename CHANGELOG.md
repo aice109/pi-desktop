@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Turns that finish while the app is in the background post a system notification, and any session that
+  finished off-screen gets an unread dot in the sidebar (cleared when opened, kept across launches).
 - The agent event model now covers pi's queue and session-state events: `queue_update`,
   `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
   External renames and thinking-level changes now propagate to the UI, summarization retries show in

@@ -193,8 +193,11 @@ struct ContentView: View {
                         .padding(.vertical, 6)
                 } else {
                     ForEach(filteredSessions) { summary in
-                        PiSessionRow(summary: summary)
-                            .tag(summary.fileURL)
+                        PiSessionRow(
+                            summary: summary,
+                            isUnread: sessionStore.isUnread(path: summary.fileURL.path)
+                        )
+                        .tag(summary.fileURL)
                             .contextMenu {
                                 Button("Rename…") { renaming = summary }
                                 Divider()
@@ -297,6 +300,7 @@ struct ContentView: View {
     private func open(_ summary: PiSessionSummary) {
         // 记住位置，供启动恢复（ADR-0008）。
         appSettings.lastSessionPath = summary.fileURL.path
+        sessionStore.markRead(path: summary.fileURL.path)
         activate(openSession(for: summary))
     }
 
@@ -323,6 +327,8 @@ struct ContentView: View {
         if let previous = opened, previous.id != session.id {
             sessionStore.deactivate(previous)
         }
+        // 供后台回合判断是否需标未读/通知。
+        sessionStore.visibleSessionID = session.id
         // 交叉淡入旧/新会话，掩盖历史加载与进程启动的短暂空白。
         withAnimation(.easeInOut(duration: 0.18)) {
             opened = session
@@ -365,7 +371,10 @@ struct ContentView: View {
             return
         }
         if let local = localSession(matchingPiPath: summary.fileURL.path) {
-            if opened == local { opened = nil }
+            if opened == local {
+                opened = nil
+                sessionStore.visibleSessionID = nil
+            }
             modelContext.delete(local)
         }
         if selection == summary.fileURL { selection = nil }
@@ -402,6 +411,7 @@ struct ContentView: View {
         if let opened { sessionStore.deactivate(opened) }
         selection = nil
         opened = nil
+        sessionStore.visibleSessionID = nil
         searchText = ""
         workspaceStore.clearWorkspace()
     }
@@ -414,9 +424,10 @@ struct ContentView: View {
     }
 }
 
-/// 侧栏会话行：图标 + 标题 + 最近活动时间与消息数。
+/// 侧栏会话行：图标 + 标题 + 最近活动时间与消息数；未读时右侧显示小圆点。
 private struct PiSessionRow: View {
     let summary: PiSessionSummary
+    let isUnread: Bool
 
     var body: some View {
         HStack(spacing: 9) {
@@ -433,6 +444,12 @@ private struct PiSessionRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
+            if isUnread {
+                Circle()
+                    .fill(.tint)
+                    .frame(width: 7, height: 7)
+                    .accessibilityLabel("Unread")
+            }
         }
         .padding(.vertical, 3)
     }

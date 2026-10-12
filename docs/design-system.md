@@ -91,6 +91,9 @@ Ask with:
 - Sessions live in a `.sidebar` `List` under a "Sessions" section header that also carries the count.
   Rows are one icon + title + a secondary line (relative time · message count) with a few points of
   vertical padding, so each row reads as its own target.
+- A turn that finishes while its session is not the visible one shows a tinted unread dot at the row's
+  trailing edge; opening the session clears it. The same event posts a system notification
+  (`UserNotifications`) when the app is in the background — see `Core/Notifications/TurnNotifier.swift`.
 
 ### Chat surface
 
