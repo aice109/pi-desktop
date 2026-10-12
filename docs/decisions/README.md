@@ -58,3 +58,4 @@ Upsides, downsides, costs, follow-ups.
 | [0008](0008-app-settings.md) | Application preferences in UserDefaults | Accepted |
 | [0009](0009-history-sync.md) | Reconcile the local mirror with pi history | Accepted |
 | [0010](0010-image-attachments.md) | Attach images to prompts | Accepted |
+| [0011](0011-single-window.md) | A single main window | Accepted |

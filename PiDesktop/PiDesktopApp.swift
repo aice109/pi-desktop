@@ -49,13 +49,16 @@ struct PiDesktopApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        // 单主窗口（ADR-0011）：Store 是应用级单例（transports 按 session.id 索引、visibleSessionID 为单值），
+        // 多窗口会争抢同一会话并错乱未读/通知判断。
+        Window("PiDesktop", id: "main") {
             ContentView()
                 .environment(sessionStore)
                 .environment(workspaceStore)
                 .environment(appSettings)
                 .preferredColorScheme(appSettings.appearance.colorScheme)
         }
+        .defaultSize(width: 1100, height: 720)
         .modelContainer(modelContainer)
         .commands { PiDesktopCommands() }
 

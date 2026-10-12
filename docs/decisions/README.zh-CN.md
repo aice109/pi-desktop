@@ -57,3 +57,4 @@
 | [0008](0008-app-settings.zh-CN.md) | 应用偏好存放于 UserDefaults | Accepted |
 | [0009](0009-history-sync.zh-CN.md) | 用 pi 历史校准本地镜像 | Accepted |
 | [0010](0010-image-attachments.zh-CN.md) | 为 prompt 附加图片 | Accepted |
+| [0011](0011-single-window.zh-CN.md) | 单一主窗口 | Accepted |
