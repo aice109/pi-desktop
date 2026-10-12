@@ -365,6 +365,23 @@ final class SessionStore {
         await refreshState(for: session)
     }
 
+    /// 循环到下一个可用模型并刷新状态。
+    func cycleModel(in session: Session) async {
+        guard let transport = transports[session.id], await transport.cycleModel() != nil else { return }
+        await refreshState(for: session)
+    }
+
+    /// 循环到下一个思考等级并刷新状态。
+    func cycleThinkingLevel(in session: Session) async {
+        guard let transport = transports[session.id], await transport.cycleThinkingLevel() != nil else { return }
+        await refreshState(for: session)
+    }
+
+    /// 最后一条助手文本（pi 的权威版本）。
+    func lastAssistantText(in session: Session) async -> String? {
+        await transports[session.id]?.lastAssistantText()
+    }
+
     /// 切换思考等级并刷新状态。
     func selectThinkingLevel(_ level: String, in session: Session) async {
         guard let transport = transports[session.id], await transport.setThinkingLevel(level) else { return }

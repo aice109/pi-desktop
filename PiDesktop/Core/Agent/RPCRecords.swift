@@ -59,6 +59,8 @@ nonisolated struct RPCDataDTO: Decodable {
     var messageCount: Int?
     var model: ModelDTO?
     var thinkingLevel: String?
+    /// `cycle_thinking_level` 返回的单个等级。
+    var level: String?
     var levels: [String]?
     var models: [ModelDTO]?
     var isStreaming: Bool?
@@ -79,6 +81,8 @@ nonisolated struct RPCDataDTO: Decodable {
     var messages: [ForkMessageDTO]?
     // export_html
     var path: String?
+    // get_last_assistant_text
+    var text: String?
     // bash
     var output: String?
     var exitCode: Int?

@@ -300,6 +300,36 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
     }
 
+    func test_cycleModel_forwards() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.cycleModelValue = AgentModel(id: "m2", name: "M2", provider: "p", reasoning: false)
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.cycleModel(in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.cycleModelCountValue, 1)
+    }
+
+    func test_cycleThinkingLevel_forwards() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.cycleThinkingLevelValue = "high"
+        await fixture.store.activate(fixture.session)
+
+        await fixture.store.cycleThinkingLevel(in: fixture.session)
+
+        XCTAssertEqual(fixture.transport.cycleThinkingCountValue, 1)
+    }
+
+    func test_lastAssistantText_returnsTransportValue() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+        fixture.transport.lastAssistantTextValue = "hello"
+
+        let text = await fixture.store.lastAssistantText(in: fixture.session)
+
+        XCTAssertEqual(text, "hello")
+    }
+
     func test_runBash_appendsToolMessage() async throws {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)

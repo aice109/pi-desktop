@@ -107,6 +107,10 @@ enum AgentEvent: Sendable, Equatable {
 输入框中以 `!` 开头的命令会直接执行 pi 的 `bash`，输出作为工具消息进入时间线（并进入模型上下文）；
 执行中可通过 `abort_bash` 中止。
 
+Chat 菜单可循环切换模型（`cycle_model`）与思考等级（`cycle_thinking_level`），并复制最后一条助手回复
+（`get_last_assistant_text`）。`get_messages` 与 `new_session` 未使用：前者被 `get_entries` 取代，后者
+由「新进程 + 本地 Session」替代。
+
 会话可从 File 菜单导出为独立 HTML 文件（`export_html`）；应用用保存面板选路径并作为 `outputPath` 传入。
 
 上下文可手动压缩（`compact`，可带 `customInstructions`），自动压缩按会话开关（`set_auto_compaction`），

@@ -122,6 +122,11 @@ persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 A command prefixed with `!` in the composer runs pi's direct `bash` command; its output becomes a tool
 message in the timeline (and in the model context), and a running command can be aborted (`abort_bash`).
 
+The Chat menu cycles the model (`cycle_model`) and thinking level (`cycle_thinking_level`), and copies
+the last assistant response (`get_last_assistant_text`). `get_messages` and `new_session` are not used:
+`get_entries` supersedes the former, and the app starts a fresh process + local `Session` instead of
+resetting one in place.
+
 A session can be exported to a standalone HTML file from the File menu (`export_html`); the app picks
 the destination with a save panel and passes it as `outputPath`.
 

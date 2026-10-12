@@ -40,6 +40,12 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let bashCommands = Mutex<[String]>([])
     private let bashResult = Mutex<AgentBashResult?>(nil)
     private let abortBashCount = Mutex<Int>(0)
+    /// `cycle_model` / `cycle_thinking_level` / `get_last_assistant_text` 的返回值与调用次数。
+    private let cycleModelResult = Mutex<AgentModel?>(nil)
+    private let cycleThinkingResult = Mutex<String?>(nil)
+    private let lastAssistant = Mutex<String?>(nil)
+    private let cycleModelCount = Mutex<Int>(0)
+    private let cycleThinkingCount = Mutex<Int>(0)
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
@@ -125,6 +131,24 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     /// `abortBash` 被调用的次数。
     var abortBashCountValue: Int { abortBashCount.withLock { $0 } }
+
+    /// 注入 `cycleModel` / `cycleThinkingLevel` / `lastAssistantText` 的返回值。
+    var cycleModelValue: AgentModel? {
+        get { cycleModelResult.withLock { $0 } }
+        set { cycleModelResult.withLock { $0 = newValue } }
+    }
+    var cycleThinkingLevelValue: String? {
+        get { cycleThinkingResult.withLock { $0 } }
+        set { cycleThinkingResult.withLock { $0 = newValue } }
+    }
+    var lastAssistantTextValue: String? {
+        get { lastAssistant.withLock { $0 } }
+        set { lastAssistant.withLock { $0 = newValue } }
+    }
+
+    /// `cycleModel` / `cycleThinkingLevel` 的调用次数。
+    var cycleModelCountValue: Int { cycleModelCount.withLock { $0 } }
+    var cycleThinkingCountValue: Int { cycleThinkingCount.withLock { $0 } }
 
     /// 注入 `sessionStats()` 的返回值。
     var sessionStatsValue: AgentUsage? {
@@ -275,6 +299,20 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     func exportHTML(outputPath: String?) async -> String? {
         exportPaths.withLock { $0.append(outputPath) }
         return exportResultValue
+    }
+
+    func cycleModel() async -> AgentModel? {
+        cycleModelCount.withLock { $0 += 1 }
+        return cycleModelValue
+    }
+
+    func cycleThinkingLevel() async -> String? {
+        cycleThinkingCount.withLock { $0 += 1 }
+        return cycleThinkingLevelValue
+    }
+
+    func lastAssistantText() async -> String? {
+        lastAssistantTextValue
     }
 
     func runBash(command: String) async -> AgentBashResult? {

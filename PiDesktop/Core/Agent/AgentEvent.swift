@@ -193,6 +193,12 @@ protocol AgentTransport: Sendable {
     func abortRetry() async -> Bool
     /// 导出会话为 HTML（`export_html`）；返回写入的路径，失败为 nil。
     func exportHTML(outputPath: String?) async -> String?
+    /// 循环到下一个可用模型（`cycle_model`）；仅一个模型时返回 nil。
+    func cycleModel() async -> AgentModel?
+    /// 循环到下一个思考等级（`cycle_thinking_level`）；不支持时返回 nil。
+    func cycleThinkingLevel() async -> String?
+    /// 最后一条助手文本（`get_last_assistant_text`）；没有时为 nil。
+    func lastAssistantText() async -> String?
     /// 直接执行一条 shell 命令（`bash`），输出会进入模型上下文。
     func runBash(command: String) async -> AgentBashResult?
     /// 中止正在执行的直接 shell 命令（`abort_bash`）。

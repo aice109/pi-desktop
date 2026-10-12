@@ -187,6 +187,21 @@ actor PiRPCClient: AgentTransport {
         return await command(payload)?.data?.path
     }
 
+    func cycleModel() async -> AgentModel? {
+        guard let record = await command(["type": "cycle_model"]) else { return nil }
+        return record.data?.model?.domain
+    }
+
+    func cycleThinkingLevel() async -> String? {
+        guard let record = await command(["type": "cycle_thinking_level"]) else { return nil }
+        return record.data?.level
+    }
+
+    func lastAssistantText() async -> String? {
+        guard let record = await command(["type": "get_last_assistant_text"]) else { return nil }
+        return record.data?.text
+    }
+
     func runBash(command shellCommand: String) async -> AgentBashResult? {
         guard let data = await command(["type": "bash", "command": shellCommand])?.data else { return nil }
         return AgentBashResult(

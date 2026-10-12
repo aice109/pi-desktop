@@ -86,8 +86,12 @@ struct ContentView: View {
             stop: { stopStreaming() },
             closeWorkspace: { closeWorkspace() },
             exportHTML: { exportOpenSession() },
+            cycleModel: { cycleModel() },
+            cycleThinkingLevel: { cycleThinkingLevel() },
+            copyLastResponse: { copyLastResponse() },
             isStreaming: { opened.map { sessionStore.isStreaming($0) } ?? false },
-            canExport: { opened != nil }
+            canExport: { opened != nil },
+            canChat: { opened != nil }
         )
     }
 
@@ -246,6 +250,29 @@ struct ContentView: View {
         modelContext.insert(session)
         activate(session)
         selection = nil
+    }
+
+    /// 循环到下一个模型（菜单⌃⌘M）。
+    private func cycleModel() {
+        guard let opened else { return }
+        Task { await sessionStore.cycleModel(in: opened) }
+    }
+
+    /// 循环到下一个思考等级（菜单⌃⌘T）。
+    private func cycleThinkingLevel() {
+        guard let opened else { return }
+        Task { await sessionStore.cycleThinkingLevel(in: opened) }
+    }
+
+    /// 复制最后一条助手回复（取 pi 的权威文本）。
+    private func copyLastResponse() {
+        guard let opened else { return }
+        Task {
+            guard let text = await sessionStore.lastAssistantText(in: opened), !text.isEmpty else { return }
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+        }
     }
 
     /// 导出当前会话为 HTML：用系统保存面板选路径，交给 pi 的 `export_html` 写入。

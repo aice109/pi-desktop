@@ -77,6 +77,19 @@ private struct PiDesktopCommands: Commands {
                 .disabled(!(commands?.canExport() ?? false))
         }
 
+        CommandMenu("Chat") {
+            Button("Next Model") { commands?.cycleModel() }
+                .keyboardShortcut("m", modifiers: [.command, .control])
+                .disabled(!(commands?.canChat() ?? false))
+            Button("Next Thinking Level") { commands?.cycleThinkingLevel() }
+                .keyboardShortcut("t", modifiers: [.command, .control])
+                .disabled(!(commands?.canChat() ?? false))
+            Divider()
+            Button("Copy Last Response") { commands?.copyLastResponse() }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(!(commands?.canChat() ?? false))
+        }
+
         CommandMenu("Session") {
             Button("Refresh Sessions") { commands?.refresh() }
                 .keyboardShortcut("r", modifiers: .command)
