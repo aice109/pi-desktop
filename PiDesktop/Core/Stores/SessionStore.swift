@@ -37,6 +37,10 @@ final class SessionStore {
     private var runningTools: [String: String] = [:]
     /// 流式期间的工具调用索引：sessionID → toolCallID → ToolCall。
     private var toolCalls: [UUID: [String: ToolCall]] = [:]
+    /// 每个会话的运行时状态（模型 / 思考等级）。
+    private var states: [UUID: AgentSessionState] = [:]
+    /// 每个会话的用量与上下文占用。
+    private var usage: [UUID: AgentUsage] = [:]
 
     /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示）。
     var activeToolName: String? { runningTools.values.first }
@@ -62,6 +66,52 @@ final class SessionStore {
     func reasoning(in session: Session) -> String? {
         guard let text = streaming[session.id]?.thinking, !text.isEmpty else { return nil }
         return text
+    }
+
+    /// 该会话的模型 / 思考等级状态。
+    func state(for session: Session) -> AgentSessionState? { states[session.id] }
+
+    /// 该会话的用量与上下文占用。
+    func usage(for session: Session) -> AgentUsage? { usage[session.id] }
+
+    /// 打开会话：创建传输并加载状态与用量。
+    func activate(_ session: Session) async {
+        _ = await ensureTransport(for: session)
+        await refreshState(for: session)
+    }
+
+    /// 关闭会话：非流式时释放其传输，避免闲置进程累积。
+    func deactivate(_ session: Session) {
+        guard !isStreaming(session), let transport = transports.removeValue(forKey: session.id) else { return }
+        subscriptions.removeValue(forKey: session.id)?.cancel()
+        openSessions.removeValue(forKey: session.id)
+        states.removeValue(forKey: session.id)
+        usage.removeValue(forKey: session.id)
+        Task { await transport.shutdown() }
+    }
+
+    /// 可选模型列表。
+    func availableModels(for session: Session) async -> [AgentModel] {
+        await transports[session.id]?.availableModels() ?? []
+    }
+
+    /// 切换模型并刷新状态。
+    func selectModel(_ model: AgentModel, in session: Session) async {
+        guard let transport = transports[session.id], await transport.setModel(model) else { return }
+        await refreshState(for: session)
+    }
+
+    /// 切换思考等级并刷新状态。
+    func selectThinkingLevel(_ level: String, in session: Session) async {
+        guard let transport = transports[session.id], await transport.setThinkingLevel(level) else { return }
+        await refreshState(for: session)
+    }
+
+    /// 拉取并缓存该会话的状态与用量。
+    private func refreshState(for session: Session) async {
+        guard let transport = transports[session.id] else { return }
+        if let state = await transport.sessionState() { states[session.id] = state }
+        if let stats = await transport.sessionStats() { usage[session.id] = stats }
     }
 
     /// 发送一条用户消息并开始接收助手回复。
@@ -102,6 +152,8 @@ final class SessionStore {
         openSessions.removeAll()
         runningTools.removeAll()
         toolCalls.removeAll()
+        states.removeAll()
+        usage.removeAll()
     }
 
     // MARK: - Transport wiring
@@ -186,6 +238,10 @@ final class SessionStore {
         toolCalls.removeValue(forKey: sessionID)
         // 这一轮结束意味着 pi 已把会话写入磁盘，可发现其文件路径。
         discoverSessionPath(for: sessionID)
+        // 用量与上下文占用也会随回合更新。
+        if let session = openSessions[sessionID] {
+            Task { await refreshState(for: session) }
+        }
         guard let state = streaming.removeValue(forKey: sessionID) else { return }
 
         if let error {
@@ -212,11 +268,11 @@ final class SessionStore {
         guard let session = openSessions[sessionID], session.piSessionPath == nil,
               let transport = transports[sessionID] else { return }
         Task {
-            guard let info = await transport.sessionInfo() else { return }
-            if let path = info.sessionFile, !path.isEmpty {
+            guard let state = await transport.sessionState() else { return }
+            if let path = state.sessionFile, !path.isEmpty {
                 session.piSessionPath = path
             }
-            if session.title.isEmpty, let name = info.sessionName, !name.isEmpty {
+            if session.title.isEmpty, let name = state.sessionName, !name.isEmpty {
                 session.title = name
             }
             if session.piSessionPath != nil {

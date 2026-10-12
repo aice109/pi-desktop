@@ -37,12 +37,55 @@ nonisolated struct ToolResultDTO: Decodable {
     var content: MessageContentDTO?
 }
 
-/// 命令响应的 `data` 字段（目前只用到 `get_state`）。
+/// 命令响应的 `data` 字段（`get_state` / `get_session_stats` / 模型命令）。
 nonisolated struct RPCDataDTO: Decodable {
     var sessionFile: String?
     var sessionId: String?
     var sessionName: String?
     var messageCount: Int?
+    var model: ModelDTO?
+    var thinkingLevel: String?
+    var levels: [String]?
+    var models: [ModelDTO]?
+    var isStreaming: Bool?
+    // get_session_stats
+    var tokens: TokensDTO?
+    var cost: Double?
+    var contextUsage: ContextUsageDTO?
+}
+
+/// 模型定义（完整字段只取需要的部分）。
+nonisolated struct ModelDTO: Decodable {
+    var id: String
+    var name: String?
+    var provider: String?
+    var reasoning: Bool?
+    var contextWindow: Int?
+
+    var domain: AgentModel {
+        AgentModel(
+            id: id,
+            name: name ?? id,
+            provider: provider ?? "",
+            reasoning: reasoning ?? false,
+            contextWindow: contextWindow
+        )
+    }
+}
+
+nonisolated struct TokensDTO: Decodable {
+    var input: Int?
+    var output: Int?
+    var cacheRead: Int?
+    var cacheWrite: Int?
+    var total: Int?
+}
+
+nonisolated struct ContextUsageDTO: Decodable {
+    var tokens: Int?
+    var contextWindow: Int?
+    /// pi 返回的是小数（如 `11.4525`），不能用 `Int`。
+    var percent: Double?
 }
 
 /// `message_update.assistantMessageEvent`。

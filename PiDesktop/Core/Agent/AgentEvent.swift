@@ -45,16 +45,16 @@ protocol AgentTransport: Sendable {
     func abort() async
     /// 关闭底层进程/连接。
     func shutdown() async
-    /// 查询当前会话信息（`get_state`）；新会话由 pi 落盘后才有 `sessionFile`。
-    func sessionInfo() async -> AgentSessionInfo?
-}
-
-/// pi 会话的运行时信息。
-nonisolated struct AgentSessionInfo: Sendable, Equatable {
-    /// 会话文件路径（pi 持久化时存在）。
-    var sessionFile: String?
-    var sessionId: String?
-    var sessionName: String?
+    /// 查询当前会话状态（`get_state`）：模型、思考等级、会话文件等。
+    func sessionState() async -> AgentSessionState?
+    /// 可选模型列表（`get_available_models`）。
+    func availableModels() async -> [AgentModel]
+    /// 切换模型；返回是否成功。
+    func setModel(_ model: AgentModel) async -> Bool
+    /// 设置思考等级；返回是否成功。
+    func setThinkingLevel(_ level: String) async -> Bool
+    /// 会话用量与上下文占用（`get_session_stats`）。
+    func sessionStats() async -> AgentUsage?
 }
 
 /// 传输层错误。

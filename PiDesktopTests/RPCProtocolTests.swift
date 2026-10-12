@@ -78,6 +78,34 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(event(#"{"type":"agent_settled","aborted":true}"#), .settled(aborted: true))
     }
 
+    func test_getSessionStatsResponse_decodesTokensCostAndContext() {
+        // 真实报文：`contextUsage.percent` 是小数，曾因按 Int 解码导致整条响应失败。
+        let json = #"{"id":"r1","type":"response","command":"get_session_stats","success":true,"data":{"tokens":{"input":1,"output":2,"cacheRead":3,"cacheWrite":4,"total":10},"cost":0.147,"contextUsage":{"tokens":114525,"contextWindow":1000000,"percent":11.4525}}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_session_stats 响应应能解码")
+        }
+        XCTAssertEqual(record.data?.tokens?.total, 10)
+        XCTAssertEqual(record.data?.cost, 0.147)
+        XCTAssertEqual(record.data?.contextUsage?.percent, 11.4525)
+        XCTAssertEqual(record.data?.contextUsage?.contextWindow, 1_000_000)
+    }
+
+    func test_getStateResponse_decodesModelThinkingAndLevels() {
+        let state = #"{"id":"r1","type":"response","command":"get_state","success":true,"data":{"model":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","provider":"deepseek","reasoning":true,"contextWindow":1000000},"thinkingLevel":"high","sessionFile":"/tmp/s.jsonl"}}"#
+        guard let data = state.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("get_state 响应应能解码")
+        }
+        XCTAssertEqual(record.data?.model?.domain.id, "deepseek-flash")
+        XCTAssertEqual(record.data?.model?.domain.reasoning, true)
+        XCTAssertEqual(record.data?.thinkingLevel, "high")
+
+        let levels = #"{"id":"r2","type":"response","command":"get_available_thinking_levels","success":true,"data":{"levels":["off","low","high","max"]}}"#
+        guard let levelsData = levels.data(using: .utf8), let levelsRecord = RPCProtocol.decode(levelsData) else {
+            return XCTFail("levels 响应应能解码")
+        }
+        XCTAssertEqual(levelsRecord.data?.levels, ["off", "low", "high", "max"])
+    }
+
     func test_response_decodesButIsNotAnEvent() {
         let json = #"{"id":"req-1","type":"response","command":"prompt","success":true,"data":{"disposition":"started"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {

@@ -14,6 +14,7 @@ struct ChatView: View {
     let session: Session
     @Environment(SessionStore.self) private var store
     @State private var draft = ""
+    @State private var models: [AgentModel] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,9 +22,19 @@ struct ChatView: View {
             if store.isStreaming(session) { statusArea }
             Divider()
             composer
+            usageFooter
         }
         .navigationTitle(session.title.isEmpty ? "Untitled Session" : session.title)
+        .task(id: session.id) {
+            // 打开会话即激活 pi（懒启动），并加载模型列表。
+            await store.activate(session)
+            models = await store.availableModels(for: session)
+        }
         .toolbar {
+            ToolbarItem { modelMenu }
+            if let levels = currentState?.availableThinkingLevels, levels.count > 1 {
+                ToolbarItem { thinkingMenu(levels) }
+            }
             if store.isStreaming(session) {
                 ToolbarItem {
                     Button {
@@ -34,6 +45,71 @@ struct ChatView: View {
                     .help("Stop")
                 }
             }
+        }
+    }
+
+    private var currentState: AgentSessionState? { store.state(for: session) }
+
+    /// 模型选择菜单。
+    private var modelMenu: some View {
+        Menu {
+            if models.isEmpty {
+                Text("No models available")
+            } else {
+                ForEach(models) { model in
+                    Button {
+                        Task { await store.selectModel(model, in: session) }
+                    } label: {
+                        if model == currentState?.model {
+                            Label(model.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(model.displayName)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(currentState?.model?.displayName ?? "Model", systemImage: "cpu")
+        }
+        .help("Model")
+    }
+
+    /// 思考等级菜单（仅当当前模型支持多个等级时显示）。
+    private func thinkingMenu(_ levels: [String]) -> some View {
+        Menu {
+            ForEach(levels, id: \.self) { level in
+                Button {
+                    Task { await store.selectThinkingLevel(level, in: session) }
+                } label: {
+                    if level == currentState?.thinkingLevel {
+                        Label(level.capitalized, systemImage: "checkmark")
+                    } else {
+                        Text(level.capitalized)
+                    }
+                }
+            }
+        } label: {
+            Label(currentState?.thinkingLevel?.capitalized ?? "Thinking", systemImage: "brain")
+        }
+        .help("Thinking Level")
+    }
+
+    /// 底栏：上下文占用 / 累计 token / 费用。
+    @ViewBuilder
+    private var usageFooter: some View {
+        if let usage = store.usage(for: session) {
+            HStack(spacing: 12) {
+                if let percent = usage.contextPercent {
+                    Label("\(percent.formatted(.number.precision(.fractionLength(0))))% context", systemImage: "gauge.with.dots.needle.33percent")
+                }
+                Label("\(usage.totalTokens.formatted()) tokens", systemImage: "number")
+                Label(usage.costUSD.formatted(.currency(code: "USD")), systemImage: "dollarsign.circle")
+                Spacer()
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal)
+            .padding(.bottom, 6)
         }
     }
 

@@ -16,8 +16,12 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     private let continuation: AsyncStream<AgentEvent>.Continuation
     /// 用 `Mutex` 而非 `NSLock`：`NSLock` 在 async 上下文中不可用（Swift 6 起为错误）。
     private let sent = Mutex<[String]>([])
-    /// `sessionInfo()` 的返回值，测试/预览可注入。
-    private let info = Mutex<AgentSessionInfo?>(nil)
+    /// `sessionState()` 的返回值，测试/预览可注入。
+    private let state = Mutex<AgentSessionState?>(nil)
+    /// `availableModels()` 的返回值。
+    private let models = Mutex<[AgentModel]>([])
+    /// `sessionStats()` 的返回值。
+    private let usage = Mutex<AgentUsage?>(nil)
 
     nonisolated init() {
         (stream, continuation) = AsyncStream<AgentEvent>.makeStream(bufferingPolicy: .unbounded)
@@ -26,10 +30,22 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已发送的 prompt 文本，供断言。
     var sentPrompts: [String] { sent.withLock { $0 } }
 
-    /// 注入 `sessionInfo()` 的返回值。
-    var sessionInfoValue: AgentSessionInfo? {
-        get { info.withLock { $0 } }
-        set { info.withLock { $0 = newValue } }
+    /// 注入 `sessionState()` 的返回值。
+    var sessionStateValue: AgentSessionState? {
+        get { state.withLock { $0 } }
+        set { state.withLock { $0 = newValue } }
+    }
+
+    /// 注入 `availableModels()` 的返回值。
+    var availableModelsValue: [AgentModel] {
+        get { models.withLock { $0 } }
+        set { models.withLock { $0 = newValue } }
+    }
+
+    /// 注入 `sessionStats()` 的返回值。
+    var sessionStatsValue: AgentUsage? {
+        get { usage.withLock { $0 } }
+        set { usage.withLock { $0 = newValue } }
     }
 
     func events() async -> AsyncStream<AgentEvent> {
@@ -42,8 +58,34 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     func abort() async {}
 
-    func sessionInfo() async -> AgentSessionInfo? {
-        info.withLock { $0 }
+    func sessionState() async -> AgentSessionState? {
+        state.withLock { $0 }
+    }
+
+    func availableModels() async -> [AgentModel] {
+        models.withLock { $0 }
+    }
+
+    func setModel(_ model: AgentModel) async -> Bool {
+        state.withLock { current in
+            var updated = current ?? AgentSessionState()
+            updated.model = model
+            current = updated
+        }
+        return true
+    }
+
+    func setThinkingLevel(_ level: String) async -> Bool {
+        state.withLock { current in
+            var updated = current ?? AgentSessionState()
+            updated.thinkingLevel = level
+            current = updated
+        }
+        return true
+    }
+
+    func sessionStats() async -> AgentUsage? {
+        usage.withLock { $0 }
     }
 
     func shutdown() async {

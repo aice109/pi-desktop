@@ -16,6 +16,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(WorkspaceStore.self) private var workspaceStore
+    @Environment(SessionStore.self) private var sessionStore
 
     /// 侧栏选中项：pi 会话文件路径。
     @State private var selection: URL?
@@ -59,7 +60,7 @@ struct ContentView: View {
     @ViewBuilder
     private var detail: some View {
         if let opened {
-            ChatView(session: opened)
+            ChatView(session: opened).id(opened.id)
         } else {
             ContentUnavailableView(
                 "No Session Selected",
@@ -143,7 +144,7 @@ struct ContentView: View {
             guard let newValue,
                   let summary = workspaceStore.sessions.first(where: { $0.fileURL == newValue })
             else { return }
-            opened = openSession(for: summary)
+            open(summary)
         }
     }
 
@@ -170,7 +171,20 @@ struct ContentView: View {
     private func startNewSession() {
         let session = Session(title: "", workingDirectory: workspaceStore.workspace?.path)
         modelContext.insert(session)
+        activate(session)
         selection = nil
+    }
+
+    /// 打开已有 pi 会话。
+    private func open(_ summary: PiSessionSummary) {
+        activate(openSession(for: summary))
+    }
+
+    /// 切换当前会话，并释放上一个以释放闲置的 pi 进程。
+    private func activate(_ session: Session) {
+        if let previous = opened, previous.id != session.id {
+            sessionStore.deactivate(previous)
+        }
         opened = session
     }
 

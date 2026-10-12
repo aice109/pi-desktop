@@ -72,18 +72,64 @@ actor PiRPCClient: AgentTransport {
         _ = await send(["type": "abort"])
     }
 
-    func sessionInfo() async -> AgentSessionInfo? {
+    func sessionState() async -> AgentSessionState? {
+        guard let record = await command(["type": "get_state"]), let data = record.data else { return nil }
+        let levels = await availableThinkingLevels()
+        return AgentSessionState(
+            model: data.model?.domain,
+            thinkingLevel: data.thinkingLevel,
+            availableThinkingLevels: levels,
+            sessionFile: data.sessionFile,
+            sessionId: data.sessionId,
+            sessionName: data.sessionName,
+            isStreaming: data.isStreaming ?? false
+        )
+    }
+
+    func availableModels() async -> [AgentModel] {
+        guard let record = await command(["type": "get_available_models"]) else { return [] }
+        return (record.data?.models ?? []).map(\.domain)
+    }
+
+    func setModel(_ model: AgentModel) async -> Bool {
+        await command(["type": "set_model", "provider": model.provider, "modelId": model.id]) != nil
+    }
+
+    func setThinkingLevel(_ level: String) async -> Bool {
+        await command(["type": "set_thinking_level", "level": level]) != nil
+    }
+
+    func sessionStats() async -> AgentUsage? {
+        guard let record = await command(["type": "get_session_stats"]), let data = record.data else {
+            return nil
+        }
+        let tokens = data.tokens
+        return AgentUsage(
+            inputTokens: tokens?.input ?? 0,
+            outputTokens: tokens?.output ?? 0,
+            cacheReadTokens: tokens?.cacheRead ?? 0,
+            cacheWriteTokens: tokens?.cacheWrite ?? 0,
+            totalTokens: tokens?.total ?? 0,
+            costUSD: data.cost ?? 0,
+            contextTokens: data.contextUsage?.tokens,
+            contextWindow: data.contextUsage?.contextWindow,
+            contextPercent: data.contextUsage?.percent
+        )
+    }
+
+    private func availableThinkingLevels() async -> [String] {
+        (await command(["type": "get_available_thinking_levels"]))?.data?.levels ?? []
+    }
+
+    /// 发送一条命令并等待其响应；失败返回 nil。
+    private func command(_ object: [String: Any]) async -> RPCRecord? {
         do {
             try startProcessIfNeeded()
         } catch {
             return nil
         }
-        guard let response = await send(["type": "get_state"]), response.success != false else { return nil }
-        return AgentSessionInfo(
-            sessionFile: response.data?.sessionFile,
-            sessionId: response.data?.sessionId,
-            sessionName: response.data?.sessionName
-        )
+        guard let response = await send(object), response.success != false else { return nil }
+        return response
     }
 
     func shutdown() async {
@@ -200,7 +246,13 @@ actor PiRPCClient: AgentTransport {
     }
 
     private func consume(_ line: Data) {
-        guard let record = RPCProtocol.decode(line) else { return }
+        guard let record = RPCProtocol.decode(line) else {
+            // 解码失败也必须归还对应请求，否则调用方会永久挂起（例如 pi 改了字段类型）。
+            if let id = Self.responseID(in: line), let continuation = pending.removeValue(forKey: id) {
+                continuation.resume(returning: nil)
+            }
+            return
+        }
         if record.type == "response" {
             if let id = record.id, let continuation = pending.removeValue(forKey: id) {
                 continuation.resume(returning: record)
@@ -210,6 +262,14 @@ actor PiRPCClient: AgentTransport {
         if let event = RPCProtocol.agentEvent(from: record) {
             yield(event)
         }
+    }
+
+    /// 在类型化解码失败时，仍尽量从报文里取出响应 id。
+    nonisolated private static func responseID(in line: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+              object["type"] as? String == "response"
+        else { return nil }
+        return object["id"] as? String
     }
 
     // MARK: - Writing

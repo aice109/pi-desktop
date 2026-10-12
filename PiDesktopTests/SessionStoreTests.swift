@@ -132,9 +132,42 @@ final class SessionStoreTests: XCTestCase {
         await waitUntil { !fixture.store.isStreaming(fixture.session) }
     }
 
+    func test_activate_loadsStateAndUsage() async throws {
+        let fixture = try makeFixture()
+        let model = AgentModel(id: "m1", name: "Model One", provider: "p", reasoning: true, contextWindow: 1000)
+        fixture.transport.sessionStateValue = AgentSessionState(
+            model: model,
+            thinkingLevel: "high",
+            availableThinkingLevels: ["off", "high"]
+        )
+        fixture.transport.availableModelsValue = [model]
+        fixture.transport.sessionStatsValue = AgentUsage(
+            inputTokens: 1, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0,
+            totalTokens: 3, costUSD: 0.5, contextTokens: 10, contextWindow: 1000, contextPercent: 1
+        )
+
+        await fixture.store.activate(fixture.session)
+
+        XCTAssertEqual(fixture.store.state(for: fixture.session)?.model?.id, "m1")
+        XCTAssertEqual(fixture.store.state(for: fixture.session)?.thinkingLevel, "high")
+        XCTAssertEqual(fixture.store.usage(for: fixture.session)?.totalTokens, 3)
+        let models = await fixture.store.availableModels(for: fixture.session)
+        XCTAssertEqual(models.count, 1)
+    }
+
+    func test_selectModel_updatesState() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        let model = AgentModel(id: "m2", name: "Two", provider: "p", reasoning: false, contextWindow: nil)
+        await fixture.store.selectModel(model, in: fixture.session)
+
+        XCTAssertEqual(fixture.store.state(for: fixture.session)?.model?.id, "m2")
+    }
+
     func test_settled_discoversPiSessionPathAndNotifies() async throws {
         let fixture = try makeFixture()
-        fixture.transport.sessionInfoValue = AgentSessionInfo(
+        fixture.transport.sessionStateValue = AgentSessionState(
             sessionFile: "/tmp/sessions/abc.jsonl",
             sessionId: "abc",
             sessionName: "My Session"
