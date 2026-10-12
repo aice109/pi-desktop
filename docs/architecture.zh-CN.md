@@ -94,7 +94,7 @@ pi agent 进程 (pi --mode rpc)
 
 - `Session`：一次会话，含 id、标题、创建/更新时间、工作目录、状态，以及磁盘会话文件路径
   `piSessionPath`（[ADR-0005](decisions/0005-workspace-and-pi-sessions.zh-CN.md)）。
-- `Message`：角色（user/assistant/tool）、内容、时间、所属会话。
+- `Message`：角色（user/assistant/tool）、内容、可选的助手思考、时间、所属会话。
 - `ToolCall`：工具名、参数、输出、状态、耗时、所属会话。
 
 **规划中：**

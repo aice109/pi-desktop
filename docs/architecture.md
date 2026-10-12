@@ -94,7 +94,7 @@ into a local `Session` (`piSessionPath`) before continuing it with `pi --session
 
 - `Session` — a conversation: id, title, created/updated timestamps, working directory, status, and
   the `piSessionPath` of its file on disk ([ADR-0005](decisions/0005-workspace-and-pi-sessions.md)).
-- `Message` — role (user/assistant/tool), content, timestamp, owning session.
+- `Message` — role (user/assistant/tool), content, optional assistant reasoning, timestamp, owning session.
 - `ToolCall` — tool name, arguments, output, status, duration, owning session.
 
 **Planned:**

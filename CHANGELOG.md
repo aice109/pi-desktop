@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   backed by `get_available_models`, `set_model`, `set_thinking_level`, and `get_session_stats`.
 - Session rename through pi's `set_session_name` (sidebar context menu). Historical tool calls now
   import their arguments from the assistant's `toolCall` blocks.
+- Assistant reasoning is persisted (`Message.thinking`, ADR-0007) and shown as a collapsible section;
+  history imports it from the session file's `thinking` blocks.
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow

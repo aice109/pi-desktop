@@ -61,7 +61,9 @@ Rules:
 - Events are delivered upward as an `AsyncStream`.
 - Events update UI state on a `@MainActor` store (`SessionStore`).
 
-Not yet modelled: token usage/cost and persisted tool calls (see §7).
+Not events: usage/cost is read on demand (`sessionStats`) and tool calls are persisted as `ToolCall`
+([ADR-0006](decisions/0006-tool-calls.md)); assistant reasoning is persisted on `Message.thinking`
+([ADR-0007](decisions/0007-reasoning.md)).
 
 ## 4. Session lifecycle
 
@@ -87,8 +89,8 @@ Must handle: startup failure, connection loss, user interruption, timeouts, conc
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
-Currently live: streaming assistant text (Markdown), a live reasoning section, and tool-call cards.
-Error retry and reasoning persistence are still pending.
+Currently live: streaming assistant text (Markdown), a reasoning section (live and persisted), and
+tool-call cards. Error retry is still pending.
 
 ## 6. Security & privacy
 
@@ -107,4 +109,5 @@ Error retry and reasoning persistence are still pending.
 - [x] Model / thinking-level selection, usage & cost display
 - [x] Parse assistant `toolCall` blocks so history shows tool arguments
 - [x] Rename sessions (delete moves the file to the Trash)
-- [ ] `get_messages` sync, error retry, reasoning persistence
+- [x] Persist assistant reasoning (ADR-0007)
+- [ ] `get_messages` sync, error retry

@@ -55,7 +55,9 @@ enum AgentEvent: Sendable, Equatable {
 - 事件以 `AsyncStream` 向上推送。
 - 事件在 `@MainActor` 的 Store（`SessionStore`）中更新 UI 状态。
 
-尚未建模：token 用量/费用、已持久化的工具调用（见 §7）。
+不是事件：用量/费用通过 `sessionStats` 按需读取；工具调用持久化为 `ToolCall`
+（[ADR-0006](decisions/0006-tool-calls.zh-CN.md)）；助手思考持久化在 `Message.thinking`
+（[ADR-0007](decisions/0007-reasoning.zh-CN.md)）。
 
 ## 4. 会话生命周期
 
@@ -81,7 +83,7 @@ enum AgentEvent: Sendable, Equatable {
 呈现遵循 [design-system.zh-CN.md](design-system.zh-CN.md)（原生组件 + 玻璃）。工具调用会持久化并渲染为
 卡片（见 [ADR-0006](decisions/0006-tool-calls.zh-CN.md)）。
 
-当前实时可用：流式助手文本（Markdown）、实时思考区、工具调用卡片。错误重试与思考持久化待实现。
+当前实时可用：流式助手文本（Markdown）、思考区（实时 + 持久化）、工具调用卡片。错误重试待实现。
 
 ## 6. 安全与隐私
 
@@ -100,4 +102,5 @@ enum AgentEvent: Sendable, Equatable {
 - [x] 模型 / 思考等级选择、用量与费用展示
 - [x] 解析助手 `toolCall` 块，让历史也显示工具参数
 - [x] 重命名会话（删除即移至废纸篓）
-- [ ] `get_messages` 同步、错误重试、思考持久化
+- [x] 持久化助手思考内容（ADR-0007）
+- [ ] `get_messages` 同步、错误重试
