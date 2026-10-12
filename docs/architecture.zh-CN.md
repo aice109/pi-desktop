@@ -29,12 +29,14 @@ PiDesktop/
 ├── ContentView.swift           # 根视图（工作区门禁 + 会话列表 + 详情）
 ├── Features/
 │   ├── Chat/                   # ChatView：消息流 + 输入框
+│   ├── Settings/               # SettingsView：偏好设置窗口
 │   └── Workspace/              # WorkspaceGateView：选择目录
 ├── Core/
 │   ├── Agent/                  # AgentEvent、AgentTransport、PiRPCClient、RPCProtocol
-│   ├── Pi/                     # PiSessionFiles、PiSessionSummary（只读解析 pi 会话文件）
+│   ├── Commands/               # SessionCommands：菜单 ↔ 聚焦窗口的桥接
+│   ├── Pi/                     # PiSessionFiles、PiHistory（只读解析 pi 历史）
 │   ├── Models/                 # Session、Message、ToolCall（ADR-0004 / ADR-0006）
-│   └── Stores/                 # SessionStore、WorkspaceStore（@Observable，@MainActor）
+│   └── Stores/                 # SessionStore、WorkspaceStore、AppSettingsStore
 └── Assets.xcassets/            # 资源目录
 ```
 
@@ -88,6 +90,9 @@ pi agent 进程 (pi --mode rpc)
 `~/.pi/agent/sessions/--<workspace>--/`；打开会话时先把历史镜像为本地 `Session`（`piSessionPath`），
 再以 `pi --session <path>` 继续（ADR-0005）。
 
+打开时镜像会与 pi **校准**，而不是只填充一次：`SessionStore.syncHistory` 先读会话文件（快、离线），
+再用 RPC 的 `get_entries` 补齐，内容未变则跳过重建（[ADR-0009](decisions/0009-history-sync.zh-CN.md)）。
+
 ## 数据模型
 
 **已实现**（[ADR-0004](decisions/0004-domain-model.zh-CN.md)、[ADR-0006](decisions/0006-tool-calls.zh-CN.md)）：
@@ -97,11 +102,11 @@ pi agent 进程 (pi --mode rpc)
 - `Message`：角色（user/assistant/tool）、内容、可选的助手思考、时间、所属会话。
 - `ToolCall`：工具名、参数、输出、状态、耗时、所属会话。
 
-**规划中：**
-
-- `AppSettings`：模型、主题、偏好。
-
 > 模型变更属于重大改动 → 需新增 ADR（见 [decisions/](decisions/README.zh-CN.md)）。
+
+**不入 SwiftData**：偏好（主题、启动/界面开关、上次打开的会话）通过 `AppSettingsStore` 存放于
+`UserDefaults`（[ADR-0008](decisions/0008-app-settings.zh-CN.md)）——它是单条扁平配置，且需在容器
+就绪之前即可读取。
 
 ## 相关文档
 - UI 规范：[design-system.zh-CN.md](design-system.zh-CN.md)

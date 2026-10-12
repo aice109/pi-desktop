@@ -55,3 +55,4 @@
 | [0006](0006-tool-calls.zh-CN.md) | 持久化工具调用并渲染为卡片 | Accepted |
 | [0007](0007-reasoning.zh-CN.md) | 持久化助手思考内容 | Accepted |
 | [0008](0008-app-settings.zh-CN.md) | 应用偏好存放于 UserDefaults | Accepted |
+| [0009](0009-history-sync.zh-CN.md) | 用 pi 历史校准本地镜像 | Accepted |

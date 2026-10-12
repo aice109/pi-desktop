@@ -29,12 +29,14 @@ PiDesktop/
 ├── ContentView.swift           # Root view (workspace gate + session list + detail)
 ├── Features/
 │   ├── Chat/                   # ChatView: message stream + composer
+│   ├── Settings/               # SettingsView: preferences window
 │   └── Workspace/              # WorkspaceGateView: choose a folder
 ├── Core/
 │   ├── Agent/                  # AgentEvent, AgentTransport, PiRPCClient, RPCProtocol
-│   ├── Pi/                     # PiSessionFiles, PiSessionSummary (read pi's session files)
+│   ├── Commands/               # SessionCommands: menu ↔ focused window bridge
+│   ├── Pi/                     # PiSessionFiles, PiHistory (read pi's history)
 │   ├── Models/                 # Session, Message, ToolCall (ADR-0004 / ADR-0006)
-│   └── Stores/                 # SessionStore, WorkspaceStore (@Observable, @MainActor)
+│   └── Stores/                 # SessionStore, WorkspaceStore, AppSettingsStore
 └── Assets.xcassets/            # Asset catalog
 ```
 
@@ -88,6 +90,10 @@ Session **listing** is read-only and separate from the live transport: `Workspac
 `~/.pi/agent/sessions/--<workspace>--/` through `Core/Pi`, and opening a session mirrors its history
 into a local `Session` (`piSessionPath`) before continuing it with `pi --session <path>` (ADR-0005).
 
+On open the mirror is **reconciled** with pi instead of being filled once: `SessionStore.syncHistory`
+reads the session file first (fast, offline) and then `get_entries` over RPC, skipping the rebuild when
+the content is unchanged ([ADR-0009](decisions/0009-history-sync.md)).
+
 ## Data model
 
 **Implemented** ([ADR-0004](decisions/0004-domain-model.md), [ADR-0006](decisions/0006-tool-calls.md)):
@@ -97,11 +103,11 @@ into a local `Session` (`piSessionPath`) before continuing it with `pi --session
 - `Message` — role (user/assistant/tool), content, optional assistant reasoning, timestamp, owning session.
 - `ToolCall` — tool name, arguments, output, status, duration, owning session.
 
-**Planned:**
-
-- `AppSettings` — model, theme, preferences.
-
 > Model changes are significant → require an ADR (see [decisions/](decisions/README.md)).
+
+**Not in SwiftData:** preferences (theme, startup/UI toggles, last opened session) live in
+`UserDefaults` through `AppSettingsStore` ([ADR-0008](decisions/0008-app-settings.md)) — they are a
+single flat record needed before the container exists.
 
 ## Related
 - UI spec: [design-system.md](design-system.md)

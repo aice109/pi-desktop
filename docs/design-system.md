@@ -82,6 +82,20 @@ Ask with:
 
 > New tokens: extend this section first, then code. Significant design trade-offs → ADR.
 
+### Chat surface
+
+- Messages live in a plain `List` with hidden row separators; consecutive messages from the same role
+  share one header (role avatar + name) to cut visual noise.
+- User messages render in a tinted bubble (`.tint.opacity(0.12)`); assistant messages are plain text so
+  Markdown stays readable.
+- The composer is a rounded field with a focus ring and a `.borderedProminent` circular send button
+  (⌘↩). The streaming status line sits in a `.thinMaterial` `Capsule` — a system-intended overlay, not
+  a hand-rolled blur.
+- Tool calls use an SF Symbol mapped from the tool name, a monospaced argument chip, and a red outline
+  on failure.
+- Usage is a `Gauge` (`.accessoryLinearCapacity`) plus `.monospacedDigit()` labels, so the numbers do
+  not jitter as they update.
+
 ## 6. Accessibility
 
 - Every interactive element needs a readable label (`.accessibilityLabel`).
@@ -93,5 +107,6 @@ Ask with:
 - [ ] Native components used; no reinvention of built-ins
 - [ ] Glass comes from system APIs; no hand-rolled blur
 - [ ] Semantic colors/fonts; no hard-coded magic numbers
+- [ ] Keyboard shortcuts are also reachable from a menu (`Commands` / `FocusedValue`)
 - [ ] Light/dark and accessibility adapted
 - [ ] Third-party/custom components approved (or covered by an ADR)

@@ -82,6 +82,16 @@ GlassEffectContainer(spacing: 16) {
 
 > 若需新增设计 token，先扩本节，再落代码；重大设计取舍 → 记 ADR。
 
+### 聊天界面约定
+
+- 消息使用 plain `List` 并隐藏行分隔线；连续同一角色的消息共用一条头部（角色头像 + 名称），
+  减少视觉噪音。
+- 用户消息用淡色气泡（`.tint.opacity(0.12)`）；助手消息保持纯文本，便于 Markdown 阅读。
+- 输入框是带聚焦描边的圆角字段，发送为 `.borderedProminent` 圆形按钮（⌘↩）；流式状态行置于
+  `.thinMaterial` 的 `Capsule` 中——属于系统预期的叠加层，不是自绘模糊。
+- 工具调用按工具名映射 SF Symbol，参数用等宽字体胶囊，失败时加红色描边。
+- 用量用 `Gauge`（`.accessoryLinearCapacity`）加 `.monospacedDigit()` 文本，更新时数字不抖动。
+
 ## 6. 可访问性
 
 - 所有可交互元素必须有可读标签（`.accessibilityLabel`）。
@@ -93,5 +103,6 @@ GlassEffectContainer(spacing: 16) {
 - [ ] 使用原生组件，未自造已有能力
 - [ ] 玻璃效果来自系统 API，未自绘模糊
 - [ ] 使用语义颜色/字体，无硬编码魔数
+- [ ] 快捷键同时可从菜单触达（`Commands` / `FocusedValue`）
 - [ ] 适配深浅色与辅助功能
 - [ ] 引入第三方/自定义组件前已获用户同意（或已记 ADR）

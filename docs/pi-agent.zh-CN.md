@@ -73,6 +73,10 @@ enum AgentEvent: Sendable, Equatable {
 
 需要处理：启动失败、连接中断、用户中断、超时、并发回合、会话恢复。
 
+打开时会与 pi 校准本地镜像（`get_entries`；无进程运行时回退到会话文件），因此应用外产生的回合也会
+出现（[ADR-0009](decisions/0009-history-sync.zh-CN.md)）。解码必须容忍 pi 消息**缺少** `content` 或为
+`null`：把这类字段当必填会让整条响应失败、静默得到空历史。
+
 ## 5. UI 映射（对应视图）
 
 | 领域事件 | UI 呈现 |

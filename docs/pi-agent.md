@@ -67,7 +67,8 @@ Rules:
 
 Not events: usage/cost is read on demand (`sessionStats`) and tool calls are persisted as `ToolCall`
 ([ADR-0006](decisions/0006-tool-calls.md)); assistant reasoning is persisted on `Message.thinking`
-([ADR-0007](decisions/0007-reasoning.md)).
+([ADR-0007](decisions/0007-reasoning.md)). History is also pulled on demand: `get_entries`
+reconciles the local mirror ([ADR-0009](decisions/0009-history-sync.md)).
 
 ## 4. Session lifecycle
 
@@ -78,6 +79,11 @@ create/resume session → start or connect to agent → send user input
 ```
 
 Must handle: startup failure, connection loss, user interruption, timeouts, concurrent turns, session resume.
+
+On open, the local mirror is reconciled with pi (`get_entries`, falling back to the session file when no
+process is running) so turns made outside the app show up ([ADR-0009](decisions/0009-history-sync.md)).
+Decoding must tolerate pi messages without `content` (or with `content: null`): a required field there
+fails the whole response and silently yields empty history.
 
 ## 5. UI mapping
 
@@ -115,4 +121,5 @@ tool-call cards. Error retry is still pending.
 - [x] Parse assistant `toolCall` blocks so history shows tool arguments
 - [x] Rename sessions (delete moves the file to the Trash)
 - [x] Persist assistant reasoning (ADR-0007)
-- [ ] `get_messages` sync, error retry
+- [x] Reconcile the mirror with pi history on open (ADR-0009)
+- [ ] Incremental history sync via `get_entries`'s `since` cursor, error retry

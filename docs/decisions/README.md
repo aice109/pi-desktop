@@ -56,3 +56,4 @@ Upsides, downsides, costs, follow-ups.
 | [0006](0006-tool-calls.md) | Persist tool calls and render them as cards | Accepted |
 | [0007](0007-reasoning.md) | Persist assistant reasoning | Accepted |
 | [0008](0008-app-settings.md) | Application preferences in UserDefaults | Accepted |
+| [0009](0009-history-sync.md) | Reconcile the local mirror with pi history | Accepted |

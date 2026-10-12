@@ -37,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Assistant reasoning is persisted (`Message.thinking`, ADR-0007) and shown as a collapsible section;
   history imports it from the session file's `thinking` blocks.
 - Retry and compaction activity is surfaced in the chat status line (`auto_retry_*` / `compaction_*`).
+- A preferences window (⌘,) backed by `AppSettingsStore` in `UserDefaults` (ADR-0008): theme,
+  reopen the last session, usage footer, and delete confirmation.
+- File and Session menus (New Session ⌘N, Open Workspace ⌘O, Refresh ⌘R, Stop ⌘., Close Workspace)
+  that act on the focused window through `FocusedValue`.
+- The last opened session is reopened on launch (toggleable in Settings).
+- History is reconciled with pi on open (ADR-0009): the session file is read first, then `get_entries`
+  over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow
@@ -51,6 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shortcut.
 - App version aligned to `0.1.0` (`MARKETING_VERSION`) to match the README badge;
   nothing has been released yet, so the changelog stays under `[Unreleased]`.
+- Chat and sidebar polish: role avatars, merged headers for consecutive messages, a tinted user
+  bubble, per-tool icons and argument chips on tool cards, a focus-ringed composer with a circular
+  send button (⌘↩), a context-usage gauge, and a session count in the workspace bar.
 
 ### Removed
 - Template `Item` model.
