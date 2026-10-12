@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Xcode — user-local state (never commit)
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+# NOTE: Package.resolved SHOULD be committed for apps (reproducible deps).
+.swiftpm/
+.build/
+
+# CocoaPods / Carthage (not used yet; kept safe)
+Pods/
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Secrets / local config — never commit
+*.local
+*.env
+Secrets.plist
+*.xcconfig.local
+
+# Editors
+.vscode/
+.idea/

@@ -1,0 +1,42 @@
+# DISABLED (temporarily). GitHub only runs *.yml / *.yaml under .github/workflows,
+# so this file is inert. Re-enable by renaming it back to ci.yml once a runner with
+# an Xcode/SDK matching the macOS 27.0 deployment target is available.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (macOS)
+    # NOTE: PiDesktop targets macOS 27.0. GitHub-hosted runners may not yet ship a
+    # matching Xcode/SDK; if this job fails on "unsupported platform", either
+    # (a) lower MACOSX_DEPLOYMENT_TARGET, or (b) use a self-hosted runner with the
+    # required Xcode. See docs/workflows.md.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show versions
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project PiDesktop.xcodeproj \
+            -scheme PiDesktop \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            build
