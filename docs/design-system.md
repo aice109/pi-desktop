@@ -111,6 +111,9 @@ Ask with:
   ordered/unordered lists, fenced code blocks, block quotes, thematic breaks, and tables (`Grid`).
   It is built on Foundation's `AttributedString(markdown:)` + `PresentationIntent` and SwiftUI
   primitives; no third-party dependency. Inline formatting (bold, inline code, links) is preserved.
+- Fenced code blocks are colored by a small native tokenizer (`CodeSyntaxHighlighter`): comments,
+  strings, numbers and keywords get semantic colors (adapting to light/dark) with a per-code cache.
+  It is lexical, not a parser — language unknown still colors comments/strings/numbers.
 - User messages render in a tinted bubble (`.tint.opacity(0.12)`); assistant messages are plain text so
   Markdown stays readable.
 - The composer is a rounded field with a focus ring and a `.borderedProminent` circular send button

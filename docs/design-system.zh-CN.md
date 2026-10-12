@@ -103,6 +103,8 @@ GlassEffectContainer(spacing: 16) {
 - 助手正文按块级 Markdown 渲染（`MarkdownText`）：标题、段落、有序/无序列表、围栏代码块、引用、
   分隔线、表格（`Grid`）。基于 Foundation 的 `AttributedString(markdown:)` + `PresentationIntent`
   与 SwiftUI 原语实现，无第三方依赖；行内格式（粗体、行内代码、链接）保留。
+- 围栏代码块由一个小型原生词法器（`CodeSyntaxHighlighter`）着色：注释、字符串、数字与关键字用语义颜色
+  （随明暗外观自适应），并按代码内容缓存。它是词法级而非语法级——语言未知时仍会着色注释/字符串/数字。
 - 用户消息用淡色气泡（`.tint.opacity(0.12)`）；助手消息保持纯文本，便于 Markdown 阅读。
 - 输入框是带聚焦描边的圆角字段，发送为 `.borderedProminent` 圆形按钮（⌘↩）；流式状态行置于
   `.thinMaterial` 的 `Capsule` 中——属于系统预期的叠加层，不是自绘模糊。

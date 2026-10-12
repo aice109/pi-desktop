@@ -267,7 +267,7 @@ private struct MarkdownBlockView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                Text(code)
+                Text(CodeSyntaxHighlighter.attributed(code, language: language))
                     .font(.system(.callout, design: .monospaced))
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)

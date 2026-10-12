@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Fenced code blocks are syntax-colored by a small native tokenizer (comments, strings, numbers,
+  keywords), with a per-code cache and no third-party dependency.
 - The Branch menu's "Show Tree…" renders the whole session tree (`get_tree`), including abandoned
   branches, with the active leaf highlighted and a fork action on user nodes.
 - Turns that finish while the app is in the background post a system notification, and any session that
