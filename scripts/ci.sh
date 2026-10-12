@@ -23,6 +23,9 @@ fi
 
 echo "Toolchain: $(xcodebuild -version 2>&1 | head -1)"
 
+# Lint first: fail fast on style before the slower build/test.
+./scripts/format.sh
+
 xcodebuild \
     -project PiDesktop.xcodeproj \
     -scheme PiDesktop \

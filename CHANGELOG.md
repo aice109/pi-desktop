@@ -103,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
+- `scripts/ci.sh` also runs `scripts/format.sh` (swift-format lint) before building, so style is
+  enforced alongside the build and tests.
 - The main scene is a single `Window` instead of a `WindowGroup`, so the app-level stores (one
 transport per session, a single visible-session id for unread/notifications) are always consistent
   (ADR-0011).
