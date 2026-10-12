@@ -119,6 +119,9 @@ fails the whole response and silently yields empty history.
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are
 persisted and rendered as cards ([ADR-0006](decisions/0006-tool-calls.md)).
 
+A session can be exported to a standalone HTML file from the File menu (`export_html`); the app picks
+the destination with a save panel and passes it as `outputPath`.
+
 Context can be compacted on demand (`compact`, with optional `customInstructions`) and auto-compaction
 is toggled per session (`set_auto_compaction`), both from the toolbar's Context menu. Auto-retry is
 toggled there too (`set_auto_retry`), and an in-progress retry can be stopped from the status line

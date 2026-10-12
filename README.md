@@ -25,6 +25,8 @@ Working today:
 - 🧠 **Reasoning view** — collapsible thinking, kept with the message.
 - 🗂 **Session management** — rename, search, refresh, remove (moved to the Trash), and reopen the last session on launch.
 - ⚙️ **Preferences** — theme, startup and UI toggles (⌘,), plus File/Session menus and shortcuts.
+- 📤 **Export & branches** — export a session to HTML, fork from any user message, or clone the current
+  branch; compact context on demand and control auto-compaction / auto-retry.
 - 🔄 **Always fresh** — the local mirror is reconciled with pi's history when a session opens.
 - 🪟 **Native look** — built with Apple frameworks and macOS **Liquid Glass**.
 

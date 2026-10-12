@@ -77,6 +77,8 @@ nonisolated struct RPCDataDTO: Decodable {
     var commands: [CommandDTO]?
     // get_fork_messages
     var messages: [ForkMessageDTO]?
+    // export_html
+    var path: String?
     // clear_queue
     var steering: [String]?
     var followUp: [String]?

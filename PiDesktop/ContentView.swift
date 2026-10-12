@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import AppKit
 import UniformTypeIdentifiers
 
 /// 根视图。
@@ -84,7 +85,9 @@ struct ContentView: View {
             refresh: { workspaceStore.refresh() },
             stop: { stopStreaming() },
             closeWorkspace: { closeWorkspace() },
-            isStreaming: { opened.map { sessionStore.isStreaming($0) } ?? false }
+            exportHTML: { exportOpenSession() },
+            isStreaming: { opened.map { sessionStore.isStreaming($0) } ?? false },
+            canExport: { opened != nil }
         )
     }
 
@@ -243,6 +246,18 @@ struct ContentView: View {
         modelContext.insert(session)
         activate(session)
         selection = nil
+    }
+
+    /// 导出当前会话为 HTML：用系统保存面板选路径，交给 pi 的 `export_html` 写入。
+    private func exportOpenSession() {
+        guard let opened else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.html]
+        panel.canCreateDirectories = true
+        let base = opened.title.isEmpty ? "session" : opened.title
+        panel.nameFieldStringValue = "\(base).html"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { _ = await sessionStore.exportHTML(opened, to: url.path) }
     }
 
     /// 中断当前会话的运行（菜单「Stop」与工具栏共用）。

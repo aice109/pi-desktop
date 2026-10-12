@@ -71,6 +71,10 @@ private struct PiDesktopCommands: Commands {
             Button("Open Workspace…") { commands?.chooseWorkspace() }
                 .keyboardShortcut("o", modifiers: .command)
                 .disabled(commands == nil)
+            Divider()
+            Button("Export as HTML…") { commands?.exportHTML() }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(!(commands?.canExport() ?? false))
         }
 
         CommandMenu("Session") {

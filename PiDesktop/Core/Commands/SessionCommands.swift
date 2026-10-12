@@ -18,7 +18,9 @@ struct SessionCommandHandlers {
     var refresh: @MainActor () -> Void
     var stop: @MainActor () -> Void
     var closeWorkspace: @MainActor () -> Void
+    var exportHTML: @MainActor () -> Void
     var isStreaming: @MainActor () -> Bool
+    var canExport: @MainActor () -> Bool
 }
 
 private struct SessionCommandsKey: FocusedValueKey {

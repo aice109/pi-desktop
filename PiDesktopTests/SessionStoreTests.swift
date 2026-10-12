@@ -300,6 +300,17 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
     }
 
+    func test_exportHTML_forwardsPathAndReturnsResult() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+        fixture.transport.exportResultValue = "/tmp/out.html"
+
+        let path = await fixture.store.exportHTML(fixture.session, to: "/tmp/out.html")
+
+        XCTAssertEqual(path, "/tmp/out.html")
+        XCTAssertEqual(fixture.transport.exportPathsValue, ["/tmp/out.html"])
+    }
+
     func test_setAutoRetry_tracksLocallyAndForwards() async throws {
         let fixture = try makeFixture()
         await fixture.store.activate(fixture.session)

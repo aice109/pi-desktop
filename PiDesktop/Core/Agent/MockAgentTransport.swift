@@ -33,6 +33,9 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     /// 已设置的自动重试开关 / 中止次数，供断言。
     private let autoRetry = Mutex<Bool?>(nil)
     private let abortRetryCount = Mutex<Int>(0)
+    /// `exportHTML` 的入参与返回值。
+    private let exportPaths = Mutex<[String?]>([])
+    private let exportResult = Mutex<String?>(nil)
     /// `sessionStats()` 的返回值。
     private let usage = Mutex<AgentUsage?>(nil)
     /// `sessionEntries(since:)` 的返回值（按 `since` 过滤前的全量）。
@@ -97,6 +100,15 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
 
     /// `abortRetry` 被调用的次数。
     var abortRetryCountValue: Int { abortRetryCount.withLock { $0 } }
+
+    /// 每次 `exportHTML` 传入的路径。
+    var exportPathsValue: [String?] { exportPaths.withLock { $0 } }
+
+    /// 注入 `exportHTML` 的返回值。
+    var exportResultValue: String? {
+        get { exportResult.withLock { $0 } }
+        set { exportResult.withLock { $0 = newValue } }
+    }
 
     /// 注入 `sessionStats()` 的返回值。
     var sessionStatsValue: AgentUsage? {
@@ -242,6 +254,11 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
     func abortRetry() async -> Bool {
         abortRetryCount.withLock { $0 += 1 }
         return true
+    }
+
+    func exportHTML(outputPath: String?) async -> String? {
+        exportPaths.withLock { $0.append(outputPath) }
+        return exportResultValue
     }
 
     func sessionStats() async -> AgentUsage? {

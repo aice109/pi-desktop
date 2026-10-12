@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
   External renames and thinking-level changes now propagate to the UI, summarization retries show in
   the status line, and an appended entry reconciles the local mirror when idle.
+- The File menu exports the open session to a standalone HTML file via pi's `export_html`, using a
+  save panel to choose the destination (⇧⌘E).
 - Auto-retry can be toggled per session and an in-progress retry aborted from the status line
   (`set_auto_retry` / `abort_retry`). pi does not report the flag in `get_state`, so it is tracked
   locally, defaulting to on.

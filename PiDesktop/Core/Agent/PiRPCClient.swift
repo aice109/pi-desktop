@@ -181,6 +181,12 @@ actor PiRPCClient: AgentTransport {
         await command(["type": "abort_retry"]) != nil
     }
 
+    func exportHTML(outputPath: String?) async -> String? {
+        var payload: [String: Any] = ["type": "export_html"]
+        if let outputPath, !outputPath.isEmpty { payload["outputPath"] = outputPath }
+        return await command(payload)?.data?.path
+    }
+
     func sessionStats() async -> AgentUsage? {
         guard let record = await command(["type": "get_session_stats"]), let data = record.data else {
             return nil

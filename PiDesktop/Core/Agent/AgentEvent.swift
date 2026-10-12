@@ -181,6 +181,8 @@ protocol AgentTransport: Sendable {
     func setAutoRetry(enabled: Bool) async -> Bool
     /// 中止进行中的重试延迟（`abort_retry`）；返回是否成功。
     func abortRetry() async -> Bool
+    /// 导出会话为 HTML（`export_html`）；返回写入的路径，失败为 nil。
+    func exportHTML(outputPath: String?) async -> String?
     /// 会话用量与上下文占用（`get_session_stats`）。
     func sessionStats() async -> AgentUsage?
     /// 可发现的命令列表（`get_commands`）。

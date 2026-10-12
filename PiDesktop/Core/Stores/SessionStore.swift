@@ -399,6 +399,14 @@ final class SessionStore {
         _ = await transports[session.id]?.abortRetry()
     }
 
+    /// 导出会话为 HTML；返回 pi 写入的路径，失败为 nil。
+    ///
+    /// 若会话尚未激活（无传输），先拉起进程再导出，避免菜单项对未打开的会话失效。
+    func exportHTML(_ session: Session, to path: String?) async -> String? {
+        _ = await ensureTransport(for: session)
+        return await transports[session.id]?.exportHTML(outputPath: path)
+    }
+
     /// 重命名会话：经 pi 的 `set_session_name` 写入，并同步本地标题。
     func rename(_ session: Session, to name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
