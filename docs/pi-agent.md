@@ -51,6 +51,10 @@ enum AgentEvent: Sendable, Equatable {
     case toolCallUpdated(id: String, output: String)
     case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?, output: String?)
     case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
+    case retryStarted(attempt: Int, maxAttempts: Int)
+    case retryFinished(success: Bool)
+    case compactionStarted
+    case compactionFinished(aborted: Bool, errorMessage: String?)
     case settled(aborted: Bool)          // agent_settled: no automatic work remains
     case failed(String)                  // transport failure
 }
@@ -84,6 +88,7 @@ Must handle: startup failure, connection loss, user interruption, timeouts, conc
 | `toolCallStarted` | Tool-call card (running) |
 | `toolCallUpdated` | Live output inside the card |
 | `toolCallFinished` | Card marked success/failure + duration |
+| `retryStarted` / `compactionStarted` | Status line shows "Retrying (n/m)…" / "Compacting context…" |
 | `failed` | Inline error |
 
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are

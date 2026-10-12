@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   import their arguments from the assistant's `toolCall` blocks.
 - Assistant reasoning is persisted (`Message.thinking`, ADR-0007) and shown as a collapsible section;
   history imports it from the session file's `thinking` blocks.
+- Retry and compaction activity is surfaced in the chat status line (`auto_retry_*` / `compaction_*`).
 
 ### Changed
 - App Sandbox disabled and the `files.user-selected` entitlement removed to allow

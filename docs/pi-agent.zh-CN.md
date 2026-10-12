@@ -45,6 +45,10 @@ enum AgentEvent: Sendable, Equatable {
     case toolCallUpdated(id: String, output: String)
     case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?, output: String?)
     case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
+    case retryStarted(attempt: Int, maxAttempts: Int)
+    case retryFinished(success: Bool)
+    case compactionStarted
+    case compactionFinished(aborted: Bool, errorMessage: String?)
     case settled(aborted: Bool)          // agent_settled：不再有自动工作
     case failed(String)                  // 传输失败
 }
@@ -78,6 +82,7 @@ enum AgentEvent: Sendable, Equatable {
 | `toolCallStarted` | 工具调用卡片（运行中） |
 | `toolCallUpdated` | 卡片内实时输出 |
 | `toolCallFinished` | 卡片标记成功/失败 + 耗时 |
+| `retryStarted` / `compactionStarted` | 状态栏显示「Retrying (n/m)…」/「Compacting context…」|
 | `failed` | 内联错误提示 |
 
 呈现遵循 [design-system.zh-CN.md](design-system.zh-CN.md)（原生组件 + 玻璃）。工具调用会持久化并渲染为
