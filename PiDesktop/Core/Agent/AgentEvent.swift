@@ -26,10 +26,34 @@ nonisolated enum AgentEvent: Sendable, Equatable {
     case toolCallFinished(id: String, name: String, isError: Bool, durationMs: Int?, output: String?)
     /// 一条助手消息完成（`message_end` 的权威内容）。
     case assistantMessageCompleted(text: String, stopReason: String?, errorMessage: String?)
+    /// 自动重试开始（如限流/过载）。
+    case retryStarted(attempt: Int, maxAttempts: Int)
+    /// 自动重试结束（成功或彻底失败）。
+    case retryFinished(success: Bool)
+    /// 上下文压缩开始。
+    case compactionStarted
+    /// 上下文压缩结束。
+    case compactionFinished(aborted: Bool, errorMessage: String?)
     /// 自动工作全部结束（`agent_settled`）。
     case settled(aborted: Bool)
     /// 传输层失败（进程退出、读取错误等）。
     case failed(String)
+}
+
+/// 进行中的非阻塞活动（用于状态栏提示）。
+nonisolated enum AgentActivity: Sendable, Equatable {
+    case retrying(attempt: Int, maxAttempts: Int)
+    case compacting
+
+    /// 状态栏文案。
+    var displayText: String {
+        switch self {
+        case .retrying(let attempt, let maxAttempts):
+            return maxAttempts > 1 ? "Retrying (\(attempt)/\(maxAttempts))…" : "Retrying…"
+        case .compacting:
+            return "Compacting context…"
+        }
+    }
 }
 
 /// 与 agent 通信的抽象。

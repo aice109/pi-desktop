@@ -73,6 +73,26 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(event(start), .toolCallStarted(id: "c", name: "read", arguments: nil))
     }
 
+    func test_retryAndCompaction_mapToEvents() {
+        XCTAssertEqual(
+            event(#"{"type":"auto_retry_start","attempt":1,"maxAttempts":3,"delayMs":2000,"errorMessage":"529 overloaded"}"#),
+            .retryStarted(attempt: 1, maxAttempts: 3)
+        )
+        XCTAssertEqual(
+            event(#"{"type":"auto_retry_end","success":true,"attempt":2}"#),
+            .retryFinished(success: true)
+        )
+        XCTAssertEqual(
+            event(#"{"type":"auto_retry_end","success":false,"finalError":"boom"}"#),
+            .retryFinished(success: false)
+        )
+        XCTAssertEqual(event(#"{"type":"compaction_start","reason":"threshold"}"#), .compactionStarted)
+        XCTAssertEqual(
+            event(#"{"type":"compaction_end","reason":"manual","aborted":false}"#),
+            .compactionFinished(aborted: false, errorMessage: nil)
+        )
+    }
+
     func test_agentSettled_mapsAbortedFlag() {
         XCTAssertEqual(event(#"{"type":"agent_settled","aborted":false}"#), .settled(aborted: false))
         XCTAssertEqual(event(#"{"type":"agent_settled","aborted":true}"#), .settled(aborted: true))

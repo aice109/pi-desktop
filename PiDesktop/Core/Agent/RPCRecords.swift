@@ -29,6 +29,12 @@ nonisolated struct RPCRecord: Decodable {
     var args: JSONValue?
     var result: ToolResultDTO?
     var partialResult: ToolResultDTO?
+    // 重试 / 压缩事件
+    var attempt: Int?
+    var maxAttempts: Int?
+    var delayMs: Int?
+    var errorMessage: String?
+    var reason: String?
     var data: RPCDataDTO?
 }
 
@@ -198,6 +204,18 @@ nonisolated enum RPCProtocol {
                 stopReason: message.stopReason,
                 errorMessage: message.errorMessage
             )
+
+        case "auto_retry_start":
+            return .retryStarted(attempt: record.attempt ?? 1, maxAttempts: record.maxAttempts ?? 1)
+
+        case "auto_retry_end":
+            return .retryFinished(success: record.success ?? true)
+
+        case "compaction_start":
+            return .compactionStarted
+
+        case "compaction_end":
+            return .compactionFinished(aborted: record.aborted ?? false, errorMessage: record.errorMessage)
 
         case "agent_settled":
             return .settled(aborted: record.aborted ?? false)

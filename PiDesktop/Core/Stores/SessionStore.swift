@@ -41,6 +41,8 @@ final class SessionStore {
     private var states: [UUID: AgentSessionState] = [:]
     /// 每个会话的用量与上下文占用。
     private var usage: [UUID: AgentUsage] = [:]
+    /// 每个会话的进行中活动（重试 / 压缩）。
+    private var activities: [UUID: AgentActivity] = [:]
 
     /// 当前正在执行的工具名（转瞬状态，仅供 UI 展示）。
     var activeToolName: String? { runningTools.values.first }
@@ -74,6 +76,9 @@ final class SessionStore {
     /// 该会话的用量与上下文占用。
     func usage(for session: Session) -> AgentUsage? { usage[session.id] }
 
+    /// 该会话正在进行的活动（重试 / 压缩），用于状态栏提示。
+    func activity(for session: Session) -> AgentActivity? { activities[session.id] }
+
     /// 打开会话：创建传输并加载状态与用量。
     func activate(_ session: Session) async {
         _ = await ensureTransport(for: session)
@@ -87,6 +92,7 @@ final class SessionStore {
         openSessions.removeValue(forKey: session.id)
         states.removeValue(forKey: session.id)
         usage.removeValue(forKey: session.id)
+        activities.removeValue(forKey: session.id)
         Task { await transport.shutdown() }
     }
 
@@ -171,6 +177,7 @@ final class SessionStore {
         toolCalls.removeAll()
         states.removeAll()
         usage.removeAll()
+        activities.removeAll()
     }
 
     // MARK: - Transport wiring
@@ -243,6 +250,18 @@ final class SessionStore {
             if !state.thinking.isEmpty { state.message.thinking = state.thinking }
             streaming[sessionID] = state
 
+        case .retryStarted(let attempt, let maxAttempts):
+            activities[sessionID] = .retrying(attempt: attempt, maxAttempts: maxAttempts)
+
+        case .retryFinished:
+            activities[sessionID] = nil
+
+        case .compactionStarted:
+            activities[sessionID] = .compacting
+
+        case .compactionFinished:
+            activities[sessionID] = nil
+
         case .settled:
             finish(sessionID: sessionID)
 
@@ -255,6 +274,7 @@ final class SessionStore {
     private func finish(sessionID: UUID, error: String? = nil) {
         runningTools.removeAll()
         toolCalls.removeValue(forKey: sessionID)
+        activities.removeValue(forKey: sessionID)
         // 这一轮结束意味着 pi 已把会话写入磁盘，可发现其文件路径。
         discoverSessionPath(for: sessionID)
         // 用量与上下文占用也会随回合更新。

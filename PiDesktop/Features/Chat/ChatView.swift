@@ -50,6 +50,13 @@ struct ChatView: View {
 
     private var currentState: AgentSessionState? { store.state(for: session) }
 
+    /// 状态栏文案：重试/压缩优先，其次工具，最后默认“思考中”。
+    private var statusText: String {
+        if let activity = store.activity(for: session) { return activity.displayText }
+        if let tool = store.activeToolName { return "Running \(tool)…" }
+        return "Thinking…"
+    }
+
     /// 模型选择菜单。
     private var modelMenu: some View {
         Menu {
@@ -166,7 +173,7 @@ struct ChatView: View {
             }
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
-                Text(store.activeToolName.map { "Running \($0)…" } ?? "Thinking…")
+                Text(statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

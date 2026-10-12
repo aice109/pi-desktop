@@ -187,6 +187,25 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.assistantMessage?.thinking, "step 1 step 2")
     }
 
+    func test_retryAndCompaction_setAndClearActivity() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+        XCTAssertNil(fixture.store.activity(for: fixture.session))
+
+        fixture.transport.emit(.retryStarted(attempt: 2, maxAttempts: 3))
+        await waitUntil { fixture.store.activity(for: fixture.session) != nil }
+        XCTAssertEqual(fixture.store.activity(for: fixture.session)?.displayText, "Retrying (2/3)…")
+
+        fixture.transport.emit(.retryFinished(success: true))
+        await waitUntil { fixture.store.activity(for: fixture.session) == nil }
+
+        fixture.transport.emit(.compactionStarted)
+        await waitUntil { fixture.store.activity(for: fixture.session)?.displayText == "Compacting context…" }
+
+        fixture.transport.emit(.compactionFinished(aborted: false, errorMessage: nil))
+        await waitUntil { fixture.store.activity(for: fixture.session) == nil }
+    }
+
     func test_settled_discoversPiSessionPathAndNotifies() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionStateValue = AgentSessionState(
