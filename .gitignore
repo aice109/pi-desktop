@@ -12,6 +12,7 @@ xcuserdata/
 *.xccheckout
 DerivedData/
 build/
+dist/
 *.moved-aside
 *.hmap
 *.ipa
