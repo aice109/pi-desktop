@@ -135,6 +135,10 @@ nonisolated struct ContentBlockDTO: Decodable {
     var type: String
     var text: String?
     var thinking: String?
+    // toolCall 块
+    var id: String?
+    var name: String?
+    var arguments: JSONValue?
 }
 
 /// 线上报文 → 领域事件的映射（纯函数，便于单测）。

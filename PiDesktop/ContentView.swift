@@ -26,6 +26,8 @@ struct ContentView: View {
     @State private var searchText = ""
     /// 待确认删除的会话（移到废纸篓）。
     @State private var pendingDeletion: PiSessionSummary?
+    /// 待重命名的会话。
+    @State private var renaming: PiSessionSummary?
 
     var body: some View {
         if workspaceStore.workspace == nil {
@@ -51,6 +53,11 @@ struct ContentView: View {
                 Button("Cancel", role: .cancel) {}
             } message: { summary in
                 Text(summary.displayTitle)
+            }
+            .sheet(item: $renaming) { summary in
+                RenameSessionSheet(initialName: summary.name ?? summary.displayTitle) { newName in
+                    rename(summary, to: newName)
+                }
             }
         }
     }
@@ -135,6 +142,8 @@ struct ContentView: View {
                     PiSessionRow(summary: summary)
                         .tag(summary.fileURL)
                         .contextMenu {
+                            Button("Rename…") { renaming = summary }
+                            Divider()
                             Button("Move to Trash", role: .destructive) { pendingDeletion = summary }
                         }
                 }
@@ -188,15 +197,11 @@ struct ContentView: View {
         opened = session
     }
 
-    /// 打开 pi 会话：优先复用本地已镜像的 `Session`，否则新建并把历史消息导入。
+    /// 打开 pi 会话：优先复用本地已镜像的 `Session`，否则新建并把历史导入。
     private func openSession(for summary: PiSessionSummary) -> Session {
-        let path = summary.fileURL.path
-        let existing = localSession(matchingPiPath: path)
-        if let existing { return existing }
+        if let existing = localSession(matchingPiPath: summary.fileURL.path) { return existing }
 
-        let workingDirectory = summary.cwd.isEmpty ? workspaceStore.workspace?.path : summary.cwd
-        let session = Session(title: summary.displayTitle, workingDirectory: workingDirectory, piSessionPath: path)
-        modelContext.insert(session)
+        let session = mirror(for: summary)
         for message in PiSessionFiles.messages(in: summary.fileURL) {
             session.append(Message(role: message.role, content: message.text, createdAt: message.timestamp))
         }
@@ -204,12 +209,32 @@ struct ContentView: View {
             session.record(ToolCall(
                 toolCallID: toolCall.toolCallID,
                 name: toolCall.name,
+                arguments: toolCall.arguments,
                 output: toolCall.output,
                 isError: toolCall.isError,
                 createdAt: toolCall.timestamp
             ))
         }
         return session
+    }
+
+    /// 建立一个指向 pi 会话文件的本地镜像（不导入历史）。
+    private func mirror(for summary: PiSessionSummary) -> Session {
+        let workingDirectory = summary.cwd.isEmpty ? workspaceStore.workspace?.path : summary.cwd
+        let session = Session(
+            title: summary.displayTitle,
+            workingDirectory: workingDirectory,
+            piSessionPath: summary.fileURL.path
+        )
+        modelContext.insert(session)
+        return session
+    }
+
+    /// 重命名会话：经 pi 写入会话文件，并同步本地镜像标题。
+    private func rename(_ summary: PiSessionSummary, to name: String) {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let session = localSession(matchingPiPath: summary.fileURL.path) ?? mirror(for: summary)
+        Task { await sessionStore.rename(session, to: name) }
     }
 
     /// 把会话文件移到废纸篓（可恢复），并清理本地镜像。
@@ -274,6 +299,48 @@ private struct PiSessionRow: View {
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// 重命名会话的弹窗。
+private struct RenameSessionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onRename: (String) -> Void
+    @State private var name: String
+
+    init(initialName: String, onRename: @escaping (String) -> Void) {
+        self.onRename = onRename
+        _name = State(initialValue: initialName)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Rename Session")
+                .font(.headline)
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 280)
+                .onSubmit(submit)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename", action: submit)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(trimmedName.isEmpty)
+            }
+        }
+        .padding(20)
+    }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func submit() {
+        guard !trimmedName.isEmpty else { return }
+        onRename(trimmedName)
+        dismiss()
     }
 }
 

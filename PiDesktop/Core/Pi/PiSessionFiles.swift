@@ -132,19 +132,37 @@ nonisolated enum PiSessionFiles {
         return result
     }
 
-    /// 解析会话文件里的工具调用（`toolResult` 条目），保持文件顺序。
+    /// 解析会话文件里的工具调用，保持文件顺序。
+    ///
+    /// 参数不在 `toolResult` 里，而属于助手消息的 `toolCall` 块；因此先收集参数（按 id），
+    /// 再与 `toolResult` 条目关联。
     static func toolCalls(in fileURL: URL) -> [PiStoredToolCall] {
         guard let lines = readLines(fileURL) else { return [] }
+        let entries = lines
+            .compactMap { try? JSONDecoder().decode(Entry.self, from: Data($0.utf8)) }
+            .filter { $0.type == "message" }
+
+        // 第一遍：助手消息里的 toolCall 块（携带名称与参数）。
+        var byID: [String: (name: String, arguments: String?)] = [:]
+        for entry in entries {
+            guard let message = entry.message, message.role == "assistant",
+                  case .blocks(let blocks)? = message.content else { continue }
+            for block in blocks where block.type == "toolCall" {
+                guard let id = block.id else { continue }
+                byID[id] = (block.name ?? "tool", block.arguments?.compactDescription)
+            }
+        }
+
+        // 第二遍：toolResult 条目（携带输出）。
         var result: [PiStoredToolCall] = []
-        for line in lines {
-            guard let entry = try? JSONDecoder().decode(Entry.self, from: Data(line.utf8)),
-                  entry.type == "message",
-                  let message = entry.message,
-                  message.role == "toolResult"
-            else { continue }
+        for entry in entries {
+            guard let message = entry.message, message.role == "toolResult" else { continue }
+            let id = message.toolCallId ?? UUID().uuidString
+            let block = byID[id]
             result.append(PiStoredToolCall(
-                toolCallID: message.toolCallId ?? UUID().uuidString,
-                name: message.toolName ?? "tool",
+                toolCallID: id,
+                name: message.toolName ?? block?.name ?? "tool",
+                arguments: block?.arguments,
                 output: message.content?.joinedText ?? "",
                 isError: message.isError ?? false,
                 timestamp: entry.timestamp.flatMap(parseDate) ?? .now

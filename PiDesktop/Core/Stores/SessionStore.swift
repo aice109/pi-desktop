@@ -107,6 +107,23 @@ final class SessionStore {
         await refreshState(for: session)
     }
 
+    /// 重命名会话：经 pi 的 `set_session_name` 写入，并同步本地标题。
+    func rename(_ session: Session, to name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        // 若为仅重命名而临时启动进程，完成后释放。
+        let wasActive = transports[session.id] != nil
+        _ = await ensureTransport(for: session)
+        guard let transport = transports[session.id], await transport.setSessionName(trimmed) else { return }
+        session.title = trimmed
+        if wasActive {
+            await refreshState(for: session)
+        } else {
+            deactivate(session)
+        }
+        onSessionPersisted?()
+    }
+
     /// 拉取并缓存该会话的状态与用量。
     private func refreshState(for session: Session) async {
         guard let transport = transports[session.id] else { return }

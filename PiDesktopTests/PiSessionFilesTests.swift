@@ -80,16 +80,19 @@ final class PiSessionFilesTests: XCTestCase {
         let url = try writeSession(named: "tools", lines: [
             #"{"type":"session","version":3,"id":"s4","timestamp":"2024-12-03T14:00:00.000Z","cwd":"/tmp/proj"}"#,
             #"{"type":"message","id":"b","parentId":null,"timestamp":"2024-12-03T14:00:02.000Z","message":{"role":"user","content":"list files"}}"#,
-            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","content":[{"type":"text","text":"README.md"}],"isError":false}}"#,
+            #"{"type":"message","id":"c","parentId":"b","timestamp":"2024-12-03T14:00:02.500Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"ls"}}]}}"#,
+            #"{"type":"message","id":"d","parentId":"c","timestamp":"2024-12-03T14:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","toolName":"bash","content":[{"type":"text","text":"README.md"}],"isError":false}}"#,
         ])
 
         let toolCalls = PiSessionFiles.toolCalls(in: url)
         XCTAssertEqual(toolCalls.count, 1)
         XCTAssertEqual(toolCalls.first?.toolCallID, "call_1")
         XCTAssertEqual(toolCalls.first?.name, "bash")
+        // 参数来自助手消息的 toolCall 块。
+        XCTAssertEqual(toolCalls.first?.arguments, "command: ls")
         XCTAssertEqual(toolCalls.first?.output, "README.md")
         XCTAssertEqual(toolCalls.first?.isError, false)
-        // 工具结果不应再作为消息出现。
+        // 工具结果/仅含 toolCall 的助手消息都不应作为消息出现。
         XCTAssertEqual(PiSessionFiles.messages(in: url).map(\.role), [.user])
     }
 

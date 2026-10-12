@@ -165,6 +165,16 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.store.state(for: fixture.session)?.model?.id, "m2")
     }
 
+    func test_rename_setsTitleAndCallsTransport() async throws {
+        let fixture = try makeFixture()
+        fixture.session.title = "Old"
+
+        await fixture.store.rename(fixture.session, to: "  New Name  ")
+
+        XCTAssertEqual(fixture.session.title, "New Name")
+        XCTAssertEqual(fixture.transport.sessionStateValue?.sessionName, "New Name")
+    }
+
     func test_settled_discoversPiSessionPathAndNotifies() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionStateValue = AgentSessionState(

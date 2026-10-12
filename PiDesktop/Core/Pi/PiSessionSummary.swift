@@ -50,6 +50,8 @@ nonisolated struct PiDisplayMessage: Sendable, Equatable {
 nonisolated struct PiStoredToolCall: Sendable, Equatable {
     var toolCallID: String
     var name: String
+    /// 参数文本；从助手消息的 `toolCall` 块取得，可能缺失。
+    var arguments: String?
     var output: String
     var isError: Bool
     var timestamp: Date

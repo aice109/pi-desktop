@@ -84,6 +84,15 @@ final class MockAgentTransport: AgentTransport, @unchecked Sendable {
         return true
     }
 
+    func setSessionName(_ name: String) async -> Bool {
+        state.withLock { current in
+            var updated = current ?? AgentSessionState()
+            updated.sessionName = name
+            current = updated
+        }
+        return true
+    }
+
     func sessionStats() async -> AgentUsage? {
         usage.withLock { $0 }
     }
