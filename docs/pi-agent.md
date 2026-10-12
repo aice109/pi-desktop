@@ -56,6 +56,12 @@ enum AgentEvent: Sendable, Equatable {
     case compactionStarted
     case compactionFinished(aborted: Bool, errorMessage: String?)
     case settled(aborted: Bool)          // agent_settled: no automatic work remains
+    case queueUpdated(AgentQueue)        // queue_update: pending steering/follow-up
+    case sessionInfoChanged(name: String?)     // session_info_changed
+    case thinkingLevelChanged(level: String)   // thinking_level_changed
+    case summarizationRetryStarted       // summarization_retry_*
+    case summarizationRetryFinished
+    case entryAppended                   // entry_appended: resync the mirror
     case failed(String)                  // transport failure
 }
 ```
@@ -99,7 +105,10 @@ fails the whole response and silently yields empty history.
 | `toolCallStarted` | Tool-call card (running) |
 | `toolCallUpdated` | Live output inside the card |
 | `toolCallFinished` | Card marked success/failure + duration |
-| `retryStarted` / `compactionStarted` | Status line shows "Retrying (n/m)…" / "Compacting context…" |
+| `retryStarted` / `compactionStarted` / `summarizationRetryStarted` | Status line shows "Retrying (n/m)…" / "Compacting context…" / "Summarizing…" |
+| `sessionInfoChanged` / `thinkingLevelChanged` | Sync the session title / thinking level changed outside the app |
+| `queueUpdated` | Pending steering / follow-up messages |
+| `entryAppended` | External tree change → reconcile the mirror when idle |
 | `failed` | Inline error |
 
 Rendering follows [design-system.md](design-system.md) (native components + glass). Tool calls are

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The agent event model now covers pi's queue and session-state events: `queue_update`,
+  `session_info_changed`, `thinking_level_changed`, `summarization_retry_*`, and `entry_appended`.
+  External renames and thinking-level changes now propagate to the UI, summarization retries show in
+  the status line, and an appended entry reconciles the local mirror when idle.
 - The chat now follows new output only while the user is at the bottom. Scrolling up pauses the
   follow and shows a glass "scroll to latest" button; tapping it resumes. The follow is intent-based,
   so streaming growth no longer stops it prematurely.

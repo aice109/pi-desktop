@@ -36,14 +36,35 @@ nonisolated enum AgentEvent: Sendable, Equatable {
     case compactionFinished(aborted: Bool, errorMessage: String?)
     /// 自动工作全部结束（`agent_settled`）。
     case settled(aborted: Bool)
+    /// 待处理队列变化（`queue_update`）：完整替换，不是增量。
+    case queueUpdated(AgentQueue)
+    /// 会话显示名变化（`session_info_changed`）；`nil` 表示被清除。
+    case sessionInfoChanged(name: String?)
+    /// 思考等级变化（`thinking_level_changed`，可能由扩展或 TUI 侧触发）。
+    case thinkingLevelChanged(level: String)
+    /// 压缩 / 分支摘要的重试开始。
+    case summarizationRetryStarted
+    /// 压缩 / 分支摘要的重试结束。
+    case summarizationRetryFinished
+    /// 会话树追加了新条目（扩展写入或分支变化），提示上层可重新同步历史。
+    case entryAppended
     /// 传输层失败（进程退出、读取错误等）。
     case failed(String)
+}
+
+/// 待处理的 steering / follow-up 消息（`queue_update`）。
+nonisolated struct AgentQueue: Sendable, Equatable {
+    var steering: [String] = []
+    var followUp: [String] = []
+
+    var isEmpty: Bool { steering.isEmpty && followUp.isEmpty }
 }
 
 /// 进行中的非阻塞活动（用于状态栏提示）。
 nonisolated enum AgentActivity: Sendable, Equatable {
     case retrying(attempt: Int, maxAttempts: Int)
     case compacting
+    case summarizing
 
     /// 状态栏文案。
     var displayText: String {
@@ -52,6 +73,8 @@ nonisolated enum AgentActivity: Sendable, Equatable {
             return maxAttempts > 1 ? "Retrying (\(attempt)/\(maxAttempts))…" : "Retrying…"
         case .compacting:
             return "Compacting context…"
+        case .summarizing:
+            return "Summarizing…"
         }
     }
 }

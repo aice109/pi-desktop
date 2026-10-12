@@ -36,6 +36,14 @@ nonisolated struct RPCRecord: Decodable {
     var errorMessage: String?
     var reason: String?
     var data: RPCDataDTO?
+    // queue_update
+    var steering: [String]?
+    var followUp: [String]?
+    // session_info_changed / thinking_level_changed
+    var name: String?
+    var level: String?
+    // summarization_retry_attempt_start
+    var source: String?
 }
 
 /// 工具执行结果（`result` / `partialResult`）；只取其中的文本内容。
@@ -246,6 +254,28 @@ nonisolated enum RPCProtocol {
 
         case "agent_settled":
             return .settled(aborted: record.aborted ?? false)
+
+        case "queue_update":
+            return .queueUpdated(AgentQueue(
+                steering: record.steering ?? [],
+                followUp: record.followUp ?? []
+            ))
+
+        case "session_info_changed":
+            return .sessionInfoChanged(name: record.name)
+
+        case "thinking_level_changed":
+            guard let level = record.level else { return nil }
+            return .thinkingLevelChanged(level: level)
+
+        case "summarization_retry_scheduled", "summarization_retry_attempt_start":
+            return .summarizationRetryStarted
+
+        case "summarization_retry_finished":
+            return .summarizationRetryFinished
+
+        case "entry_appended":
+            return .entryAppended
 
         default:
             return nil

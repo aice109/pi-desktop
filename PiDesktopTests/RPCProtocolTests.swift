@@ -93,6 +93,38 @@ final class RPCProtocolTests: XCTestCase {
         )
     }
 
+    func test_queueAndSessionStateEvents_mapToDomainEvents() {
+        XCTAssertEqual(
+            event(#"{"type":"queue_update","steering":["stop"],"followUp":["then test"]}"#),
+            .queueUpdated(AgentQueue(steering: ["stop"], followUp: ["then test"]))
+        )
+        XCTAssertEqual(
+            event(#"{"type":"session_info_changed","name":"my-feature"}"#),
+            .sessionInfoChanged(name: "my-feature")
+        )
+        XCTAssertEqual(
+            event(#"{"type":"session_info_changed"}"#),
+            .sessionInfoChanged(name: nil)
+        )
+        XCTAssertEqual(
+            event(#"{"type":"thinking_level_changed","level":"high"}"#),
+            .thinkingLevelChanged(level: "high")
+        )
+        XCTAssertEqual(event(#"{"type":"entry_appended"}"#), .entryAppended)
+    }
+
+    func test_summarizationRetry_mapsToEvents() {
+        XCTAssertEqual(
+            event(#"{"type":"summarization_retry_scheduled","attempt":1,"maxAttempts":3}"#),
+            .summarizationRetryStarted
+        )
+        XCTAssertEqual(
+            event(#"{"type":"summarization_retry_attempt_start","source":"compaction","reason":"threshold"}"#),
+            .summarizationRetryStarted
+        )
+        XCTAssertEqual(event(#"{"type":"summarization_retry_finished"}"#), .summarizationRetryFinished)
+    }
+
     func test_agentSettled_mapsAbortedFlag() {
         XCTAssertEqual(event(#"{"type":"agent_settled","aborted":false}"#), .settled(aborted: false))
         XCTAssertEqual(event(#"{"type":"agent_settled","aborted":true}"#), .settled(aborted: true))

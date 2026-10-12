@@ -96,6 +96,10 @@ enum AgentEvent: Sendable, Equatable {
 呈现遵循 [design-system.zh-CN.md](design-system.zh-CN.md)（原生组件 + 玻璃）。工具调用会持久化并渲染为
 卡片（见 [ADR-0006](decisions/0006-tool-calls.zh-CN.md)）。
 
+事件模型（领域事件，见 `Core/Agent/AgentEvent.swift`）还包括：`queueUpdated`（待处理队列）、
+`sessionInfoChanged` / `thinkingLevelChanged`（外部改动同步）、`summarizationRetry*`（摘要重试）、
+`entryAppended`（会话树被外部追加，空闲时重新校准镜像）。
+
 当前实时可用：流式助手文本（Markdown）、思考区（实时 + 持久化）、工具调用卡片。pi 进程退出时，
 传输层会释放句柄并在下一条命令时重新拉起；被打断的回合仍不会自动重试。
 

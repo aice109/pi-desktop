@@ -243,6 +243,39 @@ final class SessionStoreTests: XCTestCase {
         await waitUntil { fixture.store.activity(for: fixture.session) == nil }
     }
 
+    func test_queueUpdate_isExposed() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+        XCTAssertTrue(fixture.store.queued(for: fixture.session).isEmpty)
+
+        fixture.transport.emit(.queueUpdated(AgentQueue(steering: ["stop"], followUp: ["then test"])))
+        await waitUntil { fixture.store.queued(for: fixture.session).steering == ["stop"] }
+
+        XCTAssertEqual(fixture.store.queued(for: fixture.session).followUp, ["then test"])
+    }
+
+    func test_sessionInfoChanged_updatesTitle() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.activate(fixture.session)
+
+        fixture.transport.emit(.sessionInfoChanged(name: "renamed by pi"))
+        await waitUntil { fixture.session.title == "renamed by pi" }
+
+        XCTAssertEqual(fixture.session.title, "renamed by pi")
+    }
+
+    func test_thinkingLevelChanged_updatesState() async throws {
+        let fixture = try makeFixture()
+        fixture.transport.sessionStateValue = AgentSessionState(thinkingLevel: "low")
+        await fixture.store.activate(fixture.session)
+        XCTAssertEqual(fixture.store.state(for: fixture.session)?.thinkingLevel, "low")
+
+        fixture.transport.emit(.thinkingLevelChanged(level: "high"))
+        await waitUntil { fixture.store.state(for: fixture.session)?.thinkingLevel == "high" }
+
+        XCTAssertEqual(fixture.store.state(for: fixture.session)?.thinkingLevel, "high")
+    }
+
     func test_settled_discoversPiSessionPathAndNotifies() async throws {
         let fixture = try makeFixture()
         fixture.transport.sessionStateValue = AgentSessionState(

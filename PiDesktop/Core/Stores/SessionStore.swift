@@ -41,8 +41,10 @@ final class SessionStore {
     private var states: [UUID: AgentSessionState] = [:]
     /// 每个会话的用量与上下文占用。
     private var usage: [UUID: AgentUsage] = [:]
-    /// 每个会话的进行中活动（重试 / 压缩）。
+    /// 每个会话的进行中活动（重试 / 压缩 / 摘要）。
     private var activities: [UUID: AgentActivity] = [:]
+    /// 每个会话待处理的 steering / follow-up 队列（`queue_update`）。
+    private var queues: [UUID: AgentQueue] = [:]
     /// 每个会话已应用的历史指纹，用于跳过无变化的重建。
     private var historyFingerprints: [UUID: PiHistoryFingerprint] = [:]
     /// 正在激活（加载历史 / 启动传输 / 读取状态）的会话，用于展示等待动画。
@@ -91,8 +93,11 @@ final class SessionStore {
     /// 该会话的用量与上下文占用。
     func usage(for session: Session) -> AgentUsage? { usage[session.id] }
 
-    /// 该会话正在进行的活动（重试 / 压缩），用于状态栏提示。
+    /// 该会话正在进行的活动（重试 / 压缩 / 摘要），用于状态栏提示。
     func activity(for session: Session) -> AgentActivity? { activities[session.id] }
+
+    /// 该会话待处理的 steering / follow-up 消息（对应 pi 的 `queue_update`）。
+    func queued(for session: Session) -> AgentQueue { queues[session.id] ?? AgentQueue() }
 
     /// 打开会话：先用会话文件快速填充历史，再启动传输、加载状态，最后用 pi 校准。
     func activate(_ session: Session) async {
@@ -197,6 +202,7 @@ final class SessionStore {
         states.removeValue(forKey: session.id)
         usage.removeValue(forKey: session.id)
         activities.removeValue(forKey: session.id)
+        queues.removeValue(forKey: session.id)
         historyFingerprints.removeValue(forKey: session.id)
         Task { await transport.shutdown() }
     }
@@ -288,6 +294,7 @@ final class SessionStore {
         states.removeAll()
         usage.removeAll()
         activities.removeAll()
+        queues.removeAll()
         historyFingerprints.removeAll()
         activating.removeAll()
     }
@@ -373,6 +380,31 @@ final class SessionStore {
 
         case .compactionFinished:
             activities[sessionID] = nil
+
+        case .queueUpdated(let queue):
+            queues[sessionID] = queue
+
+        case .sessionInfoChanged(let name):
+            // 外部（pi 自动命名、扩展、TUI）改了会话名，同步到侧栏标题。
+            if let name, !name.isEmpty { openSessions[sessionID]?.title = name }
+
+        case .thinkingLevelChanged(let level):
+            if var state = states[sessionID] {
+                state.thinkingLevel = level
+                states[sessionID] = state
+            }
+
+        case .summarizationRetryStarted:
+            activities[sessionID] = .summarizing
+
+        case .summarizationRetryFinished:
+            activities[sessionID] = nil
+
+        case .entryAppended:
+            // 会话树被外部追加（扩展写入等）：空闲时重新校准本地镜像。
+            if let session = openSessions[sessionID] {
+                Task { await syncHistory(for: session) }
+            }
 
         case .settled:
             finish(sessionID: sessionID)
