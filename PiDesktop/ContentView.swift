@@ -17,6 +17,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(WorkspaceStore.self) private var workspaceStore
     @Environment(SessionStore.self) private var sessionStore
+    @Environment(AppSettingsStore.self) private var appSettings
 
     /// 侧栏选中项：pi 会话文件路径。
     @State private var selection: URL?
@@ -53,6 +54,9 @@ struct ContentView: View {
                 Button("Cancel", role: .cancel) {}
             } message: { summary in
                 Text(summary.displayTitle)
+            }
+            .onChange(of: workspaceStore.sessions) { _, sessions in
+                restoreLastSessionIfNeeded(in: sessions)
             }
             .sheet(item: $renaming) { summary in
                 RenameSessionSheet(initialName: summary.name ?? summary.displayTitle) { newName in
@@ -153,7 +157,7 @@ struct ContentView: View {
                         .contextMenu {
                             Button("Rename…") { renaming = summary }
                             Divider()
-                            Button("Move to Trash", role: .destructive) { pendingDeletion = summary }
+                            Button("Move to Trash", role: .destructive) { requestDelete(summary) }
                         }
                 }
             }
@@ -193,9 +197,31 @@ struct ContentView: View {
         selection = nil
     }
 
-    /// 打开已有 pi 会话。
+    /// 打开 pi 会话。
     private func open(_ summary: PiSessionSummary) {
+        // 记住位置，供启动恢复（ADR-0008）。
+        appSettings.lastSessionPath = summary.fileURL.path
         activate(openSession(for: summary))
+    }
+
+    /// 启动（或切换工作区）后恢复上次打开的会话；找不到则忽略。
+    private func restoreLastSessionIfNeeded(in sessions: [PiSessionSummary]) {
+        guard appSettings.restoreLastSession,
+              selection == nil, opened == nil,
+              let path = appSettings.lastSessionPath,
+              let summary = sessions.first(where: { $0.fileURL.path == path })
+        else { return }
+        selection = summary.fileURL
+        open(summary)
+    }
+
+    /// 删除请求：按偏好决定是否二次确认。
+    private func requestDelete(_ summary: PiSessionSummary) {
+        if appSettings.confirmDeletion {
+            pendingDeletion = summary
+        } else {
+            delete(summary)
+        }
     }
 
     /// 切换当前会话，并释放上一个以释放闲置的 pi 进程。
@@ -393,5 +419,6 @@ private struct RenameSessionSheet: View {
     return ContentView()
         .environment(workspaceStore)
         .environment(sessionStore)
+        .environment(AppSettingsStore(defaults: UserDefaults(suiteName: "ContentViewPreview") ?? .standard))
         .modelContainer(container)
 }

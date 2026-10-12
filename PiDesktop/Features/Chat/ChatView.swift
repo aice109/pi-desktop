@@ -13,6 +13,7 @@ import AppKit
 struct ChatView: View {
     let session: Session
     @Environment(SessionStore.self) private var store
+    @Environment(AppSettingsStore.self) private var appSettings
     @State private var draft = ""
     @State private var models: [AgentModel] = []
 
@@ -102,10 +103,10 @@ struct ChatView: View {
         .help("Thinking Level")
     }
 
-    /// 底栏：上下文占用 / 累计 token / 费用。
+    /// 底栏：上下文占用 / 累计 token / 费用（可在偏好设置中关闭）。
     @ViewBuilder
     private var usageFooter: some View {
-        if let usage = store.usage(for: session) {
+        if appSettings.showUsageFooter, let usage = store.usage(for: session) {
             HStack(spacing: 12) {
                 if let percent = usage.contextPercent {
                     Label("\(percent.formatted(.number.precision(.fractionLength(0))))% context", systemImage: "gauge.with.dots.needle.33percent")
@@ -471,5 +472,6 @@ private extension MessageRole {
     let store = SessionStore(container: container, makeTransport: { _, _ in MockAgentTransport() })
     return NavigationStack { ChatView(session: session) }
         .environment(store)
+        .environment(AppSettingsStore(defaults: UserDefaults(suiteName: "ChatViewPreview") ?? .standard))
         .modelContainer(container)
 }

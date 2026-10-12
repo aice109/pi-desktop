@@ -17,11 +17,13 @@ struct PiDesktopApp: App {
     private let modelContainer: ModelContainer
     @State private var sessionStore: SessionStore
     @State private var workspaceStore: WorkspaceStore
+    @State private var appSettings: AppSettingsStore
 
     init() {
         let container = Self.makeModelContainer()
         modelContainer = container
         let workspace = WorkspaceStore()
+        let settings = AppSettingsStore()
         // 生产环境用真实 pi 子进程；会话由 pi 持久化到工作目录对应的会话目录。
         let sessions = SessionStore(
             container: container,
@@ -33,6 +35,7 @@ struct PiDesktopApp: App {
         sessions.onSessionPersisted = { workspace.refresh() }
         _workspaceStore = State(initialValue: workspace)
         _sessionStore = State(initialValue: sessions)
+        _appSettings = State(initialValue: settings)
     }
 
     var body: some Scene {
@@ -40,8 +43,17 @@ struct PiDesktopApp: App {
             ContentView()
                 .environment(sessionStore)
                 .environment(workspaceStore)
+                .environment(appSettings)
+                .preferredColorScheme(appSettings.appearance.colorScheme)
         }
         .modelContainer(modelContainer)
+
+        // 偏好设置窗口（⌘,）。外观需同样应用，否则设置窗不会跟随。
+        Settings {
+            SettingsView()
+                .environment(appSettings)
+                .preferredColorScheme(appSettings.appearance.colorScheme)
+        }
     }
 
     /// 创建全局 SwiftData 容器。
@@ -49,7 +61,7 @@ struct PiDesktopApp: App {
     /// 容器是应用的硬依赖，创建失败意味着 schema 或存储配置有误；带着半残状态启动
     /// 只会制造更难排查的问题，因此启动时明确崩溃（`coding-conventions.md` §7）。
     private static func makeModelContainer() -> ModelContainer {
-        // 领域模型见 ADR-0004 / ADR-0006；AppSettings 待后续 ADR 补充。
+        // 领域模型见 ADR-0004 / ADR-0006；偏好存于 `UserDefaults`（ADR-0008），不入 schema。
         let schema = Schema([Session.self, Message.self, ToolCall.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
