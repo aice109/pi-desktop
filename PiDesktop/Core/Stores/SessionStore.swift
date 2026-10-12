@@ -66,6 +66,14 @@ final class SessionStore {
         streaming[session.id] != nil
     }
 
+    /// 该工具调用当前是否仍在执行。
+    ///
+    /// 以 `runningTools` 为准：历史导入的工具调用从未产生开始事件，因此不会出现在其中，
+    /// 只能视为已完成——哪怕它没有 `durationMs`（pi 只在实时结束事件里给出耗时）。
+    func isRunningTool(_ toolCallID: String) -> Bool {
+        runningTools[toolCallID] != nil
+    }
+
     /// 该会话当前累积的思考内容（仅流式期间有值）。
     func reasoning(in session: Session) -> String? {
         guard let text = streaming[session.id]?.thinking, !text.isEmpty else { return nil }
@@ -127,33 +135,43 @@ final class SessionStore {
     ///
     /// 全部本地内容都来自 pi，因此整体替换是安全的；先摘除关系再删除，
     /// 避免数组里残留已删除对象。
+    ///
+    /// 性能关键：新建的对象必须先用 `modelContext.insert` 注册，再一次性赋值关系数组。
+    /// 直接把未注册的对象塞进关系里，SwiftData 会在关系解析时逐个插入并触发 O(n²) 开销；
+    /// 长会话（数千条）下会卡住主线程数十秒（曾有 6000 条耗时 32s，改为预注册后 ~0.1s）。
     private func replaceHistory(of session: Session, with history: PiHistory) {
         let messages = session.messages
-        session.messages.removeAll()
-        for message in messages { modelContext.delete(message) }
-
         let toolCalls = session.toolCalls
-        session.toolCalls.removeAll()
+        session.messages = []
+        session.toolCalls = []
+        for message in messages { modelContext.delete(message) }
         for toolCall in toolCalls { modelContext.delete(toolCall) }
 
-        for message in history.messages {
-            session.append(Message(
+        let newMessages = history.messages.map { message in
+            Message(
                 role: message.role,
                 content: message.text,
                 thinking: message.thinking,
                 createdAt: message.timestamp
-            ))
+            )
         }
-        for toolCall in history.toolCalls {
-            session.record(ToolCall(
+        let newToolCalls = history.toolCalls.map { toolCall in
+            ToolCall(
                 toolCallID: toolCall.toolCallID,
                 name: toolCall.name,
                 arguments: toolCall.arguments,
                 output: toolCall.output,
                 isError: toolCall.isError,
                 createdAt: toolCall.timestamp
-            ))
+            )
         }
+        for message in newMessages { modelContext.insert(message) }
+        for toolCall in newToolCalls { modelContext.insert(toolCall) }
+        session.messages = newMessages
+        session.toolCalls = newToolCalls
+        // 批量赋值不会像 `append`/`record` 那样刷新 `updatedAt`，这里补上最近活动时间。
+        let timestamps = history.messages.map(\.timestamp) + history.toolCalls.map(\.timestamp)
+        if let latest = timestamps.max() { session.updatedAt = latest }
     }
 
     /// 关闭会话：非流式时释放其传输，避免闲置进程累积。

@@ -94,6 +94,11 @@ On open the mirror is **reconciled** with pi instead of being filled once: `Sess
 reads the session file first (fast, offline) and then `get_entries` over RPC, skipping the rebuild when
 the content is unchanged ([ADR-0009](decisions/0009-history-sync.md)).
 
+The rebuild inserts `Message` / `ToolCall` rows in bulk: new objects are registered with the
+`ModelContext` first and then assigned to the relationship in one shot. Building the relationship
+with unregistered objects (or appending one by one) is O(n²) in SwiftData and blocks the main actor
+for tens of seconds on a long history.
+
 ## Data model
 
 **Implemented** ([ADR-0004](decisions/0004-domain-model.md), [ADR-0006](decisions/0006-tool-calls.md)):

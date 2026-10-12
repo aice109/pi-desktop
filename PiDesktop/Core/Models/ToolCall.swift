@@ -48,7 +48,4 @@ final class ToolCall {
         self.durationMs = durationMs
         self.createdAt = createdAt
     }
-
-    /// 是否仍在运行（尚未收到结束事件）。
-    var isRunning: Bool { durationMs == nil && !isError && output == nil }
 }

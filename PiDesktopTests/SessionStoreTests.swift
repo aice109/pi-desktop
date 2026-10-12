@@ -117,6 +117,7 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.store.activeToolName, "bash")
         XCTAssertEqual(fixture.session.toolCalls.first?.arguments, "command: ls")
         XCTAssertNil(fixture.session.toolCalls.first?.durationMs)
+        XCTAssertTrue(fixture.store.isRunningTool("call_1"))
 
         fixture.transport.emit(.toolCallUpdated(id: "call_1", output: "partial"))
         await waitUntil { fixture.session.toolCalls.first?.output == "partial" }
@@ -126,6 +127,7 @@ final class SessionStoreTests: XCTestCase {
         ))
         await waitUntil { fixture.session.toolCalls.first?.durationMs == 12 }
         XCTAssertEqual(fixture.session.toolCalls.first?.output, "done")
+        XCTAssertFalse(fixture.store.isRunningTool("call_1"))
         XCTAssertNil(fixture.store.activeToolName)
 
         fixture.transport.emit(.settled(aborted: false))
@@ -254,6 +256,31 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.session.toolCalls.count, 1)
         XCTAssertEqual(fixture.session.toolCalls.first?.arguments, "command: ls")
         XCTAssertEqual(fixture.session.toolCalls.first?.output, "AGENTS.md")
+        // 历史工具仅有 output、没有 durationMs；不能据此判定它仍在运行，
+        // 否则工具卡片会永远转圈（长会话尤其明显）。
+        XCTAssertFalse(fixture.store.isRunningTool("call_1"))
+    }
+
+    /// 性能回归：长历史重建曾是 O(n²) 的 SwiftData 关系赋值（逐条注册/插入），
+    /// 数千条会卡住主线程数十秒（6000 条约 32s）。这里用宽松阈值兜底，
+    /// 防止退回逐条 `append` 的实现；修好后 6000 条约 0.1s。
+    func test_activate_longHistory_doesNotBlockForSeconds() async throws {
+        let fixture = try makeFixture()
+        let count = 6000
+        fixture.transport.sessionEntriesValue = (0..<count).map { index in
+            entry(
+                index.isMultiple(of: 2) ? "user" : "assistant",
+                .blocks([text("message \(index)")]),
+                timestamp: "2024-12-03T14:00:02.000Z"
+            )
+        }
+
+        let started = CFAbsoluteTimeGetCurrent()
+        await fixture.store.activate(fixture.session)
+        let elapsed = CFAbsoluteTimeGetCurrent() - started
+
+        XCTAssertEqual(fixture.session.messages.count, count)
+        XCTAssertLessThan(elapsed, 3, "长历史重建不得长时间阻塞主 actor")
     }
 
     func test_syncHistory_rebuildsOnlyWhenContentChanges() async throws {
