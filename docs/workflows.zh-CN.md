@@ -106,6 +106,21 @@ CI **已暂不启用**：`.github/workflows/ci.yml.disabled`（GitHub 只运行 
 ./scripts/make-dmg.sh --version 0.2.0 --output ./dist  # 覆盖版本号 / 输出目录
 ```
 
+### 开发版与发布版
+
+`Debug` 与 `Release` 使用**不同的 bundle identifier**，本地构建的 App 与已安装的发布版可以共存，
+既不会互相覆盖，也不共用数据：
+
+| Configuration | `PRODUCT_BUNDLE_IDENTIFIER` | `CFBundleDisplayName` |
+| --- | --- | --- |
+| Debug | `io.github.aice109.PiDesktop.dev` | `PiDesktop Dev` |
+| Release | `io.github.aice109.PiDesktop` | `PiDesktop` |
+
+SwiftData（`PiDesktopApp.swift` 中的默认 `ModelContainer`）与 `UserDefaults` 都按 bundle identifier
+隔离，两者各自持有 `~/Library/Containers/<bundle-id>/Data/Library/Application Support/` 下的数据。
+安装 DMG 不会影响开发数据，从 Xcode 运行也不会影响已发布版本的数据。两种配置的产物文件名都是
+`PiDesktop.app`，但只有 `Release`（DMG）用于拷贝到 `/Applications`。
+
 默认产物为 **ad-hoc 签名、未公证**：在开发者本机与内部测试中可用，但在其他 Mac 上首次打开会被
 Gatekeeper 拦截。这与许多通过 GitHub 分发的开源应用处于同一档——例如 Alacritty 发布的正是 ad-hoc、
 未公证的 DMG。

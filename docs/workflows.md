@@ -108,6 +108,22 @@ dependency) with the repo's [`.swift-format`](../.swift-format) config:
 ./scripts/make-dmg.sh --version 0.2.0 --output ./dist  # override version / destination
 ```
 
+### Dev builds vs. release builds
+
+`Debug` and `Release` use **different bundle identifiers**, so a locally built app and an installed
+release can live side by side without overwriting each other or sharing data:
+
+| Configuration | `PRODUCT_BUNDLE_IDENTIFIER` | `CFBundleDisplayName` |
+| --- | --- | --- |
+| Debug | `io.github.aice109.PiDesktop.dev` | `PiDesktop Dev` |
+| Release | `io.github.aice109.PiDesktop` | `PiDesktop` |
+
+SwiftData (the default `ModelContainer` in `PiDesktopApp.swift`) and `UserDefaults` are scoped by
+bundle identifier, so each configuration gets its own store under
+`~/Library/Containers/<bundle-id>/Data/Library/Application Support/`. Installing the DMG never
+touches dev data, and running from Xcode never touches the released app's data. Both configurations
+still produce `PiDesktop.app`; only `Release` (the DMG) is meant to be copied into `/Applications`.
+
 The default build is **ad-hoc signed and not notarized**. That is fine on the developer's own Mac and
 for internal testing, but on any other Mac Gatekeeper blocks the first launch. This is the same tier
 as many GitHub-distributed OSS apps — Alacritty, for example, ships an ad-hoc, un-notarized DMG.
