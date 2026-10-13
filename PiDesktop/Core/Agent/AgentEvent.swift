@@ -164,6 +164,8 @@ nonisolated struct AgentTreeNode: Sendable, Equatable, Identifiable {
     /// 是否为可 fork 的用户消息。
     var isUserMessage: Bool
     var children: [AgentTreeNode]
+    /// pi 在该条目上设置的标签 / 书签（`get_tree` 的 `label`）；无标签为 nil。
+    var label: String? = nil
 }
 
 /// 会话树快照（`get_tree`）。`roots` 可能多于一个（孤儿条目）。

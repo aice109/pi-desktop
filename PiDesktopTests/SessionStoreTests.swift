@@ -101,6 +101,18 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(fixture.assistantMessage?.content, "Hello!")
     }
 
+    /// `message_end` 是权威内容：即使没有任何增量（非流式返回）也要落盘。
+    func test_assistantMessageCompleted_withoutDeltas_persistsText() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(
+            .assistantMessageCompleted(text: "no stream", stopReason: "stop", errorMessage: nil))
+        await waitUntil { fixture.assistantMessage?.content == "no stream" }
+
+        XCTAssertEqual(fixture.assistantMessage?.content, "no stream")
+    }
+
     func test_settledWithNoContent_removesEmptyAssistantMessage() async throws {
         let fixture = try makeFixture()
         await fixture.store.send("hi", in: fixture.session)
@@ -807,6 +819,8 @@ final class SessionStoreTests: XCTestCase {
     func test_syncHistory_isSkippedWhileStreaming() async throws {
         let fixture = try makeFixture()
         await fixture.store.send("hi", in: fixture.session)
+        fixture.transport.emit(.textDelta("partial"))
+        await waitUntil { fixture.assistantMessage?.content == "partial" }
         fixture.transport.sessionEntriesValue = [
             entry("user", .blocks([text("from pi")]), timestamp: "2024-12-03T14:00:02.000Z")
         ]
@@ -814,7 +828,30 @@ final class SessionStoreTests: XCTestCase {
         await fixture.store.syncHistory(for: fixture.session)
 
         // 流式期间不能抹掉进行中的本地消息。
-        XCTAssertEqual(fixture.session.messages.map(\.content), ["hi", ""])
+        XCTAssertEqual(fixture.session.messages.map(\.content), ["hi", "partial"])
+    }
+
+    /// 工具调用把一轮助手输出隔成多段：每段单独成条，最终总结排在工具调用之后。
+    func test_streamingText_afterToolCall_startsNewAssistantMessage() async throws {
+        let fixture = try makeFixture()
+        await fixture.store.send("hi", in: fixture.session)
+
+        fixture.transport.emit(.textDelta("let me check"))
+        fixture.transport.emit(
+            .assistantMessageCompleted(text: "let me check", stopReason: "toolUse", errorMessage: nil))
+        fixture.transport.emit(.toolCallStarted(id: "call_1", name: "bash", arguments: "command: ls"))
+        await waitUntil { fixture.session.toolCalls.count == 1 }
+        fixture.transport.emit(.textDelta("all done"))
+        fixture.transport.emit(
+            .assistantMessageCompleted(text: "all done", stopReason: "stop", errorMessage: nil))
+        fixture.transport.emit(.settled(aborted: false))
+        await waitUntil { !fixture.store.isStreaming(fixture.session) }
+
+        let assistants = fixture.session.messages.filter { $0.role == .assistant }
+        XCTAssertEqual(assistants.map(\.content), ["let me check", "all done"])
+        // 顺序关键：第一段在工具调用之前，最终总结在工具调用之后。
+        XCTAssertLessThan(assistants[0].createdAt, fixture.session.toolCalls[0].createdAt)
+        XCTAssertGreaterThan(assistants[1].createdAt, fixture.session.toolCalls[0].createdAt)
     }
 
     // MARK: - Helpers

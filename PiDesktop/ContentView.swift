@@ -25,6 +25,8 @@ struct ContentView: View {
     /// 当前打开的领域会话。
     @State private var opened: Session?
     @State private var isPickingFolder = false
+    /// 工作区切换浮层（点项目卡片弹出）的开关。
+    @State private var isShowingWorkspaceMenu = false
     @State private var searchText = ""
     /// 待确认删除的会话（移到废纸篓）。
     @State private var pendingDeletion: PiSessionSummary?
@@ -158,7 +160,16 @@ struct ContentView: View {
             workspaceBar
             sessionList
         }
-        .navigationSplitViewColumnWidth(min: 240, ideal: 280)
+        // 硬性最小宽度：内容永不被裁切，同时让分隔条拖不到更窄。
+        // 低于此宽度时 `NSSplitView` 会直接折叠侧栏（原生行为，见 `DesignTokens.Layout.sidebarWidth`）。
+        .frame(minWidth: DesignTokens.Layout.sidebarWidth)
+        // 再把原生侧栏项的 `minimumThickness` 钉到同一宽度：`.navigationSplitViewColumnWidth(min:)`
+        // 并不总能写入它（系统默认仍是侧栏标准最小值），否则折叠前还会向内滑几个点。
+        .background(SidebarSplitItemConfigurator(minimumWidth: DesignTokens.Layout.sidebarWidth))
+        .navigationSplitViewColumnWidth(
+            min: DesignTokens.Layout.sidebarWidth,
+            ideal: DesignTokens.Layout.sidebarWidth
+        )
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search sessions")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -175,19 +186,43 @@ struct ContentView: View {
         }
     }
 
-    /// 顶部工作区信息条：文件夹徽标 + 目录名/路径 + 工作区菜单。
+    /// 顶部工作区卡片：文件夹徽标 + 项目名 + 缩写路径 + 展开指示。
+    ///
+    /// 整张卡片是一个按钮，点击弹出工作区切换浮层（最近项目 / 选择文件夹 / 关闭工作区）。
+    /// 用卡片而不是普通菜单标签，是为了让「当前项目」在侧栏里足够醒目；右侧圆圈里的
+    /// 上下 chevron 明确提示可点。路径统一走 `PathDisplay` 缩写家目录。
     private var workspaceBar: some View {
-        HStack(spacing: 10) {
+        Button {
+            isShowingWorkspaceMenu.toggle()
+        } label: {
+            workspaceCard
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isShowingWorkspaceMenu) {
+            workspaceMenu
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+    }
+
+    /// 卡片内容：徽标 + 文本 + 加载指示 + chevron。
+    private var workspaceCard: some View {
+        HStack(spacing: 12) {
             Image(systemName: "folder.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.tint)
-                .frame(width: 28, height: 28)
-                .background(.tint.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
-            VStack(alignment: .leading, spacing: 1) {
+                .frame(width: 40, height: 40)
+                .background(
+                    .tint.opacity(0.14),
+                    in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card, style: .continuous)
+                )
+            VStack(alignment: .leading, spacing: 2) {
                 Text(workspaceStore.workspace?.lastPathComponent ?? "")
                     .font(.headline)
                     .lineLimit(1)
-                Text(workspaceStore.workspace?.path ?? "")
+                    .truncationMode(.middle)
+                Text(PathDisplay.abbreviated(workspaceStore.workspace))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -197,26 +232,86 @@ struct ContentView: View {
             if workspaceStore.isLoading {
                 ProgressView().controlSize(.small)
             }
-            Menu {
-                Button("Choose Folder…") { isPickingFolder = true }
-                if !workspaceStore.recentWorkspaces.isEmpty {
-                    Divider()
+            // 明确的「可展开」提示：独立的圆形 chevron。
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+                .background(.quaternary.opacity(0.5), in: Circle())
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: DesignTokens.Radius.control))
+        .contentShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.control, style: .continuous))
+    }
+
+    /// 工作区切换浮层：分组标题 + 最近项目列表 + 底部操作。
+    ///
+    /// 用自绘的行按钮（悬停高亮、当前项着色并打勾）而不是 `List`/`Menu`，
+    /// 是因为系统列表在浮层里会带多余内边距与描边，与玻璃卡片不搭。
+    private var workspaceMenu: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !workspaceStore.recentWorkspaces.isEmpty {
+                Text("Recent Projects")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 12)
+                    .padding(.bottom, 5)
+
+                VStack(spacing: 1) {
                     ForEach(workspaceStore.recentWorkspaces, id: \.self) { url in
-                        Button(url.path) { selectWorkspace(url) }
+                        WorkspaceMenuButton(
+                            title: url.lastPathComponent,
+                            subtitle: PathDisplay.abbreviated(url.path),
+                            systemImage: "folder.fill",
+                            isCurrent: url.path == workspaceStore.workspace?.path
+                        ) {
+                            selectWorkspace(url)
+                            isShowingWorkspaceMenu = false
+                        }
                     }
                 }
+                .padding(.horizontal, 8)
+
                 Divider()
-                Button("Close Workspace") { closeWorkspace() }
-            } label: {
-                Image(systemName: "ellipsis.circle")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+            } else {
+                Spacer(minLength: 10)
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Workspace")
+
+            VStack(spacing: 1) {
+                WorkspaceMenuButton(
+                    title: String(localized: "Choose Folder…"),
+                    systemImage: "folder.badge.plus",
+                    action: chooseWorkspaceFolder
+                )
+                WorkspaceMenuButton(
+                    title: String(localized: "Close Workspace"),
+                    systemImage: "xmark.circle",
+                    role: .destructive,
+                    action: closeWorkspaceFromMenu
+                )
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 8)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+        .frame(width: 292)
+    }
+
+    /// 从浮层里选择文件夹：先收起浮层，待其关闭后再弹系统文件选择器，避免同层争用。
+    private func chooseWorkspaceFolder() {
+        isShowingWorkspaceMenu = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            isPickingFolder = true
+        }
+    }
+
+    private func closeWorkspaceFromMenu() {
+        isShowingWorkspaceMenu = false
+        closeWorkspace()
     }
 
     private var sessionList: some View {
@@ -467,6 +562,115 @@ struct ContentView: View {
             get: { pendingDeletion != nil },
             set: { if !$0 { pendingDeletion = nil } }
         )
+    }
+}
+
+/// 工作区浮层里的一行：图标 + 标题（+ 可选副标题），悬停高亮、可整行点击。
+///
+/// 当前项目常驻淡色底并显示勾选；关闭工作区用 destructive 角色渲染成红色。
+private struct WorkspaceMenuButton: View {
+    let title: String
+    var subtitle: String?
+    let systemImage: String
+    var isCurrent = false
+    var role: ButtonRole?
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(role: role, action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(iconStyle)
+                    .frame(width: 22, height: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.callout.weight(isCurrent ? .semibold : .regular))
+                        .foregroundStyle(titleStyle)
+                        .lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+                Spacer(minLength: 4)
+                if isCurrent {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tint)
+                }
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(backgroundStyle, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        // 悬停反馈：`plain` 按钮默认没有底色，这里补一个语义化的浅底。
+        .onHover { isHovering = $0 }
+    }
+
+    /// 图标：关闭操作走红色警示，当前项目用主题色，其余次级色。
+    private var iconStyle: AnyShapeStyle {
+        if role == .destructive { return AnyShapeStyle(.red) }
+        return isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary)
+    }
+
+    private var titleStyle: AnyShapeStyle {
+        role == .destructive ? AnyShapeStyle(.red) : AnyShapeStyle(.primary)
+    }
+
+    /// 底色优先级：当前项目 > 悬停 > 透明。
+    private var backgroundStyle: AnyShapeStyle {
+        if isCurrent { return AnyShapeStyle(.tint.opacity(0.12)) }
+        return isHovering ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear)
+    }
+}
+
+/// 把侧栏内容所在的原生 `NSSplitViewItem` 的 `minimumThickness` 对齐到固定宽度。
+///
+/// `NavigationSplitView` 由 AppKit 的 `NSSplitViewController` 撑起，侧栏项默认的
+/// `minimumThickness` 是系统侧栏最小值（约 140）。仅靠 `.frame(minWidth:)` 约束内容时，
+/// 分隔条在折叠前仍能向内滑动一两个点，视觉上就是「侧栏先缩短一点点再收起」。
+/// 这里从侧栏内容向上找到该 split view，直接把 `minimumThickness` 设为固定宽度，
+/// 让侧栏在折叠前保持精确宽度。找不到时安静跳过，不影响原有布局。
+private struct SidebarSplitItemConfigurator: NSViewRepresentable {
+    let minimumWidth: CGFloat
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        view.isHidden = true
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        // 布局阶段视图尚未挂到窗口；放到下一轮 runloop 再配置。
+        DispatchQueue.main.async { configure(from: view) }
+    }
+
+    private func configure(from view: NSView) {
+        var current: NSView? = view.superview
+        while let candidate = current {
+            if let split = candidate as? NSSplitView,
+                let controller = split.delegate as? NSSplitViewController,
+                let sidebar = controller.splitViewItems.first
+            {
+                if sidebar.minimumThickness != minimumWidth {
+                    sidebar.minimumThickness = minimumWidth
+                }
+                if !sidebar.canCollapse {
+                    sidebar.canCollapse = true
+                }
+                return
+            }
+            current = candidate.superview
+        }
     }
 }
 

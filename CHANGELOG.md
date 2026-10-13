@@ -17,7 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fenced code blocks are syntax-colored by a small native tokenizer (comments, strings, numbers,
   keywords), with a per-code cache and no third-party dependency.
 - The Branch menu's "Show Tree…" renders the whole session tree (`get_tree`), including abandoned
-  branches, with the active leaf highlighted and a fork action on user nodes.
+  branches, with the active leaf highlighted, pi labels shown as bookmark chips, and a fork action on
+  user nodes. The tree is flattened into a single row array instead of recursive `OutlineGroup`s, and
+  the sheet loads it in the background so opening it is instant and never hangs.
+- A toolbar button toggles a right-side **Conversation Anchors** inspector (off by default, remembered in
+  Settings): one row per turn (number, prompt, and the conclusion's first line). Selecting a row scrolls
+  the conversation to that turn, reusing the search scroll target; anchors come from the local mirror,
+  so the list is available immediately.
 - Turns that finish while the app is in the background post a system notification, and any session that
   finished off-screen gets an unread dot in the sidebar (cleared when opened, kept across launches).
 - The agent event model now covers pi's queue and session-state events: `queue_update`,
@@ -106,6 +112,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over RPC, so turns made outside the app appear. Rebuilds are skipped when nothing changed.
 
 ### Changed
+- The sidebar's minimum width now matches its default open width (`DesignTokens.Layout.sidebarWidth`,
+  280pt) and is enforced with `.frame(minWidth:)` plus an AppKit bridge that pins the native sidebar split
+  item's `minimumThickness`, so the workspace card and session titles are never shown truncated (and the
+  divider no longer slips a few points before collapsing): dragging the divider inwards collapses the
+  sidebar to detail-only (native `NavigationSplitView`), while dragging outwards still widens it.
+- File paths in the sidebar and window subtitle are home-abbreviated (`~/Developer/PiDesktop`), and the
+  chat subtitle now hides when the session's working directory matches the current project, so the same
+  path is no longer shown in two places. The sidebar header is a large glass project-switcher card
+  (badge, project name, a circled chevron, and the abbreviated path) that opens a popover with recent
+  projects (the current one check-marked), "Choose Folder…", and "Close Workspace".
+- The message list ends with a small "end of conversation" marker (a hairline rule around an
+  `arrow.down.to.line` glyph) that doubles as bottom padding, and scroll indicators are inset from the
+  list edges so their caps are not clipped.
+- Each chat turn now renders one collapsible **process** section that gathers all of its intermediate
+  reasoning, tool calls, and mid-turn narration (collapsed by default, summarised with a step count
+  and the tools involved), leaving only the user message and the final conclusion visible.
 - `scripts/ci.sh` also runs `scripts/format.sh` (swift-format lint) before building, so style is
   enforced alongside the build and tests.
 - The main scene is a single `Window` instead of a `WindowGroup`, so the app-level stores (one
@@ -149,6 +171,16 @@ transport per session, a single visible-session id for unread/notifications) are
 - Template `Item` model.
 
 ### Fixed
+- Opening the session tree could freeze the app on long conversations: the recursive tree was rendered
+  with `OutlineGroup`, which nests one view per entry, and real sessions are linear chains hundreds of
+  entries deep. The tree is now flattened to a single-level `List` (`SessionTreeOutline.swift`), with
+  indentation only at real branch points, and the sheet loads its data asynchronously instead of
+  blocking the toolbar action.
+- The final answer could appear above the tool calls that produced it: a single assistant message was
+  created at send time and every streamed segment — including text emitted after tool calls — was
+  appended to it, so it sorted before those calls. Assistant output is now split per pi message
+  segment (the message is created lazily on the first delta and finalized at each `message_end`), so
+  the conclusion lands after the tools.
 - Manual compaction (and export / clone / fork) produced no on-screen feedback: the chat status area
   was rendered only while streaming, so an in-flight `compact` — or any of these one-shot operations —
   showed nothing at all. The status area now appears whenever a session has any in-flight work

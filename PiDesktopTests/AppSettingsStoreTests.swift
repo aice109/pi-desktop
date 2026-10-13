@@ -31,6 +31,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertNil(settings.appearance.colorScheme)
         XCTAssertTrue(settings.restoreLastSession)
         XCTAssertTrue(settings.showUsageFooter)
+        XCTAssertFalse(settings.showAnchorPanel)
         XCTAssertTrue(settings.confirmDeletion)
         XCTAssertNil(settings.lastSessionPath)
     }
@@ -40,6 +41,7 @@ final class AppSettingsStoreTests: XCTestCase {
         settings.appearance = .dark
         settings.restoreLastSession = false
         settings.showUsageFooter = false
+        settings.showAnchorPanel = true
         settings.confirmDeletion = false
         settings.lastSessionPath = "/tmp/session.jsonl"
 
@@ -48,6 +50,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.appearance.colorScheme, .dark)
         XCTAssertFalse(reloaded.restoreLastSession)
         XCTAssertFalse(reloaded.showUsageFooter)
+        XCTAssertTrue(reloaded.showAnchorPanel)
         XCTAssertFalse(reloaded.confirmDeletion)
         XCTAssertEqual(reloaded.lastSessionPath, "/tmp/session.jsonl")
     }
@@ -67,9 +70,11 @@ final class AppSettingsStoreTests: XCTestCase {
     func test_reset_restoresDefaults() {
         let settings = AppSettingsStore(defaults: defaults)
         settings.appearance = .light
+        settings.showAnchorPanel = true
         settings.confirmDeletion = false
         settings.reset()
         XCTAssertEqual(settings.appearance, .system)
+        XCTAssertFalse(settings.showAnchorPanel)
         XCTAssertTrue(settings.confirmDeletion)
         XCTAssertNil(settings.lastSessionPath)
     }

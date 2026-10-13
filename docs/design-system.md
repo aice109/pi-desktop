@@ -39,6 +39,17 @@ GlassEffectContainer(spacing: 16) {
 }
 ```
 
+### Layout tokens
+
+Sidebar sizing lives in `DesignTokens.Layout`: `sidebarWidth` (280pt) is both the default open width and
+the hard minimum. It is enforced twice: `.frame(minWidth: sidebarWidth)` keeps the content from ever
+being laid out truncated, and a small AppKit bridge (`SidebarSplitItemConfigurator`) walks up to the
+native `NSSplitViewController` and pins the sidebar item's `minimumThickness` to the same value (SwiftUI
+otherwise leaves it at the ~140pt system sidebar minimum, which let the divider slip a couple of points
+before collapsing). `navigationSplitViewColumnWidth(min:ideal:)` is pinned to the same value; the native
+split view then collapses the sidebar to detail-only when the divider is dragged inwards, while dragging
+outwards still widens it normally.
+
 Constraints:
 - Use glass in system-intended places (toolbars, overlays, cards, control backgrounds); don't stack it everywhere.
 - Never layer custom `Material`/blur/translucent gradients on top of glass.
@@ -86,11 +97,21 @@ Ask with:
 
 ### Sidebar
 
-- The workspace header is a tinted folder badge plus the directory name/path and the workspace menu;
-  the old hard divider is gone — the section header separates the list instead.
+- The workspace header is a large **glass card** (`.glassEffect`) that doubles as a project switcher: a
+  tinted folder badge, the project name, the home-abbreviated path (`~/Developer/PiDesktop`, via
+  `PathDisplay`), and a circled chevron that signals it is clickable. Clicking opens a popover listing
+  recent projects (the current one check-marked) plus "Choose Folder…" and "Close Workspace". The old
+  hard divider is gone — the section header separates the list instead.
+- The chat surface's window subtitle shows the working directory only when it differs from the current
+  project, so the path is never duplicated between the sidebar and the title bar.
 - Sessions live in a `.sidebar` `List` under a "Sessions" section header that also carries the count.
   Rows are one icon + title + a secondary line (relative time · message count) with a few points of
   vertical padding, so each row reads as its own target.
+- The sidebar has a fixed minimum width, the same as its default open width
+  (`DesignTokens.Layout.sidebarWidth`, 280pt), enforced by `.frame(minWidth:)` on the sidebar content
+  plus an AppKit bridge that pins the native sidebar split item's `minimumThickness`, so the workspace
+  card and session titles are never shown truncated. The native `NavigationSplitView` then collapses the
+  sidebar to detail-only when the divider is dragged inwards, while dragging outwards still widens it.
 - A turn that finishes while its session is not the visible one shows a tinted unread dot at the row's
   trailing edge; opening the session clears it. The same event posts a system notification
   (`UserNotifications`) when the app is in the background — see `Core/Notifications/TurnNotifier.swift`.
@@ -99,9 +120,14 @@ Ask with:
 
 - Messages live in a plain `List` with hidden row separators; consecutive messages from the same role
   share one header (role avatar + name) to cut visual noise.
-- The timeline is grouped into **turns** (a user message up to the next one). Only each turn's final
-  assistant text — the conclusion — stays expanded; reasoning, tool calls, and intermediate assistant
-  narration collapse behind `DisclosureGroup`s.
+- The timeline is grouped into **turns** (a user message up to the next one). Each turn renders the
+  user message, one **process** fold, then the turn's final assistant text — the conclusion. The fold
+  gathers every intermediate item (reasoning, tool calls, mid-turn narration) into a single
+  `DisclosureGroup`, collapsed by default and summarised with a step count plus the tools involved; the
+  conclusion therefore always sits *after* the tool calls.
+- Assistant output is split into one `Message` per agent message segment: text emitted after a tool
+  call starts a new message instead of being appended to the run's opening bubble, and each segment is
+  persisted when its `message_end` arrives (`SessionStore`).
 - Collapsed rows use a shared `DisclosureGroupStyle` (`RowDisclosureGroupStyle`): the whole header line
   is a button with `contentShape(Rectangle())`, so it is easy to hit, the chevron keeps the system look,
   and expanded content is indented instead of sitting flush against the edge.
@@ -124,6 +150,10 @@ Ask with:
   appear under the status line with a "Clear Queued" link that restores their text to the composer.
 - A toolbar magnifier opens a search popover over the conversation; results match message text and tool
   arguments/output, and selecting one scrolls the message list to that row.
+- A toolbar button toggles a right-side **Conversation Anchors** inspector (`.inspector`, off by default
+  and remembered in Settings). It lists one row per turn (a numbered badge, the user prompt, and the
+  conclusion's first line); selecting a row scrolls to that turn, reusing the same scroll-target path as
+  search. Anchors are derived from the local mirror, so the list appears instantly.
 - The toolbar has a Context menu (`arrow.down.right.and.arrow.up.left`): "Compact Now", "Compact with
   Instructions…" (a small sheet), an Auto-compaction `Toggle` bound to `get_state`, and an Auto-retry
   `Toggle`. The status area is shown whenever a session has any in-flight work — streaming, compacting,
@@ -134,7 +164,11 @@ Ask with:
   Message…"; the latter opens a sheet listing forkable user messages. Selecting one forks and puts the
   original text back in the composer, so the same flow doubles as edit-and-resend. The menu also has
   "Show Tree…", rendering the full session tree (`get_tree`) — abandoned branches included — with the
-  active leaf highlighted and a Fork action on user nodes.
+  active leaf highlighted, pi labels shown as bookmark chips, and a Fork action on user nodes. The sheet
+  opens immediately and loads the tree in the background, and the tree is **flattened into one row
+  array** (`SessionTreeOutline.swift`) instead of a recursive `OutlineGroup`: real sessions are linear,
+  so recursion would nest one view per entry and hang on long conversations. Indentation only grows at
+  real branch points, so a linear chain stays flush instead of drifting off-screen.
 - A draft starting with `!` runs a direct shell command (nothing is sent to the model); a small
   "Running shell command…" row with an Abort link appears until it finishes.
 - Typing `/` in the composer shows an inline suggestion list of pi commands (extension / prompt /
@@ -152,6 +186,10 @@ Ask with:
   following. Following is **intent-based** (`isFollowingBottom`, updated from `onScrollGeometryChange`
   + `onScrollPhaseChange`) rather than a raw distance check, so streaming growth does not stop the
   follow just because the content got taller.
+- The scroll content ends with a lightweight marker — a hairline rule around an `arrow.down.to.line`
+  glyph — that also supplies the list's bottom breathing room, so the last message never sits flush
+  against the composer. Scroll indicators carry a small content margin (`.scrollIndicators`) so their
+  caps are not clipped by the list edges.
 - Opening a session shows a glass loading card (`ProgressView` + `.glassEffect`) until the mirrored
   history first renders; `SessionStore.isLoading(_:)` exposes the state for the duration of `activate`.
 - Slow user-triggered operations (compact, export, clone, fork, copy last response) report their

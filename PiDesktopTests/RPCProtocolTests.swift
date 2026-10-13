@@ -195,7 +195,7 @@ final class RPCProtocolTests: XCTestCase {
 
     func test_getTreeResponse_mapsToDomainTree() {
         let json =
-            #"{"id":"r1","type":"response","command":"get_tree","success":true,"data":{"tree":[{"entry":{"type":"message","id":"e1","parentId":null,"message":{"role":"user","content":[{"type":"text","text":"hi"}]}},"children":[{"entry":{"type":"message","id":"e2","parentId":"e1","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}},"children":[]}]}],"leafId":"e2"}}"#
+            #"{"id":"r1","type":"response","command":"get_tree","success":true,"data":{"tree":[{"entry":{"type":"message","id":"e1","parentId":null,"message":{"role":"user","content":[{"type":"text","text":"hi"}]}},"label":"checkpoint-1","children":[{"entry":{"type":"message","id":"e2","parentId":"e1","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}},"children":[]}]}],"leafId":"e2"}}"#
         guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
             return XCTFail("get_tree 响应应能解码")
         }
@@ -206,7 +206,23 @@ final class RPCProtocolTests: XCTestCase {
         XCTAssertEqual(roots[0].preview, "hi")
         XCTAssertEqual(roots[0].children.count, 1)
         XCTAssertEqual(roots[0].children[0].preview, "hello")
+        XCTAssertEqual(roots[0].label, "checkpoint-1")
         XCTAssertEqual(record.data?.leafId, "e2")
+    }
+
+    /// 真实 `get_tree` 报文含 `model_change` / `system`（带 `sections` 对象）等条目；
+    /// 未知字段必须被忽略，否则整条响应解码失败、会话树弹窗显示为空。
+    func test_getTreeResponse_withSystemAndModelChangeNodes_decodes() {
+        let json =
+            #"{"id":"r1","type":"response","command":"get_tree","success":true,"data":{"tree":[{"entry":{"type":"model_change","id":"m1","parentId":null,"provider":"deepseek","modelId":"deepseek-flash"},"children":[{"entry":{"type":"message","id":"m2","parentId":"m1","message":{"role":"system","content":"","sections":{"preamble":"You are an expert coding assistant."}}},"children":[]}]}],"leafId":"m2"}}"#
+        guard let data = json.data(using: .utf8), let record = RPCProtocol.decode(data) else {
+            return XCTFail("含 model_change / system 的 get_tree 响应应能解码")
+        }
+        let roots = (record.data?.tree ?? []).map(\.domain)
+        XCTAssertEqual(roots.count, 1)
+        XCTAssertEqual(roots[0].kind, "model_change")
+        XCTAssertEqual(roots[0].children.first?.role, "system")
+        XCTAssertEqual(record.data?.leafId, "m2")
     }
 
     func test_nullContent_decodesAsEmptyText() {

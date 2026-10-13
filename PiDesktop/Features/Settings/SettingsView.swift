@@ -37,12 +37,15 @@ struct SettingsView: View {
 
             Section {
                 Toggle("Show usage footer", isOn: $settings.showUsageFooter)
+                Toggle("Show anchor panel", isOn: $settings.showAnchorPanel)
             } header: {
                 Text("Chat")
             } footer: {
-                Text("Shows context usage, tokens, and cost under the composer.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "The usage footer shows context usage, tokens, and cost under the composer; the anchor panel lists turns on the right for quick navigation."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Section {

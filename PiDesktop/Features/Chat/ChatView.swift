@@ -15,6 +15,7 @@ struct ChatView: View {
     let session: Session
     @Environment(SessionStore.self) private var store
     @Environment(AppSettingsStore.self) private var appSettings
+    @Environment(WorkspaceStore.self) private var workspaceStore
     @State private var draft = ""
     /// 待发送的图片附件（ADR-0010）。
     @State private var attachments: [AgentImage] = []
@@ -25,8 +26,7 @@ struct ChatView: View {
     /// fork 选择弹窗的数据与开关。
     @State private var forkMessages: [AgentForkMessage] = []
     @State private var isChoosingFork = false
-    /// 分支结构总览（`get_tree`）。
-    @State private var sessionTree: AgentSessionTree?
+    /// 分支结构总览（`get_tree`）开关；树内容由弹窗自行加载，点击后即时弹出、不阻塞。
     @State private var isShowingTree = false
     /// 手动压缩（可带自定义指令）的弹窗。
     @State private var isCompactionPromptPresented = false
@@ -34,7 +34,11 @@ struct ChatView: View {
     /// 会话内搜索。
     @State private var isSearching = false
     @State private var searchQuery = ""
+    /// 对话锚点面板：当前选中的锚点（点选后跳转到对应回合）。
+    @State private var selectedAnchorID: UUID?
     @State private var scrollTarget: UUID?
+    /// 已展开「过程」区的回合 id；默认全部收起，只显示提问与最终结论。
+    @State private var expandedTurns: Set<UUID> = []
     /// 当前是否贴近底部（决定“回到底部”按钮是否出现）。
     @State private var isAtBottom = true
     /// 是否跟随底部：内容增长时自动滚动；用户主动上滑后暂停。
@@ -42,6 +46,8 @@ struct ChatView: View {
     /// 最近一次滚动阶段，用于区分用户滚动与程序滚动。
     @State private var scrollPhase: ScrollPhase = .idle
     @FocusState private var isComposerFocused: Bool
+    /// 会话末尾标记的稳定锚点：滚动到底时以它为目标，保证底部留白完整露出。
+    private static let bottomAnchorID = UUID()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,7 +67,7 @@ struct ChatView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: store.isLoading(session))
         .navigationTitle(session.title.isEmpty ? "Untitled Session" : session.title)
-        .navigationSubtitle(session.workingDirectory ?? "")
+        .navigationSubtitle(detailSubtitle)
         .task(id: session.id) {
             // 打开会话即激活 pi（懒启动），并加载模型列表。
             await store.activate(session)
@@ -70,7 +76,7 @@ struct ChatView: View {
         }
         .onAppear { isComposerFocused = true }
         .sheet(isPresented: $isShowingTree) {
-            SessionTreeSheet(tree: sessionTree) { entryId in
+            SessionTreeSheet(load: { await store.sessionTree(for: session) }) { entryId in
                 Task {
                     // 从树节点 fork，并把原文本回填输入框（编辑并重发）。
                     if let text = await store.fork(session, from: entryId), !text.isEmpty {
@@ -97,8 +103,14 @@ struct ChatView: View {
                 Task { await store.compact(session, instructions: text) }
             }
         }
+        // 右侧对话锚点面板：点选锚点即可快速定位到某个回合（可选，默认关闭）。
+        .inspector(isPresented: anchorPanelBinding) {
+            anchorInspector
+                .inspectorColumnWidth(min: 220, ideal: 260, max: 360)
+        }
         .toolbar {
             ToolbarItem { findButton }
+            ToolbarItem { anchorToggle }
             ToolbarItem { contextMenu }
             ToolbarItem { branchMenu }
             if !commands.isEmpty { ToolbarItem { commandMenu } }
@@ -120,6 +132,18 @@ struct ChatView: View {
     }
 
     private var currentState: AgentSessionState? { store.state(for: session) }
+
+    /// 顶部副标题：仅在会话工作目录与当前项目不同时显示。
+    ///
+    /// 相同时侧栏项目栏已经展示了该路径，重复显示只会挤占标题空间；
+    /// 不同时（例如恢复的历史会话）才用缩写后的路径提示实际目录。
+    private var detailSubtitle: String {
+        guard let directory = session.workingDirectory,
+            !directory.isEmpty,
+            directory != workspaceStore.workspace?.path
+        else { return "" }
+        return PathDisplay.abbreviated(directory)
+    }
 
     /// 上下文菜单：手动压缩 + 自动压缩开关（pi 的 `compact` / `set_auto_compaction`）。
     private var contextMenu: some View {
@@ -211,6 +235,125 @@ struct ChatView: View {
         .frame(width: 360, height: 320)
     }
 
+    /// 对话锚点面板开关：绑定到持久化偏好，可跨启动保留。
+    private var anchorPanelBinding: Binding<Bool> {
+        Binding(
+            get: { appSettings.showAnchorPanel },
+            set: { appSettings.showAnchorPanel = $0 }
+        )
+    }
+
+    /// 锚点入口（工具栏）：切换窗口右侧的回合导航面板。
+    private var anchorToggle: some View {
+        Button {
+            appSettings.showAnchorPanel.toggle()
+        } label: {
+            Label("Anchors", systemImage: "sidebar.right")
+        }
+        .help("Conversation Anchors")
+    }
+
+    /// 右侧锚点面板：按回合列出提问，选中即滚动到该回合。
+    private var anchorInspector: some View {
+        // 只算一次：面板重建时避免重复排序整条时间线。
+        let anchors = conversationAnchors
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "bookmark")
+                    .foregroundStyle(.secondary)
+                Text("Anchors")
+                    .font(.headline)
+                Spacer()
+                Text("\(anchors.count)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            Divider()
+            if anchors.isEmpty {
+                Text("No anchors yet.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer()
+            } else {
+                List(selection: $selectedAnchorID) {
+                    ForEach(anchors) { anchor in
+                        anchorRow(anchor)
+                            .tag(anchor.id)
+                    }
+                }
+                .listStyle(.sidebar)
+            }
+        }
+        // 选中即定位：复用消息列表的滚动目标（与搜索同一路径）。
+        .onChange(of: selectedAnchorID) { _, id in
+            guard let id else { return }
+            scrollTarget = id
+        }
+    }
+
+    /// 单条锚点：序号徽标 + 提问摘要 + 结论摘要；选中态由 `List` 原生高亮。
+    private func anchorRow(_ anchor: ConversationAnchor) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(anchor.index)")
+                .font(.caption2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 22, height: 22)
+                .background(.quaternary.opacity(0.5), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(anchor.title)
+                    .font(.callout)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if let detail = anchor.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .help(anchor.title)
+    }
+
+    /// 对话锚点：每个回合一条，用提问作为标题、结论首行作为副标题。
+    private var conversationAnchors: [ConversationAnchor] {
+        chatTurns(from: timeline).enumerated().compactMap { offset, turn in
+            guard let userMessage = turn.userMessage else { return nil }
+            return ConversationAnchor(
+                id: userMessage.id,
+                title: anchorTitle(for: userMessage),
+                detail: turn.conclusion.map { Self.firstLine(of: $0.content) },
+                index: offset + 1
+            )
+        }
+    }
+
+    /// 锚点标题：折叠空白、截断；仅有图片时给出说明。
+    private func anchorTitle(for message: Message) -> String {
+        let collapsed = message.content
+            .split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+            .joined(separator: " ")
+        if collapsed.isEmpty {
+            return message.images.isEmpty ? "…" : String(localized: "Image message")
+        }
+        return collapsed.count > 140 ? String(collapsed.prefix(140)) + "…" : collapsed
+    }
+
+    /// 取正文首行并折叠空白，用于副标题。
+    private static func firstLine(of text: String) -> String {
+        let line = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+        let collapsed = line.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        return collapsed.count > 120 ? String(collapsed.prefix(120)) + "…" : collapsed
+    }
+
     /// 匹配的消息与工具调用；片段截在关键词周围。
     private var searchResults: [ConversationSearchResult] {
         let query = searchQuery.trimmingCharacters(in: .whitespaces)
@@ -259,10 +402,7 @@ struct ChatView: View {
                 }
             }
             Button("Show Tree…") {
-                Task {
-                    sessionTree = await store.sessionTree(for: session)
-                    isShowingTree = true
-                }
+                isShowingTree = true
             }
         } label: {
             Label("Branch", systemImage: "arrow.triangle.branch")
@@ -402,21 +542,30 @@ struct ChatView: View {
         // 预先算好时间线与行标记。若在每一行里重新访问 `timeline` / `sortedMessages`，
         // 每次渲染都会重排整条时间线，长会话下退化成 O(n²) 导致卡顿。
         let items = timeline
-        let rows = chatRows(from: items)
-        let lastMessage = sortedMessages.last
+        let turns = chatTurns(from: items)
         let isStreamingSession = store.isStreaming(session)
+        // 只给最后一条助手消息显示流式指示（惰性创建后它就是当前正在累积的那条）。
+        let streamingMessageID =
+            isStreamingSession ? sortedMessages.last { $0.role == .assistant }?.id : nil
 
         return ScrollViewReader { proxy in
             List {
-                ForEach(rows) { row in
-                    timelineRow(row, isStreaming: isStreamingSession && row.id == lastMessage?.id)
+                ForEach(turns) { turn in
+                    turnRow(turn, streamingMessageID: streamingMessageID)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        .id(row.id)
+                        .id(turn.id)
+                }
+                if !turns.isEmpty {
+                    conversationEndMarker
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .id(Self.bottomAnchorID)
                 }
             }
             .listStyle(.plain)
-            .contentMargins(.vertical, 8, for: .scrollContent)
+            // 滚动条与列表边缘留出间距，避免末端被列表边界截断。
+            .contentMargins(.vertical, 8, for: .scrollIndicators)
             // 跟随判断：贴近底部时恢复跟随；离开底部且由用户手势驱动时暂停跟随。
             .onScrollGeometryChange(for: ScrollMetrics.self) { geometry in
                 ScrollMetrics(geometry)
@@ -440,22 +589,31 @@ struct ChatView: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 guard let target else { return }
-                withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(target, anchor: .center) }
+                // 命中的条目可能在折叠的过程区里：先展开所在回合，等它渲染后再滚动。
+                if let turnID = turns.first(where: { turn in
+                    turn.process.contains { $0.id == target }
+                })?.id {
+                    expandedTurns.insert(turnID)
+                }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(60))
+                    withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(target, anchor: .center) }
+                }
                 scrollTarget = nil
             }
-            .onChange(of: items.count) { _, _ in autoScroll(proxy, items: items) }
-            // 流式追加不会改变条数，需额外监听末条内容变化。
-            .onChange(of: lastMessage?.content) { _, _ in autoScroll(proxy, items: items) }
-            .onChange(of: session.toolCalls.last?.output) { _, _ in autoScroll(proxy, items: items) }
+            .onChange(of: items.count) { _, _ in autoScroll(proxy, turns: turns) }
+            // 流式追加既不改条数、也不改回合数，需额外监听末条内容与工具输出。
+            .onChange(of: sortedMessages.last?.content) { _, _ in autoScroll(proxy, turns: turns) }
+            .onChange(of: session.toolCalls.last?.output) { _, _ in autoScroll(proxy, turns: turns) }
             .onAppear {
                 isAtBottom = true
                 isFollowingBottom = true
-                scrollToBottom(proxy, items: items, animated: false)
+                scrollToBottom(proxy, turns: turns, animated: false)
             }
             .overlay(alignment: .bottomTrailing) {
                 // 用户翻到上面时给出“回到底部”的入口。
-                if !isAtBottom, !items.isEmpty {
-                    scrollToBottomButton(proxy, items: items)
+                if !isAtBottom, !turns.isEmpty {
+                    scrollToBottomButton(proxy, turns: turns)
                         .padding(.trailing, 20)
                         .padding(.bottom, 12)
                         .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .bottomTrailing)))
@@ -466,19 +624,27 @@ struct ChatView: View {
     }
 
     /// 消息与工具调用按时间合并成正序时间线。
+    ///
+    /// 时间戳相同时按原始顺序（消息先于工具）稳定排序；Swift 的 `sorted(by:)` 不保证稳定，
+    /// 因此显式用下标兜底，避免同一时刻的条目在重排后跳来跳去。
     private var timeline: [TimelineItem] {
         let messages = session.messages.map(TimelineItem.message)
         let toolCalls = session.toolCalls.map(TimelineItem.toolCall)
-        return (messages + toolCalls).sorted { $0.date < $1.date }
+        return (messages + toolCalls).enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.date != rhs.element.date { return lhs.element.date < rhs.element.date }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 
-    /// 把时间线切成「回合」并标注每行的展示方式。
+    /// 把时间线切成「回合」。
     ///
     /// 回合 = 一条用户消息到下一个用户消息之前。每个回合只保留最后一条有正文的助手消息
-    /// 作为「结论」常显；其余（思考、工具调用、中间旁白）默认折叠。
-    private func chatRows(from items: [TimelineItem]) -> [ChatRow] {
+    /// 作为「结论」常显；其余（思考、工具调用、中间旁白）收进一个默认折叠的「过程」区，
+    /// 保证最终总结始终排在工具调用之后。
+    private func chatTurns(from items: [TimelineItem]) -> [ChatTurn] {
         guard !items.isEmpty else { return [] }
-        let flags = headerFlags(for: items)
 
         // 回合起点：首条 + 每条（非首位的）用户消息。
         var starts = [0]
@@ -489,66 +655,157 @@ struct ChatView: View {
         }
         starts.append(items.count)
 
-        var rows: [ChatRow] = []
+        var turns: [ChatTurn] = []
         for turn in 0..<(starts.count - 1) {
             let range = starts[turn]..<starts[turn + 1]
             // 结论 = 本回合最后一条有正文的助手消息（流式占位为空时不算）。
-            var conclusionID: UUID?
+            var conclusionIndex: Int?
             for index in range {
                 if case .message(let message) = items[index],
                     message.role == .assistant, !message.content.isEmpty
                 {
-                    conclusionID = message.id
+                    conclusionIndex = index
                 }
             }
+
+            var userMessage: Message?
+            var conclusion: Message?
+            var process: [TimelineItem] = []
             for index in range {
-                rows.append(
-                    ChatRow(
-                        item: items[index],
-                        showsHeader: flags[index],
-                        isConclusion: items[index].id == conclusionID,
-                        startsTurn: index == range.lowerBound
-                    ))
+                if index == conclusionIndex, case .message(let message) = items[index] {
+                    conclusion = message
+                } else if index == range.lowerBound, case .message(let message) = items[index],
+                    message.role == .user
+                {
+                    userMessage = message
+                } else {
+                    process.append(items[index])
+                }
+            }
+            turns.append(
+                ChatTurn(
+                    id: userMessage?.id ?? items[range.lowerBound].id,
+                    userMessage: userMessage,
+                    process: process,
+                    conclusion: conclusion
+                ))
+        }
+        return turns
+    }
+
+    /// 一个回合的完整渲染：常显提问 + 可折叠过程 + 常显结论。
+    @ViewBuilder
+    private func turnRow(_ turn: ChatTurn, streamingMessageID: UUID?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let userMessage = turn.userMessage {
+                MessageRow(message: userMessage, isStreaming: false, showsHeader: true)
+                    .id(userMessage.id)
+            }
+            if !turn.process.isEmpty {
+                processDisclosure(turn)
+            }
+            if let conclusion = turn.conclusion {
+                MessageRow(
+                    message: conclusion,
+                    isStreaming: streamingMessageID == conclusion.id,
+                    showsHeader: true
+                )
+                .id(conclusion.id)
             }
         }
-        return rows
+        .padding(.top, 8)
     }
 
-    /// 每行是否显示角色头部：首条，或与上一条角色不同（连续同一角色消息合并展示）。
+    /// 中间过程（思考 / 工具调用 / 旁白）的大折叠。
     ///
-    /// 一次算完整列标记，避免每行都去重排整条时间线（长会话的 O(n²) 源头）。
-    private func headerFlags(for items: [TimelineItem]) -> [Bool] {
-        var flags = [Bool](repeating: true, count: items.count)
-        for index in items.indices.dropFirst() {
-            guard case .message(let previous) = items[index - 1],
-                case .message(let current) = items[index]
-            else { continue }
-            flags[index] = previous.role != current.role
+    /// 折叠时只留一行摘要，展开后按时间顺序列出全部中间项；默认收起，让提问与最终结论一目了然。
+    private func processDisclosure(_ turn: ChatTurn) -> some View {
+        DisclosureGroup(isExpanded: expansionBinding(for: turn.id)) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(turn.process) { item in
+                    processItem(item)
+                        .id(item.id)
+                }
+            }
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            processLabel(turn)
         }
-        return flags
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+        .disclosureGroupStyle(RowDisclosureGroupStyle())
     }
 
+    /// 折叠头：图标 + 步数 + 涉及的工具名；有工具在跑时给出迷你进度指示。
+    private func processLabel(_ turn: ChatTurn) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "ellipsis.circle")
+                .font(.caption)
+            Text("Process")
+                .font(.caption.weight(.semibold))
+            Text(processSummary(turn))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if turn.process.contains(where: isRunningProcessItem) {
+                ProgressView().controlSize(.mini)
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.secondary)
+    }
+
+    /// 折叠头文案：步数 + 去重后的工具名（最多 3 个）。
+    private func processSummary(_ turn: ChatTurn) -> String {
+        var toolNames: [String] = []
+        for item in turn.process {
+            guard case .toolCall(let call) = item, !toolNames.contains(call.name) else { continue }
+            toolNames.append(call.name)
+        }
+        let steps = turn.process.count == 1 ? "1 step" : "\(turn.process.count) steps"
+        guard !toolNames.isEmpty else { return steps }
+        let shown = toolNames.prefix(3).joined(separator: ", ")
+        return "\(steps) · \(shown)\(toolNames.count > 3 ? "…" : "")"
+    }
+
+    /// 过程项是否为仍在执行的工具调用。
+    private func isRunningProcessItem(_ item: TimelineItem) -> Bool {
+        guard case .toolCall(let call) = item else { return false }
+        return store.isRunningTool(call.toolCallID)
+    }
+
+    /// 折叠区内的一项：消息按原样渲染，工具调用渲染为卡片。
     @ViewBuilder
-    private func timelineRow(_ row: ChatRow, isStreaming: Bool) -> some View {
-        switch row.item {
+    private func processItem(_ item: TimelineItem) -> some View {
+        switch item {
         case .message(let message):
-            MessageRow(
-                message: message,
-                isStreaming: isStreaming,
-                showsHeader: row.showsHeader,
-                isCollapsed: message.role == .assistant && !row.isConclusion
-            )
-            .padding(.top, row.startsTurn ? 8 : 0)
+            MessageRow(message: message, isStreaming: false, showsHeader: false)
         case .toolCall(let toolCall):
             ToolCallCard(toolCall: toolCall, isRunning: store.isRunningTool(toolCall.toolCallID))
-                .padding(.top, row.startsTurn ? 8 : 0)
         }
     }
 
-    private func scrollToBottomButton(_ proxy: ScrollViewProxy, items: [TimelineItem]) -> some View {
+    /// 大折叠的展开状态：按回合 id 记录。
+    private func expansionBinding(for id: UUID) -> Binding<Bool> {
+        Binding(
+            get: { expandedTurns.contains(id) },
+            set: { isExpanded in
+                if isExpanded {
+                    expandedTurns.insert(id)
+                } else {
+                    expandedTurns.remove(id)
+                }
+            }
+        )
+    }
+
+    private func scrollToBottomButton(_ proxy: ScrollViewProxy, turns: [ChatTurn]) -> some View {
         Button {
             isFollowingBottom = true
-            scrollToBottom(proxy, items: items, animated: true)
+            scrollToBottom(proxy, turns: turns, animated: true)
         } label: {
             Label("Latest", systemImage: "arrow.down")
                 .labelStyle(.iconOnly)
@@ -562,18 +819,46 @@ struct ChatView: View {
     }
 
     /// 仅在用户停留在底部时自动跟随新内容。
-    private func autoScroll(_ proxy: ScrollViewProxy, items: [TimelineItem]) {
+    private func autoScroll(_ proxy: ScrollViewProxy, turns: [ChatTurn]) {
         guard isFollowingBottom else { return }
-        scrollToBottom(proxy, items: items, animated: true)
+        scrollToBottom(proxy, turns: turns, animated: true)
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy, items: [TimelineItem], animated: Bool) {
-        guard let last = items.last else { return }
+    private func scrollToBottom(_ proxy: ScrollViewProxy, turns: [ChatTurn], animated: Bool) {
+        guard !turns.isEmpty else { return }
+        // 滚到末尾标记而非最后一条消息：标记下方为底部留白，保证“到底”时它完整可见。
         if animated {
-            withAnimation(.easeOut(duration: 0.18)) { proxy.scrollTo(last.id, anchor: .bottom) }
+            withAnimation(.easeOut(duration: 0.18)) { proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom) }
         } else {
-            proxy.scrollTo(last.id, anchor: .bottom)
+            proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
         }
+    }
+
+    /// 会话末尾标记：细线 + “到底”图标，兼作聊天区底部的呼吸留白。
+    ///
+    /// 放在列表最后一行（滚到底才露出），用 SF Symbol 而非纯文字暗示“已到最后”，
+    /// 并提供 28pt 底部间距，避免最后一条消息紧贴输入框。
+    private var conversationEndMarker: some View {
+        HStack(spacing: 10) {
+            endRule
+            Image(systemName: "arrow.down.to.line")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.tertiary)
+            endRule
+        }
+        .frame(maxWidth: 220)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 14)
+        .padding(.bottom, 28)
+        .accessibilityElement()
+        .accessibilityLabel("End of conversation")
+    }
+
+    /// 末尾标记两侧的细线。
+    private var endRule: some View {
+        Rectangle()
+            .fill(.quaternary)
+            .frame(height: 1)
     }
 
     // MARK: - Status
@@ -967,16 +1252,18 @@ private enum TimelineItem: Identifiable {
     }
 }
 
-/// 时间线的一行：原始项 + 展示标记。
-private struct ChatRow: Identifiable {
-    let item: TimelineItem
-    let showsHeader: Bool
-    /// 是否为该回合的「结论」（最后一条有正文的助手消息）。
-    let isConclusion: Bool
-    /// 是否为回合首行，用于增加段间距。
-    let startsTurn: Bool
-
-    var id: UUID { item.id }
+/// 一个「回合」：一条用户消息及其后续的助手输出，直到下一条用户消息之前。
+///
+/// 渲染时把中间过程收进一个大折叠，只常显提问与最终结论。
+private struct ChatTurn: Identifiable {
+    /// 回合标识：优先用提问消息的 id，保证流式追加时行身份稳定。
+    let id: UUID
+    /// 回合开头的用户消息（导入历史的首个回合可能没有）。
+    let userMessage: Message?
+    /// 中间过程：思考 / 工具调用 / 旁白——默认折叠。
+    let process: [TimelineItem]
+    /// 结论：本回合最后一条有正文的助手消息——常显。
+    let conclusion: Message?
 }
 
 // MARK: - Message row
@@ -988,9 +1275,6 @@ private struct MessageRow: View {
     let message: Message
     let isStreaming: Bool
     let showsHeader: Bool
-    /// 非结论的助手正文默认折叠为「过程」。
-    let isCollapsed: Bool
-    @State private var isProcessExpanded = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -1077,41 +1361,10 @@ private struct MessageRow: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
                 .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
-        } else if isCollapsed {
-            processDisclosure
         } else {
             MarkdownText(text: message.content)
                 .textSelection(.enabled)
         }
-    }
-
-    /// 回合中间旁白：折叠为一行预览，展开后同样按 Markdown 渲染。
-    private var processDisclosure: some View {
-        DisclosureGroup(isExpanded: $isProcessExpanded) {
-            MarkdownText(text: message.content)
-                .textSelection(.enabled)
-                .padding(.top, 4)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "text.bubble")
-                    .font(.caption)
-                Text(processPreview)
-                    .font(.callout)
-                    .lineLimit(1)
-            }
-            .foregroundStyle(.secondary)
-        }
-        .disclosureGroupStyle(RowDisclosureGroupStyle())
-    }
-
-    /// 折叠标签用首行文本，方便扫读。
-    private var processPreview: String {
-        let firstLine =
-            message.content
-            .split(whereSeparator: \.isNewline)
-            .first
-            .map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
-        return firstLine.isEmpty ? "Process" : firstLine
     }
 }
 
@@ -1406,6 +1659,18 @@ private struct ConversationSearchResult: Identifiable {
     let snippet: String
 }
 
+/// 对话锚点：一个回合的跳转目标（用提问定位，并附带结论摘要）。
+private struct ConversationAnchor: Identifiable {
+    /// 目标消息 id，用于滚动到该回合。
+    let id: UUID
+    /// 提问摘要。
+    let title: String
+    /// 结论首行摘要；无结论时为 nil。
+    let detail: String?
+    /// 回合序号，从 1 开始。
+    let index: Int
+}
+
 /// fork 选择弹窗：列出可 fork 的用户消息，选中即从该处创建分支。
 private struct ForkMessageSheet: View {
     let messages: [AgentForkMessage]
@@ -1450,10 +1715,18 @@ private struct ForkMessageSheet: View {
 }
 
 /// 会话树总览：展示所有分支（含遗弃分支）与当前活动叶子，可从用户消息处 fork。
+///
+/// 树在弹窗出现后异步加载（`load`），因此点击入口即时反馈，不会卡在 RPC 往返上；
+/// 渲染使用压平后的行数组（`outlineRows`）而非递归的 `OutlineGroup`，避免线性会话
+/// （一条长链）递归出上百层嵌套视图而卡死。
 private struct SessionTreeSheet: View {
-    let tree: AgentSessionTree?
+    let load: @MainActor () async -> AgentSessionTree?
     let onFork: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var tree: AgentSessionTree?
+    @State private var isLoading = true
+    /// 已折叠节点的 id；默认全部展开，长会话也能一眼看到分支。
+    @State private var collapsed: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1461,19 +1734,7 @@ private struct SessionTreeSheet: View {
                 .font(.headline)
                 .padding([.horizontal, .top], 16)
                 .padding(.bottom, 8)
-            if let roots = tree?.roots, !roots.isEmpty {
-                List {
-                    OutlineGroup(roots, children: \.optionalChildren) { node in
-                        SessionTreeRow(node: node, isActive: node.id == tree?.leafId, onFork: onFork)
-                    }
-                }
-            } else {
-                Text("This session has no entries yet.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                Spacer()
-            }
+            content
             HStack {
                 Spacer()
                 Button("Done") { dismiss() }
@@ -1482,54 +1743,137 @@ private struct SessionTreeSheet: View {
             .padding(16)
         }
         .frame(width: 520, height: 420)
+        .task {
+            tree = await load()
+            isLoading = false
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if isLoading {
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            let rows = tree?.outlineRows(collapsed: collapsed) ?? []
+            if rows.isEmpty {
+                Text("This session has no entries yet.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                Spacer()
+            } else {
+                List(rows) { row in
+                    SessionTreeRow(
+                        row: row,
+                        isCollapsed: collapsed.contains(row.id),
+                        onToggle: { toggleCollapsed(row.id) },
+                        onFork: onFork
+                    )
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+
+    /// 折叠 / 展开：切换子树可见性。
+    private func toggleCollapsed(_ id: String) {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            if collapsed.contains(id) {
+                collapsed.remove(id)
+            } else {
+                collapsed.insert(id)
+            }
+        }
     }
 }
 
-/// 树中的一行：图标 + 预览 + 类型 + fork / 活动叶子标记。
+/// 树中的一行：缩进 + 展开箭头 + 图标 + 预览 + 类型/标签 + fork / 活动叶子标记。
 private struct SessionTreeRow: View {
-    let node: AgentTreeNode
-    let isActive: Bool
+    let row: SessionTreeOutlineRow
+    let isCollapsed: Bool
+    let onToggle: () -> Void
     let onFork: (String) -> Void
 
     var body: some View {
         HStack(spacing: 8) {
+            disclosure
             Image(systemName: icon)
                 .font(.system(size: 11))
-                .foregroundStyle(isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .foregroundStyle(iconStyle)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
-                Text(node.preview.isEmpty ? node.kind : node.preview)
+                Text(row.preview.isEmpty ? row.kind : row.preview)
                     .lineLimit(1)
-                Text(node.kind)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .truncationMode(.tail)
+                HStack(spacing: 6) {
+                    Text(row.kind)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    if let label = row.label, !label.isEmpty {
+                        anchorLabel(label)
+                    }
+                }
             }
             Spacer(minLength: 0)
-            if node.isUserMessage {
-                Button("Fork") { onFork(node.id) }
+            if row.isUserMessage {
+                Button("Fork") { onFork(row.id) }
                     .buttonStyle(.link)
                     .font(.caption)
             }
-            if isActive {
+            if row.isActiveLeaf {
                 Image(systemName: "smallcircle.filled.circle")
                     .foregroundStyle(.tint)
                     .help("Active branch tip")
             }
         }
+        .padding(.leading, CGFloat(row.indent) * 14)
+        // 活动分支整行轻微着色，方便在分叉里找到当前路径。
+        .listRowBackground(row.isOnActivePath ? Color.accentColor.opacity(0.06) : Color.clear)
+    }
+
+    /// 展开箭头；叶子用等宽占位保持缩进对齐。
+    @ViewBuilder
+    private var disclosure: some View {
+        if row.isExpandable {
+            Button(action: onToggle) {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    .frame(width: 14, height: 14)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isCollapsed ? "Expand" : "Collapse")
+        } else {
+            Color.clear.frame(width: 14, height: 14)
+        }
+    }
+
+    /// pi 标签 / 书签的胶囊。
+    private func anchorLabel(_ label: String) -> some View {
+        Label(label, systemImage: "bookmark.fill")
+            .font(.caption2)
+            .lineLimit(1)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(.tint.opacity(0.14), in: Capsule())
+            .foregroundStyle(.tint)
+    }
+
+    private var iconStyle: AnyShapeStyle {
+        row.isActiveLeaf || row.isOnActivePath ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary)
     }
 
     private var icon: String {
-        switch node.role {
+        switch row.role {
         case "user": return "person.fill"
         case "assistant": return "sparkle"
-        default: return node.kind == "bashExecution" ? "terminal" : "doc.text"
+        default: return row.kind == "bashExecution" ? "terminal" : "doc.text"
         }
     }
-}
-
-extension AgentTreeNode {
-    /// `OutlineGroup` 用：叶子返回 nil 即不显示展开箭头。
-    fileprivate var optionalChildren: [AgentTreeNode]? { children.isEmpty ? nil : children }
 }
 
 #Preview {
@@ -1564,8 +1908,13 @@ extension AgentTreeNode {
         ))
 
     let store = SessionStore(container: container, makeTransport: { _, _ in MockAgentTransport() })
+    let workspaceStore = WorkspaceStore(
+        defaults: UserDefaults(suiteName: "ChatViewPreview") ?? .standard,
+        root: URL(fileURLWithPath: "/tmp/pi-sessions-preview")
+    )
     return NavigationStack { ChatView(session: session) }
         .environment(store)
+        .environment(workspaceStore)
         .environment(AppSettingsStore(defaults: UserDefaults(suiteName: "ChatViewPreview") ?? .standard))
         .modelContainer(container)
 }

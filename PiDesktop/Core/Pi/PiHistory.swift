@@ -205,7 +205,8 @@ extension TreeNodeDTO {
             preview: preview,
             role: role,
             isUserMessage: role == "user",
-            children: (children ?? []).map(\.domain)
+            children: (children ?? []).map(\.domain),
+            label: label
         )
     }
 }

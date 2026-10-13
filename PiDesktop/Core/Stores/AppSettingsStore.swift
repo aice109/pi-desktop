@@ -47,6 +47,7 @@ final class AppSettingsStore {
         static let appearance = "settings.appearance"
         static let restoreLastSession = "settings.restoreLastSession"
         static let showUsageFooter = "settings.showUsageFooter"
+        static let showAnchorPanel = "settings.showAnchorPanel"
         static let confirmDeletion = "settings.confirmDeletion"
         static let lastSessionPath = "settings.lastSessionPath"
     }
@@ -66,6 +67,11 @@ final class AppSettingsStore {
     /// 是否在输入框下方显示上下文占用 / token / 费用。
     var showUsageFooter: Bool {
         didSet { defaults.set(showUsageFooter, forKey: Keys.showUsageFooter) }
+    }
+
+    /// 是否在窗口右侧显示对话锚点面板（快速定位到某个回合）。
+    var showAnchorPanel: Bool {
+        didSet { defaults.set(showAnchorPanel, forKey: Keys.showAnchorPanel) }
     }
 
     /// 删除会话（移入废纸篓）前是否二次确认。
@@ -90,6 +96,8 @@ final class AppSettingsStore {
         // 默认开启：偏好“回到上次位置”更符合桌面应用直觉。
         restoreLastSession = defaults.object(forKey: Keys.restoreLastSession) as? Bool ?? true
         showUsageFooter = defaults.object(forKey: Keys.showUsageFooter) as? Bool ?? true
+        // 默认关闭：右侧面板是可选导航，不占据默认阅读宽度。
+        showAnchorPanel = defaults.object(forKey: Keys.showAnchorPanel) as? Bool ?? false
         confirmDeletion = defaults.object(forKey: Keys.confirmDeletion) as? Bool ?? true
         let path = defaults.string(forKey: Keys.lastSessionPath)
         lastSessionPath = (path?.isEmpty ?? true) ? nil : path
@@ -107,13 +115,14 @@ final class AppSettingsStore {
     func reset() {
         for key in [
             Keys.appearance, Keys.restoreLastSession, Keys.showUsageFooter,
-            Keys.confirmDeletion, Keys.lastSessionPath,
+            Keys.showAnchorPanel, Keys.confirmDeletion, Keys.lastSessionPath,
         ] {
             defaults.removeObject(forKey: key)
         }
         appearance = .system
         restoreLastSession = true
         showUsageFooter = true
+        showAnchorPanel = false
         confirmDeletion = true
         lastSessionPath = nil
     }

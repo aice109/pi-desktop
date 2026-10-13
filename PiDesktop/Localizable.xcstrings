@@ -59,6 +59,16 @@
         }
       }
     },
+    "Anchors" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锚点"
+          }
+        }
+      }
+    },
     "Appearance" : {
       "localizations" : {
         "zh-Hans" : {
@@ -189,12 +199,42 @@
         }
       }
     },
+    "Cloned the session." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已克隆会话。"
+          }
+        }
+      }
+    },
+    "Cloning session…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在克隆会话…"
+          }
+        }
+      }
+    },
     "Close Workspace" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "关闭工作区"
+          }
+        }
+      }
+    },
+    "Collapse" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "折叠"
           }
         }
       }
@@ -249,6 +289,16 @@
         }
       }
     },
+    "Compacting context…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在压缩上下文…"
+          }
+        }
+      }
+    },
     "Confirm before deleting" : {
       "localizations" : {
         "zh-Hans" : {
@@ -269,8 +319,38 @@
         }
       }
     },
+    "Context compacted." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上下文已压缩。"
+          }
+        }
+      }
+    },
     "Context usage" : {
 
+    },
+    "Conversation Anchors" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对话锚点"
+          }
+        }
+      }
+    },
+    "Copied last response." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制最后一条回复。"
+          }
+        }
+      }
     },
     "Copy" : {
       "localizations" : {
@@ -302,6 +382,66 @@
         }
       }
     },
+    "Could not clone the session." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法克隆会话。"
+          }
+        }
+      }
+    },
+    "Could not compact the context." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法压缩上下文。"
+          }
+        }
+      }
+    },
+    "Could not export the session." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法导出会话。"
+          }
+        }
+      }
+    },
+    "Could not fork from that message." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法从该消息创建分支。"
+          }
+        }
+      }
+    },
+    "Could not rename the session." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法重命名会话。"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
     "Done" : {
       "localizations" : {
         "zh-Hans" : {
@@ -312,12 +452,45 @@
         }
       }
     },
+    "End of conversation" : {
+
+    },
+    "Expand" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开"
+          }
+        }
+      }
+    },
     "Export as HTML…" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "导出为 HTML…"
+          }
+        }
+      }
+    },
+    "Exported to %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导出到 %@"
+          }
+        }
+      }
+    },
+    "Exporting HTML…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在导出 HTML…"
           }
         }
       }
@@ -378,6 +551,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从消息分支…"
+          }
+        }
+      }
+    },
+    "Forked the session." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已创建分支。"
+          }
+        }
+      }
+    },
+    "Forking session…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在创建分支…"
+          }
+        }
+      }
+    },
+    "Image message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片消息"
           }
         }
       }
@@ -498,6 +701,16 @@
         }
       }
     },
+    "No anchors yet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无锚点。"
+          }
+        }
+      }
+    },
     "No details" : {
       "localizations" : {
         "zh-Hans" : {
@@ -543,6 +756,16 @@
         }
       }
     },
+    "No response to copy." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可复制的回复。"
+          }
+        }
+      }
+    },
     "No Session Selected" : {
       "localizations" : {
         "zh-Hans" : {
@@ -559,6 +782,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有可用的用户消息。"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
           }
         }
       }
@@ -596,6 +829,9 @@
     "PiDesktop" : {
 
     },
+    "Process" : {
+
+    },
     "Queue for this run (⌘↩ steers)" : {
 
     },
@@ -605,6 +841,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考"
+          }
+        }
+      }
+    },
+    "Recent Projects" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近项目"
           }
         }
       }
@@ -712,6 +958,36 @@
         }
       }
     },
+    "Retrying (%lld/%lld)…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重试（%lld/%lld）…"
+          }
+        }
+      }
+    },
+    "Retrying…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重试…"
+          }
+        }
+      }
+    },
+    "Running %@…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在运行 %@…"
+          }
+        }
+      }
+    },
     "Running shell command…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -795,6 +1071,16 @@
         }
       }
     },
+    "Show anchor panel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示锚点面板"
+          }
+        }
+      }
+    },
     "Show Tree…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -816,11 +1102,22 @@
       }
     },
     "Shows context usage, tokens, and cost under the composer." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "在输入框下显示上下文用量、token 与费用。"
+          }
+        }
+      }
+    },
+    "Something went wrong" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出错了"
           }
         }
       }
@@ -858,11 +1155,41 @@
     "Stop (⌘.)" : {
 
     },
+    "Summarizing…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在总结…"
+          }
+        }
+      }
+    },
+    "The usage footer shows context usage, tokens, and cost under the composer; the anchor panel lists turns on the right for quick navigation." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用量页脚在输入框下显示上下文用量、token 与费用；锚点面板在右侧列出各个回合，便于快速定位。"
+          }
+        }
+      }
+    },
     "Theme" : {
 
     },
     "Thinking Level" : {
 
+    },
+    "Thinking…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在思考…"
+          }
+        }
+      }
     },
     "This session has no entries yet." : {
       "localizations" : {
@@ -895,241 +1222,12 @@
       }
     },
     "Workspace" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "工作区"
-          }
-        }
-      }
-    },
-    "Cloned the session." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已克隆会话。"
-          }
-        }
-      }
-    },
-    "Cloning session…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在克隆会话…"
-          }
-        }
-      }
-    },
-    "Compacting context…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在压缩上下文…"
-          }
-        }
-      }
-    },
-    "Context compacted." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上下文已压缩。"
-          }
-        }
-      }
-    },
-    "Copied last response." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已复制最后一条回复。"
-          }
-        }
-      }
-    },
-    "Could not clone the session." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法克隆会话。"
-          }
-        }
-      }
-    },
-    "Could not compact the context." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法压缩上下文。"
-          }
-        }
-      }
-    },
-    "Could not export the session." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法导出会话。"
-          }
-        }
-      }
-    },
-    "Could not fork from that message." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法从该消息创建分支。"
-          }
-        }
-      }
-    },
-    "Could not rename the session." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法重命名会话。"
-          }
-        }
-      }
-    },
-    "Dismiss" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭"
-          }
-        }
-      }
-    },
-    "Exported to %@" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已导出到 %@"
-          }
-        }
-      }
-    },
-    "Exporting HTML…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在导出 HTML…"
-          }
-        }
-      }
-    },
-    "Forked the session." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已创建分支。"
-          }
-        }
-      }
-    },
-    "Forking session…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在创建分支…"
-          }
-        }
-      }
-    },
-    "No response to copy." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有可复制的回复。"
-          }
-        }
-      }
-    },
-    "OK" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "好"
-          }
-        }
-      }
-    },
-    "Retrying (%lld/%lld)…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重试（%lld/%lld）…"
-          }
-        }
-      }
-    },
-    "Retrying…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重试…"
-          }
-        }
-      }
-    },
-    "Running %@…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在运行 %@…"
-          }
-        }
-      }
-    },
-    "Thinking…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在思考…"
-          }
-        }
-      }
-    },
-    "Something went wrong" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "出错了"
-          }
-        }
-      }
-    },
-    "Summarizing…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在总结…"
           }
         }
       }

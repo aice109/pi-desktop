@@ -82,8 +82,12 @@ final class SessionStore {
     var activeToolName: String? { runningTools.values.first }
 
     /// 流式助手消息的累积状态。
+    ///
+    /// 一次运行可能包含多段助手消息（工具调用把它们隔开）：`message` 只在收到首个增量时
+    /// **惰性创建**，每段 `message_end` 后清空、下一段另起一条。否则整轮文本会被并进运行
+    /// 开始时的那条占位气泡，导致最终总结排到工具调用前面。
     private struct Streaming {
-        var message: Message
+        var message: Message?
         var text: String
         var thinking: String
     }
@@ -632,10 +636,9 @@ final class SessionStore {
         let transport = await ensureTransport(for: session)
 
         session.append(makeUserMessage(text: text, images: images))
-        // 先插入占位的助手消息，流式增量就地更新它。
-        let assistant = Message(role: .assistant, content: "")
-        session.append(assistant)
-        streaming[session.id] = Streaming(message: assistant, text: "", thinking: "")
+        // 助手气泡在首个增量到达时惰性创建（见 `Streaming`）：工具调用之后的新一段
+        // （含最终总结）会落在工具调用之后，而不是回到用户提问下方。
+        streaming[session.id] = Streaming(message: nil, text: "", thinking: "")
 
         do {
             let disposition = try await transport.prompt(text, images: images)
@@ -777,12 +780,14 @@ final class SessionStore {
 
         case .textDelta(let delta):
             guard var state = streaming[sessionID] else { return }
+            let message = ensureAssistantMessage(&state, sessionID: sessionID)
             state.text += delta
-            state.message.content = state.text
+            message?.content = state.text
             streaming[sessionID] = state
 
         case .thinkingDelta(let delta):
             guard var state = streaming[sessionID] else { return }
+            _ = ensureAssistantMessage(&state, sessionID: sessionID)
             state.thinking += delta
             streaming[sessionID] = state
 
@@ -808,13 +813,26 @@ final class SessionStore {
         case .assistantMessageCompleted(let text, _, let errorMessage):
             guard var state = streaming[sessionID] else { return }
             if !text.isEmpty { state.text = text }
-            if state.text.isEmpty, let errorMessage {
-                state.message.content = errorMessage
-            } else {
-                state.message.content = state.text
+            // 先取定本段的正文与思考：`ensureAssistantMessage` 会在新建时重置累积值。
+            let content = state.text.isEmpty ? (errorMessage ?? "") : state.text
+            let thinking = state.thinking
+            // 只有 `message_end`、没有增量的事件（如纯工具调用或非流式返回）按需补建。
+            if state.message == nil, !content.isEmpty || !thinking.isEmpty {
+                _ = ensureAssistantMessage(&state, sessionID: sessionID)
             }
-            // 把累积的思考一并持久化，便于事后回看（ADR-0007）。
-            if !state.thinking.isEmpty { state.message.thinking = state.thinking }
+            if let message = state.message {
+                message.content = content
+                // 把累积的思考一并持久化，便于事后回看（ADR-0007）。
+                if !thinking.isEmpty { message.thinking = thinking }
+                // 空段（既无正文也无思考）不留空气泡。
+                if message.content.isEmpty, message.thinking?.isEmpty ?? true {
+                    modelContext.delete(message)
+                }
+            }
+            // 该段结束：清空当前消息，工具调用之后的增量另起一条（保证时间线顺序）。
+            state.message = nil
+            state.text = ""
+            state.thinking = ""
             streaming[sessionID] = state
 
         case .retryStarted(let attempt, let maxAttempts):
@@ -881,15 +899,35 @@ final class SessionStore {
         guard let state = streaming.removeValue(forKey: sessionID) else { return }
 
         if let error {
-            if state.message.content.isEmpty {
-                state.message.content = error
-            } else {
-                state.message.content += "\n\n\(error)"
+            if let message = state.message {
+                if message.content.isEmpty {
+                    message.content = error
+                } else {
+                    message.content += "\n\n\(error)"
+                }
+            } else if let session = openSessions[sessionID] {
+                // 没有正在累积的消息（例如崩溃发生在一段已完成之后）：单独落一条错误消息。
+                session.append(Message(role: .assistant, content: error))
             }
-        } else if state.message.content.isEmpty, state.message.thinking?.isEmpty ?? true {
+        } else if let message = state.message, message.content.isEmpty, message.thinking?.isEmpty ?? true {
             // 仅当既无正文也无思考时才移除占位，避免空气泡。
-            modelContext.delete(state.message)
+            modelContext.delete(message)
         }
+    }
+
+    /// 取得当前正在累积的助手消息；不存在时按需创建并追加到会话末尾。
+    ///
+    /// 新建时重置 `text` / `thinking`，让每一段助手输出独立成条。
+    @discardableResult
+    private func ensureAssistantMessage(_ state: inout Streaming, sessionID: UUID) -> Message? {
+        if let message = state.message { return message }
+        guard let session = openSessions[sessionID] else { return nil }
+        let message = Message(role: .assistant, content: "")
+        session.append(message)
+        state.message = message
+        state.text = ""
+        state.thinking = ""
+        return message
     }
 
     /// 记录一次工具调用的开始（写入 SwiftData 并建索引）。
