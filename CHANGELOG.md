@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
 ### Added
 - A `scripts/make-dmg.sh` release packager builds an ad-hoc signed DMG with Apple's own tools
   (`xcodebuild` → `codesign` → `diskutil image create`), with `--sign` / `--notarize` options for the
@@ -219,4 +221,5 @@ transport per session, a single visible-session id for unread/notifications) are
 - Personal signing and identity values were removed from the Xcode project;
 git history was rewritten so no prior revision contains them.
 
-[Unreleased]: https://github.com/aice109/pi-desktop/commits/main
+[Unreleased]: https://github.com/aice109/pi-desktop/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/aice109/pi-desktop/releases/tag/v0.2.0
