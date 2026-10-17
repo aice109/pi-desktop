@@ -75,7 +75,7 @@ PiDesktop/
 ├── CONTRIBUTING.md            # 贡献指南
 ├── LICENSE                    # MIT
 ├── .github/                   # CI、Issue 与 PR 模板
-├── scripts/                   # 开发脚本（图标生成器、DMG 打包）
+├── scripts/                   # 开发脚本（图标生成器、测试、DMG 发布）
 ├── PiDesktop.xcodeproj/       # Xcode 工程
 ├── PiDesktop/                 # 应用源码
 └── docs/                      # 文档（英文默认 + 中文）

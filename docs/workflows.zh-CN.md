@@ -98,28 +98,63 @@ CI **已暂不启用**：`.github/workflows/ci.yml.disabled`（GitHub 只运行 
 
 ## 6. 打包与发布（DMG）
 
-[`scripts/make-dmg.sh`](../scripts/make-dmg.sh) 仅使用 Apple 自带工具（`xcodebuild` → `codesign` →
-`diskutil image create`）生成 DMG，不引入任何第三方依赖。
+发布正式版用一条命令：
 
 ```bash
-./scripts/make-dmg.sh                                  # → .build/dmg/PiDesktop-<version>.dmg
+./scripts/release.sh                                   # → dist/PiDesktop-<版本>.dmg
+./scripts/release.sh --skip-checks                     # 跳过 CI 门禁，仍校验生产身份
+./scripts/release.sh \
+    --sign "Developer ID Application: Your Name (TEAMID)" \
+    --notarize --keychain-profile PiDesktop-notary
+```
+
+它会先跑 `scripts/ci.sh`（格式检查 + Debug 构建 + 测试），再交给
+[`scripts/make-dmg.sh`](../scripts/make-dmg.sh) 构建 Release 并组 DMG，最后校验产物的 bundle id 与
+显示名必须是生产配置，否则直接失败。发版前先在 Xcode 里改好 `MARKETING_VERSION` /
+`CURRENT_PROJECT_VERSION`；脚本不会改工程配置。
+
+需要 `--version` / `--output` 等底层参数时，可直接用：
+
+```bash
+./scripts/make-dmg.sh                                  # → .build/dmg/PiDesktop-<版本>.dmg
 ./scripts/make-dmg.sh --version 0.2.0 --output ./dist  # 覆盖版本号 / 输出目录
 ```
 
 ### 开发版与发布版
 
-`Debug` 与 `Release` 使用**不同的 bundle identifier**，本地构建的 App 与已安装的发布版可以共存，
-既不会互相覆盖，也不共用数据：
+`Debug`（测试）与 `Release`（生产）使用**不同的 bundle identifier**，本地构建的 App 与已安装的
+发布版可以共存，既不会互相覆盖，也不共用数据：
 
-| Configuration | `PRODUCT_BUNDLE_IDENTIFIER` | `CFBundleDisplayName` |
-| --- | --- | --- |
-| Debug | `io.github.aice109.PiDesktop.dev` | `PiDesktop Dev` |
-| Release | `io.github.aice109.PiDesktop` | `PiDesktop` |
+| Configuration | `PRODUCT_BUNDLE_IDENTIFIER` | `CFBundleDisplayName` | Dock 图标 |
+| --- | --- | --- | --- |
+| Debug（测试） | `io.github.aice109.PiDesktop.dev` | `Pi Desktop 测试版` | `AppIconDev` —— 正式图标 + 右下角大号半透明「测」胶囊 |
+| Release（生产） | `io.github.aice109.PiDesktop` | `Pi Desktop` | `AppIcon` |
 
-SwiftData（`PiDesktopApp.swift` 中的默认 `ModelContainer`）与 `UserDefaults` 都按 bundle identifier
-隔离，两者各自持有 `~/Library/Containers/<bundle-id>/Data/Library/Application Support/` 下的数据。
-安装 DMG 不会影响开发数据，从 Xcode 运行也不会影响已发布版本的数据。两种配置的产物文件名都是
-`PiDesktop.app`，但只有 `Release`（DMG）用于拷贝到 `/Applications`。
+`UserDefaults` 按 bundle identifier 隔离。SwiftData **不会**自动隔离：应用未开启沙盒时，默认 store
+是共享的 `~/Library/Application Support/default.store`。因此 `PiDesktopApp.modelStoreURL()` 按配置
+使用应用专属路径（[ADR-0012](decisions/0012-environment-isolated-storage.zh-CN.md)）：
+
+| Configuration | SwiftData store |
+| --- | --- |
+| Debug | `~/Library/Application Support/PiDesktop-Dev/default.store` |
+| Release | `~/Library/Application Support/PiDesktop/default.store` |
+
+pi 自身的 JSONL 会话文件（`~/.pi/agent/sessions/`）**不会复制**：它们属于工作区，两个构建打开同一
+目录时看到的是同一批会话。隔离的是应用本地镜像、偏好与系统身份，不是 pi 的源数据。
+
+安装 DMG 不会影响开发数据，从 Xcode 运行也不会影响已发布版本的数据。两种配置的产物文件名仍是
+`PiDesktop.app`，可执行文件 / Swift 模块名也仍是 `PiDesktop`，因此共享 scheme 与测试 host 保持稳定；
+只有 `CFBundleDisplayName`（Finder / Dock / Spotlight 显示的名字）不同。
+`AppDelegate` 只在 `#if DEBUG` 下把 Dock 图标换成 `AppIconDev`，Release 构建不会执行这段代码，
+正式图标保持不变。
+
+图标由 CoreGraphics / CoreText 原生生成，必须成对重新生成：
+
+```bash
+swift scripts/make-appicon.swift PiDesktop/Assets.xcassets
+```
+
+会同时写出 `AppIcon.appiconset` 与 `AppIconDev.imageset`，不要手改 PNG。
 
 默认产物为 **ad-hoc 签名、未公证**：在开发者本机与内部测试中可用，但在其他 Mac 上首次打开会被
 Gatekeeper 拦截。这与许多通过 GitHub 分发的开源应用处于同一档——例如 Alacritty 发布的正是 ad-hoc、

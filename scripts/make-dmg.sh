@@ -3,6 +3,9 @@
 # Package PiDesktop.app into a DMG, using only Apple's own tools
 # (xcodebuild / codesign / diskutil / notarytool). No third-party dependency.
 #
+# This is the lower-level packager. For a production release (CI gate + identity
+# verification), use scripts/release.sh, which calls this script.
+#
 # Default output is an ad-hoc signed, **un-notarized** DMG: it runs locally and
 # can be shared for testing, but Gatekeeper blocks the first launch on another
 # machine until the user explicitly allows it. See docs/workflows.md §6.

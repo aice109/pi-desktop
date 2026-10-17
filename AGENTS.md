@@ -84,6 +84,9 @@ xcodebuild -project PiDesktop.xcodeproj -scheme PiDesktop -configuration Debug b
 
 # Run
 open PiDesktop.xcodeproj   # then ⌘R in Xcode
+
+# Production release (CI gate + Release DMG + identity check)
+./scripts/release.sh
 ```
 
 > If `xcodebuild` says `requires Xcode`: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.

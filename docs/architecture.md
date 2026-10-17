@@ -116,6 +116,10 @@ for tens of seconds on a long history.
 
 > Model changes are significant → require an ADR (see [decisions/](decisions/README.md)).
 
+The container is created in `PiDesktopApp` with a per-configuration store path
+(`Application Support/PiDesktop[-Dev]/default.store`), so Debug and Release never share the local
+mirror ([ADR-0012](decisions/0012-environment-isolated-storage.md)).
+
 **Not in SwiftData:** preferences (theme, startup/UI toggles, last opened session) live in
 `UserDefaults` through `AppSettingsStore` ([ADR-0008](decisions/0008-app-settings.md)) — they are a
 single flat record needed before the container exists.

@@ -59,3 +59,4 @@ Upsides, downsides, costs, follow-ups.
 | [0009](0009-history-sync.md) | Reconcile the local mirror with pi history | Accepted |
 | [0010](0010-image-attachments.md) | Attach images to prompts | Accepted |
 | [0011](0011-single-window.md) | A single main window | Accepted |
+| [0012](0012-environment-isolated-storage.md) | Per-environment SwiftData store paths | Accepted |

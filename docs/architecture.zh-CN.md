@@ -112,6 +112,10 @@ pi agent 进程 (pi --mode rpc)
 
 > 模型变更属于重大改动 → 需新增 ADR（见 [decisions/](decisions/README.zh-CN.md)）。
 
+容器在 `PiDesktopApp` 中按配置使用不同的存储路径
+（`Application Support/PiDesktop[-Dev]/default.store`），Debug 与 Release 因此不会共享本地镜像
+（[ADR-0012](decisions/0012-environment-isolated-storage.zh-CN.md)）。
+
 **不入 SwiftData**：偏好（主题、启动/界面开关、上次打开的会话）通过 `AppSettingsStore` 存放于
 `UserDefaults`（[ADR-0008](decisions/0008-app-settings.zh-CN.md)）——它是单条扁平配置，且需在容器
 就绪之前即可读取。

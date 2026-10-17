@@ -5,6 +5,7 @@
 //  Copyright © 2026 PiDesktop contributors. MIT License.
 //
 
+import Foundation
 import SwiftData
 import SwiftUI
 
@@ -15,6 +16,8 @@ import SwiftUI
 @main
 struct PiDesktopApp: App {
     private let modelContainer: ModelContainer
+    /// 仅 DEBUG 下用于把 Dock 图标换成带「测」标记的测试版图标（见 `AppDelegate`）。
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var sessionStore: SessionStore
     @State private var workspaceStore: WorkspaceStore
     @State private var appSettings: AppSettingsStore
@@ -48,10 +51,16 @@ struct PiDesktopApp: App {
         _appSettings = State(initialValue: settings)
     }
 
+    /// 应用展示名：Debug 为「Pi Desktop 测试版」，Release 为「Pi Desktop」。
+    /// 未打开会话时用它作为窗口标题，避免窗口标题与 Finder / Dock 中的名字不一致。
+    private static var appDisplayName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "PiDesktop"
+    }
+
     var body: some Scene {
         // 单主窗口（ADR-0011）：Store 是应用级单例（transports 按 session.id 索引、visibleSessionID 为单值），
         // 多窗口会争抢同一会话并错乱未读/通知判断。
-        Window("PiDesktop", id: "main") {
+        Window(Self.appDisplayName, id: "main") {
             ContentView()
                 .environment(sessionStore)
                 .environment(workspaceStore)
@@ -127,11 +136,37 @@ struct PiDesktopApp: App {
     private static func makeModelContainer() -> ModelContainer {
         // 领域模型见 ADR-0004 / ADR-0006；偏好存于 `UserDefaults`（ADR-0008），不入 schema。
         let schema = Schema([Session.self, Message.self, ToolCall.self, MessageImage.self])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let configuration = ModelConfiguration(schema: schema, url: modelStoreURL())
         do {
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
+    }
+
+    /// SwiftData 存储路径（测试 / 生产隔离，见 ADR-0012）。
+    ///
+    /// 应用未开启 App Sandbox，SwiftData 默认的 `default.store` 位于共享的
+    /// `~/Library/Application Support/`，**不会随 bundle id 隔离**：Debug 与 Release
+    /// 都用默认值时，从 Xcode 运行会直接改写已安装版本的数据。
+    /// 因此两种配置各用专属目录：
+    /// - Release：`Application Support/PiDesktop/default.store`
+    /// - Debug：  `Application Support/PiDesktop-Dev/default.store`
+    ///
+    /// 本地镜像可由 pi 会话文件重建（ADR-0009），切换目录不会丢失 pi 的源数据。
+    private static func modelStoreURL() -> URL {
+        #if DEBUG
+            let directoryName = "PiDesktop-Dev"
+        #else
+            let directoryName = "PiDesktop"
+        #endif
+        let directory = URL.applicationSupportDirectory
+            .appending(path: directoryName, directoryHint: .isDirectory)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            fatalError("Could not create the model store directory: \(error)")
+        }
+        return directory.appending(path: "default.store")
     }
 }

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `scripts/release.sh` is the one-command production release entry point: it runs the CI gate,
+  delegates the Release build and DMG assembly to `scripts/make-dmg.sh`, and refuses to package a
+  build whose bundle id or display name is not the production identity.
+- The icon generator now writes two asset sets: `AppIcon.appiconset` (production) and
+  `AppIconDev.imageset` (the production icon with a large semi-transparent 「测」 capsule in the
+  bottom-right corner).
+
+### Changed
+- The DEBUG build is now the clearly isolated test build: bundle id
+  `io.github.aice109.PiDesktop.dev`, display name `Pi Desktop 测试版`, and a 「测」-badged Dock icon
+  applied at launch under `#if DEBUG`. Release keeps `io.github.aice109.PiDesktop` and displays
+  `Pi Desktop`. The `.app` / executable / module names stay `PiDesktop`, so the shared scheme and
+  test host keep working.
+- SwiftData now uses per-configuration stores (`Application Support/PiDesktop[-Dev]/default.store`)
+  instead of the shared non-sandboxed `default.store`, so a Debug run can no longer overwrite the
+  installed Release build's local mirror (ADR-0012). The mirror is rebuilt from pi's session files;
+  the old `default.store` can be deleted manually.
+
 ## [0.2.0] - 2026-10-13
 
 ### Added

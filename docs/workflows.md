@@ -100,8 +100,22 @@ dependency) with the repo's [`.swift-format`](../.swift-format) config:
 
 ## 6. Packaging & release (DMG)
 
-[`scripts/make-dmg.sh`](../scripts/make-dmg.sh) builds a DMG using Apple's own tools only
-(`xcodebuild` → `codesign` → `diskutil image create`); no third-party dependency is involved.
+For a production release, use the one-command wrapper:
+
+```bash
+./scripts/release.sh                                   # → dist/PiDesktop-<version>.dmg
+./scripts/release.sh --skip-checks                     # skip the CI gate, still verifies identity
+./scripts/release.sh \
+    --sign "Developer ID Application: Your Name (TEAMID)" \
+    --notarize --keychain-profile PiDesktop-notary
+```
+
+It runs `scripts/ci.sh` (format + Debug build + tests), delegates the Release build and DMG assembly
+to [`scripts/make-dmg.sh`](../scripts/make-dmg.sh), then refuses to finish unless the packaged app has
+the production bundle id and display name. Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in
+Xcode first; the script never edits project settings.
+
+Prefer the lower-level script when you need its `--version` / `--output` flags directly:
 
 ```bash
 ./scripts/make-dmg.sh                                  # → .build/dmg/PiDesktop-<version>.dmg
@@ -113,16 +127,38 @@ dependency) with the repo's [`.swift-format`](../.swift-format) config:
 `Debug` and `Release` use **different bundle identifiers**, so a locally built app and an installed
 release can live side by side without overwriting each other or sharing data:
 
-| Configuration | `PRODUCT_BUNDLE_IDENTIFIER` | `CFBundleDisplayName` |
-| --- | --- | --- |
-| Debug | `io.github.aice109.PiDesktop.dev` | `PiDesktop Dev` |
-| Release | `io.github.aice109.PiDesktop` | `PiDesktop` |
+| Configuration | `PRODUCT_BUNDLE_IDENTIFIER` | `CFBundleDisplayName` | Dock icon |
+| --- | --- | --- | --- |
+| Debug (test) | `io.github.aice109.PiDesktop.dev` | `Pi Desktop 测试版` | `AppIconDev` — production icon + large semi-transparent 「测」 capsule |
+| Release (production) | `io.github.aice109.PiDesktop` | `Pi Desktop` | `AppIcon` |
 
-SwiftData (the default `ModelContainer` in `PiDesktopApp.swift`) and `UserDefaults` are scoped by
-bundle identifier, so each configuration gets its own store under
-`~/Library/Containers/<bundle-id>/Data/Library/Application Support/`. Installing the DMG never
-touches dev data, and running from Xcode never touches the released app's data. Both configurations
-still produce `PiDesktop.app`; only `Release` (the DMG) is meant to be copied into `/Applications`.
+`UserDefaults` is scoped by bundle identifier. SwiftData is **not** automatically scoped: the app is
+non-sandboxed, so its default store would be the shared
+`~/Library/Application Support/default.store`. `PiDesktopApp.modelStoreURL()` therefore uses an
+app-specific path per configuration ([ADR-0012](decisions/0012-environment-isolated-storage.md)):
+
+| Configuration | SwiftData store |
+| --- | --- |
+| Debug | `~/Library/Application Support/PiDesktop-Dev/default.store` |
+| Release | `~/Library/Application Support/PiDesktop/default.store` |
+
+pi's own JSONL session files under `~/.pi/agent/sessions/` are **not** duplicated: they belong to the
+workspace, so both builds see the same sessions when they open the same folder. Isolation covers the
+app-local mirror, preferences, and system identity, not pi's source data.
+
+Installing the DMG never touches dev data, and running from Xcode never touches the released app's
+data. Both configurations still produce `PiDesktop.app` and keep `PiDesktop` as the executable/module
+name, so the shared scheme and test host stay stable; only `CFBundleDisplayName` (the name shown in
+Finder, the Dock, and Spotlight) changes. `AppDelegate` swaps the Dock icon to `AppIconDev` only under
+`#if DEBUG`; the Release build never runs that code and keeps the production icon.
+
+Icons are generated natively (CoreGraphics / CoreText) and must be regenerated together:
+
+```bash
+swift scripts/make-appicon.swift PiDesktop/Assets.xcassets
+```
+
+This writes both `AppIcon.appiconset` and `AppIconDev.imageset`; do not hand-edit the PNGs.
 
 The default build is **ad-hoc signed and not notarized**. That is fine on the developer's own Mac and
 for internal testing, but on any other Mac Gatekeeper blocks the first launch. This is the same tier

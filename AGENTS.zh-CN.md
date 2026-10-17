@@ -80,6 +80,9 @@ xcodebuild -project PiDesktop.xcodeproj -scheme PiDesktop -configuration Debug b
 
 # 运行
 open PiDesktop.xcodeproj   # 然后在 Xcode 中 Cmd+R
+
+# 生产发布（CI 门禁 + Release DMG + 身份校验）
+./scripts/release.sh
 ```
 
 > 若 `xcodebuild` 报 `requires Xcode`：`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`。
